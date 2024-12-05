@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Niko.ai - Chart Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .upload-form:hover {
+            border-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Niko.ai</h1>
+    <div class="upload-form">
+        <h2>Upload Trading Chart</h2>
+        <form id="chartForm">
+            <input type="file" name="chart" accept="image/*" required>
+            <button type="submit">Analyze Chart</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('chartForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = 
+                    `Success: ${data.message}`;
+            } catch (error) {
+                document.getElementById('result').textContent = 
+                    `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
