@@ -1,73 +1,58 @@
+<!-- public/index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niko.ai Chart Analyzer</title>
+    <title>Niko.ai Chart Analysis</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .upload-form {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            display: none;
-        }
+        body { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .result { margin-top: 20px; white-space: pre-wrap; }
+        .error { color: red; }
+        .success { color: green; }
     </style>
 </head>
 <body>
-    <h1>Niko.ai Chart Analyzer</h1>
-    <div class="upload-form">
-        <form id="chartForm">
-            <input type="file" id="chartInput" accept="image/*" required>
-            <button type="submit">Analyze Chart</button>
-        </form>
-    </div>
-    <div id="result"></div>
+    <h1>Upload Trading Chart</h1>
+    <form id="uploadForm">
+        <input type="file" id="chartImage" name="chart" accept="image/*" required>
+        <button type="submit">Analyze Chart</button>
+    </form>
+    <div id="result" class="result"></div>
 
     <script>
-        document.getElementById('chartForm').addEventListener('submit', async (e) => {
+        const form = document.getElementById('uploadForm');
+        const result = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+            result.innerHTML = 'Analyzing chart...';
+
             const formData = new FormData();
-            const fileInput = document.getElementById('chartInput');
-            const resultDiv = document.getElementById('result');
-            
+            const fileInput = document.getElementById('chartImage');
+
+            if (!fileInput.files[0]) {
+                result.innerHTML = '<div class="error">Please select a file</div>';
+                return;
+            }
+
             formData.append('chart', fileInput.files[0]);
-            
+
             try {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = 'Analyzing chart...';
-                
-                const response = await fetch('/analyze-chart', {
+                const response = await fetch('/analyze', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <h3>Analysis Results:</h3>
-                    <p><strong>Overall Trend:</strong> ${data.overallTrend}</p>
-                    <p><strong>Confidence Levels:</strong> ${data.confidenceLevels.map(c => (c * 100).toFixed(2) + '%').join(', ')}</p>
-                    <h4>Insights:</h4>
-                    <ul>
-                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
-                    </ul>
+
+                if (!response.ok) throw new Error(data.error || 'Analysis failed');
+
+                result.innerHTML = `
+                    <div class="success">Analysis Complete!</div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
                 `;
             } catch (error) {
-                resultDiv.innerHTML = 'Error analyzing chart. Please try again.';
                 console.error('Error:', error);
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
             }
         });
     </script>
