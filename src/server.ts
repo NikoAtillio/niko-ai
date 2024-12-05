@@ -4,6 +4,7 @@ import path from 'path';
 import { ChartAIAnalyzer } from './services/ChartAIAnalyzer';
 
 const app = express();
+
 const upload = multer({ dest: 'uploads/' });
 const chartAnalyzer = new ChartAIAnalyzer();
 
@@ -25,6 +26,16 @@ app.post('/analyze-chart', upload.single('chart'), async (req: Request, res: Res
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+const startServer = async () => {
+    try {
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();

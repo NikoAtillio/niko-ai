@@ -1,21 +1,17 @@
-import * as sharp from 'sharp';
-import * as tf from '@tensorflow/tfjs-node';
+import sharp from 'sharp';
 
 export class ImageProcessor {
-    async preprocessImage(imagePath: string): Promise<tf.Tensor4D> {
+    async preprocessImage(imagePath: string): Promise<Buffer> {
         try {
             const imageBuffer = await sharp(imagePath)
                 .resize(224, 224)
                 .normalize()
                 .toBuffer();
 
-            return tf.node.decodeImage(imageBuffer, 3)
-                .expandDims(0)
-                .toFloat()
-                .div(255.0) as tf.Tensor4D;
+            return imageBuffer;
         } catch (error) {
-            console.error('Image Preprocessing Error:', error);
-            throw error;
+            console.error('Error processing image:', error);
+            throw new Error('Image processing failed');
         }
     }
 }
