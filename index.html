@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Niko.ai Chart Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Niko.ai Chart Analyzer</h1>
+    <div class="upload-form">
+        <form id="chartForm">
+            <input type="file" id="chartInput" accept="image/*" required>
+            <button type="submit">Analyze Chart</button>
+        </form>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('chartForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('chartInput');
+            const resultDiv = document.getElementById('result');
+            
+            formData.append('chart', fileInput.files[0]);
+            
+            try {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = 'Analyzing chart...';
+                
+                const response = await fetch('/analyze-chart', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h3>Analysis Results:</h3>
+                    <p><strong>Overall Trend:</strong> ${data.overallTrend}</p>
+                    <p><strong>Confidence Levels:</strong> ${data.confidenceLevels.map(c => (c * 100).toFixed(2) + '%').join(', ')}</p>
+                    <h4>Insights:</h4>
+                    <ul>
+                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
+                    </ul>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = 'Error analyzing chart. Please try again.';
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
