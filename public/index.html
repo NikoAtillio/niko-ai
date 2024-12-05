@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niko.ai - Chart Analysis</title>
+    <title>Niko.ai Chart Analyzer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,38 +17,57 @@
             text-align: center;
             margin: 20px 0;
         }
-        .upload-form:hover {
-            border-color: #666;
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>Welcome to Niko.ai</h1>
+    <h1>Niko.ai Chart Analyzer</h1>
     <div class="upload-form">
-        <h2>Upload Trading Chart</h2>
         <form id="chartForm">
-            <input type="file" name="chart" accept="image/*" required>
+            <input type="file" id="chartInput" accept="image/*" required>
             <button type="submit">Analyze Chart</button>
         </form>
-        <div id="result"></div>
     </div>
+    <div id="result"></div>
 
     <script>
         document.getElementById('chartForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('chartInput');
+            const resultDiv = document.getElementById('result');
+            
+            formData.append('chart', fileInput.files[0]);
+            
             try {
-                const response = await fetch('/upload', {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = 'Analyzing chart...';
+                
+                const response = await fetch('/analyze-chart', {
                     method: 'POST',
                     body: formData
                 });
+                
                 const data = await response.json();
-                document.getElementById('result').textContent = 
-                    `Success: ${data.message}`;
+                
+                resultDiv.innerHTML = `
+                    <h3>Analysis Results:</h3>
+                    <p><strong>Overall Trend:</strong> ${data.overallTrend}</p>
+                    <p><strong>Confidence Levels:</strong> ${data.confidenceLevels.map(c => (c * 100).toFixed(2) + '%').join(', ')}</p>
+                    <h4>Insights:</h4>
+                    <ul>
+                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
+                    </ul>
+                `;
             } catch (error) {
-                document.getElementById('result').textContent = 
-                    `Error: ${error.message}`;
+                resultDiv.innerHTML = 'Error analyzing chart. Please try again.';
+                console.error('Error:', error);
             }
         });
     </script>

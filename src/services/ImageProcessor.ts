@@ -5,7 +5,6 @@ export class ImageProcessor {
         try {
             const imageBuffer = await sharp(imagePath)
                 .resize(224, 224)
-                .normalize()
                 .toBuffer();
 
             return imageBuffer;

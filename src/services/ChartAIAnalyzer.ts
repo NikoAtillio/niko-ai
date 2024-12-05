@@ -1,19 +1,18 @@
 import * as tf from '@tensorflow/tfjs-node';
-import * as sharp from 'sharp';
 import { ImageProcessor } from './ImageProcessor';
 
 export class ChartAIAnalyzer {
-    private model: tf.LayersModel | null = null;
+    private model: tf.LayersModel;
     private imageProcessor: ImageProcessor;
 
     constructor() {
         this.imageProcessor = new ImageProcessor();
-        this.initializeModel();
+        this.model = this.initializeModel();
     }
 
-    private async initializeModel(): Promise<void> {
-        // Simple model for MVP
-        this.model = tf.sequential({
+    private initializeModel(): tf.LayersModel {
+        // Create a simple sequential model for demonstration
+        const model = tf.sequential({
             layers: [
                 tf.layers.conv2d({
                     inputShape: [224, 224, 3],
@@ -21,65 +20,76 @@ export class ChartAIAnalyzer {
                     filters: 16,
                     activation: 'relu'
                 }),
-                tf.layers.maxPooling2d({ poolSize: [2, 2] }),
+                tf.layers.maxPooling2d({ poolSize: 2 }),
                 tf.layers.flatten(),
                 tf.layers.dense({ units: 32, activation: 'relu' }),
-                tf.layers.dense({ units: 2, activation: 'softmax' })
+                tf.layers.dense({ units: 3, activation: 'softmax' })
             ]
         });
 
-        this.model.compile({
+        model.compile({
             optimizer: 'adam',
             loss: 'categoricalCrossentropy',
             metrics: ['accuracy']
         });
+
+        return model;
     }
 
     async analyzeChart(imagePath: string): Promise<ChartAnalysis> {
         try {
-            // Use ImageProcessor to handle image preprocessing
-            const processedImage = await this.imageProcessor.preprocessImage(imagePath);
+            // Process the image using ImageProcessor
+            const processedBuffer = await this.imageProcessor.preprocessImage(imagePath);
 
-            if (!this.model) {
-                throw new Error('Model not initialized');
-            }
+            // Convert Buffer to tensor
+            const imageTensor = tf.node.decodeImage(processedBuffer, 3);
+            const normalizedTensor = tf.div(imageTensor, 255.0);
+            const batchedTensor = normalizedTensor.expandDims(0);
 
-            const predictions = this.model.predict(processedImage) as tf.Tensor;
-            return this.interpretResults(predictions);
+            // Make prediction
+            const predictions = this.model.predict(batchedTensor) as tf.Tensor;
+            const predictionArray = await predictions.data() as Float32Array;
+
+            // Cleanup tensors
+            imageTensor.dispose();
+            normalizedTensor.dispose();
+            batchedTensor.dispose();
+            predictions.dispose();
+
+            return {
+                overallTrend: this.determineMarketTrend(predictionArray),
+                confidenceLevels: Array.from(predictionArray),
+                insights: this.generateInsights(predictionArray)
+            };
         } catch (error) {
             console.error('Analysis failed:', error);
-            throw new Error('Chart analysis error');
+            throw new Error('Chart analysis failed');
         }
     }
 
-    private interpretResults(predictions: tf.Tensor): ChartAnalysis {
-        const predictionData = predictions.dataSync();
-        predictions.dispose(); // Clean up tensor
-
-        return {
-            overallTrend: predictionData[0] > 0.5 ? 'Bullish' : 'Bearish',
-            confidenceLevels: Array.from(predictionData),
-            insights: this.generateInsights(Array.from(predictionData))
-        };
+    private determineMarketTrend(predictions: Float32Array): string {
+        const maxIndex = Array.from(predictions).indexOf(Math.max(...predictions));
+        const trends = ['Bullish', 'Bearish', 'Neutral'];
+        return trends[maxIndex];
     }
 
-    private generateInsights(predictions: number[]): string[] {
+    private generateInsights(predictions: Float32Array): string[] {
         const insights: string[] = [];
-        const confidence = predictions[0];
+        const confidence = Math.max(...predictions);
 
-        if (confidence > 0.8) {
-            insights.push('Strong signal detected');
-        } else if (confidence > 0.6) {
-            insights.push('Moderate signal detected');
+        if (confidence > 0.7) {
+            insights.push('High confidence prediction detected');
+            insights.push(`Confidence level: ${(confidence * 100).toFixed(2)}%`);
         } else {
-            insights.push('Weak signal detected');
+            insights.push('Moderate confidence prediction');
+            insights.push(`Confidence level: ${(confidence * 100).toFixed(2)}%`);
         }
 
         return insights;
     }
 }
 
-export interface ChartAnalysis {
+interface ChartAnalysis {
     overallTrend: string;
     confidenceLevels: number[];
     insights: string[];
