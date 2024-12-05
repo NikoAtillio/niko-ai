@@ -1,4 +1,5 @@
 import * as tf from '@tensorflow/tfjs-node';
+import * as sharp from 'sharp';
 import { ImageProcessor } from './ImageProcessor';
 
 export class ChartAIAnalyzer {
@@ -11,6 +12,7 @@ export class ChartAIAnalyzer {
     }
 
     private async initializeModel(): Promise<void> {
+        // Simple model for MVP
         this.model = tf.sequential({
             layers: [
                 tf.layers.conv2d({
@@ -35,20 +37,19 @@ export class ChartAIAnalyzer {
 
     async analyzeChart(imagePath: string): Promise<ChartAnalysis> {
         try {
+            // Use ImageProcessor to handle image preprocessing
             const processedImage = await this.imageProcessor.preprocessImage(imagePath);
-            const prediction = await this.predict(processedImage);
-            return this.interpretResults(prediction);
+
+            if (!this.model) {
+                throw new Error('Model not initialized');
+            }
+
+            const predictions = this.model.predict(processedImage) as tf.Tensor;
+            return this.interpretResults(predictions);
         } catch (error) {
             console.error('Analysis failed:', error);
-            throw new Error('Chart analysis failed');
+            throw new Error('Chart analysis error');
         }
-    }
-
-    private async predict(image: tf.Tensor4D): Promise<tf.Tensor> {
-        if (!this.model) {
-            throw new Error('Model not initialized');
-        }
-        return this.model.predict(image) as tf.Tensor;
     }
 
     private interpretResults(predictions: tf.Tensor): ChartAnalysis {
