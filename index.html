@@ -3,73 +3,1627 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niko.ai Chart Analyzer</title>
+    <title>Niko AI Strategy Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <style>
+        :root {
+            --bg-0: #0a0e1a; --bg-1: #0d1220; --bg-2: #101824; --bg-3: #1a2035; --bg-4: #243447;
+            --accent: #00d4aa; --accent-soft: rgba(0,212,170,0.15); --accent-glow: rgba(0,212,170,0.25);
+            --up: #10b981; --up-dark: #059669; --down: #ef4444; --down-dark: #dc2626;
+            --warn: #f59e0b; --info: #3b82f6; --text-0: #f3f4f6; --text-1: #d1d5db;
+            --text-2: #9ca3af; --text-3: #6b7280; --border: rgba(229,231,235,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 0;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text-0); 
+            background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 40%, var(--bg-2) 100%);
+            display: flex; 
+            flex-direction: column;
         }
-        .upload-form {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
+
+        .page {
+            width: min(1440px, 95vw);
+            margin: 24px auto 50px;
         }
-        #result {
-            margin-top: 20px;
+
+        .hero {
+            padding: 20px 24px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: clamp(24px, 4vw, 40px);
+            letter-spacing: 0.02em;
+        }
+
+        .hero p {
+            margin: 8px 0 0;
+            color: var(--text-2);
+        }
+
+        .hero-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .layout {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: linear-gradient(170deg, rgba(23, 35, 51, 0.95), rgba(16, 26, 39, 0.95));
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .panel-head {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(148, 173, 201, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-head h2 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .panel-body {
+            padding: 14px 16px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-2);
+            margin-bottom: 5px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        input, select, button {
+            width: 100%;
+            border: 1px solid rgba(130, 155, 185, 0.35);
+            border-radius: 10px;
+            background: rgba(10, 16, 24, 0.8);
+            color: var(--text-0);
+            padding: 9px 11px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+        }
+
+        button {
+            cursor: pointer;
+            font-family: "Inter", sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1e8bff, #3ee6c2);
+            color: #04101a;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffb454, #ff7a59);
+            color: #1d1207;
+            border: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff5d74, #ff3f58);
+            color: #fff;
+            border: none;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .kpi {
             padding: 10px;
-            border: 1px solid #ccc;
-            display: none;
+            border: 1px solid rgba(130, 155, 185, 0.25);
+            border-radius: 10px;
+            background: rgba(7, 13, 20, 0.7);
+        }
+
+        .kpi .k {
+            font-size: 11px;
+            color: var(--text-2);
+        }
+
+        .kpi .v {
+            margin-top: 3px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .kpi.good {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+        
+        .kpi.good .v {
+            color: #10b981;
+        }
+        
+        .kpi.bad {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        
+        .kpi.bad .v {
+            color: #ef4444;
+        }
+
+        .chart-wrap {
+            height: 620px;
+        }
+
+        .muted {
+            color: var(--text-2);
+            font-size: 12px;
+        }
+
+        .split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .table-wrap {
+            max-height: 260px;
+            overflow: auto;
+            border: 1px solid rgba(130, 155, 185, 0.22);
+            border-radius: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+        }
+
+        th, td {
+            border-bottom: 1px solid rgba(130, 155, 185, 0.15);
+            padding: 7px;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(20, 31, 46, 0.95);
+            position: sticky;
+            top: 0;
+        }
+
+        .mono {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        #liveLogs {
+            height: 180px;
+            overflow: auto;
+            white-space: pre-wrap;
+            border: 1px solid rgba(130, 155, 185, 0.22);
+            border-radius: 10px;
+            padding: 8px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            background: rgba(7, 13, 20, 0.65);
+        }
+
+        .sub-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .mini-chart {
+            height: 220px;
+            border: 1px solid rgba(130, 155, 185, 0.22);
+            border-radius: 10px;
+            background: rgba(7, 13, 20, 0.5);
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .pill {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: var(--text-2);
+            background: rgba(10, 16, 24, 0.7);
+        }
+
+        .status-pill {
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            border: 1px solid rgba(130, 155, 185, 0.35);
+            background: rgba(10, 16, 24, 0.8);
+        }
+
+        .toast-wrap {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            display: grid;
+            gap: 8px;
+            z-index: 9999;
+        }
+
+        .toast {
+            min-width: 220px;
+            max-width: 320px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(10, 16, 24, 0.95);
+            color: var(--text-0);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+            font-size: 12px;
+            animation: toast-in 0.2s ease;
+        }
+
+        @keyframes toast-in {
+            from { transform: translateY(6px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 1120px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .sub-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Niko.ai Chart Analyzer</h1>
-    <div class="upload-form">
-        <form id="chartForm">
-            <input type="file" id="chartInput" accept="image/*" required>
-            <button type="submit">Analyze Chart</button>
-        </form>
-    </div>
-    <div id="result"></div>
+<div class="page">
+    <section class="hero">
+        <h1>Strategy Research Terminal</h1>
+        <p>Interactive MT5 market replay with trade overlays, regime diagnostics, and baseline vs candidate comparisons.</p>
+        <div class="hero-actions">
+            <button id="themeToggleBtn" class="btn-secondary" style="width:auto;">Toggle Theme</button>
+            <button id="quickHelpBtn" class="btn-primary" style="width:auto;">Show Shortcuts</button>
+        </div>
+    </section>
 
-    <script>
-        document.getElementById('chartForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+    <section class="layout">
+        <aside class="stack">
+            <div class="panel">
+                <div class="panel-head"><h2>Market Loader</h2></div>
+                <div class="panel-body stack">
+                    <div class="field">
+                        <label>Symbol</label>
+                        <select id="symbolSelect">
+                            <option value="XAUUSD">XAUUSD</option>
+                            <option value="NAS100">NAS100</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>MT5 Data File</label>
+                        <input id="dataFileInput" placeholder="/Users/.../XAUUSD_M1.csv">
+                    </div>
+                    <div class="split">
+                        <div class="field">
+                            <label>Timeframe</label>
+                            <select id="tfSelect">
+                                <option value="1m">1m</option>
+                                <option value="5m">5m</option>
+                                <option value="15m" selected>15m</option>
+                                <option value="1h">1h</option>
+                                <option value="4h">4h</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Max Points</label>
+                            <input id="maxPoints" type="number" value="5000" min="500" max="20000">
+                        </div>
+                    </div>
+                    <div class="split">
+                        <div class="field">
+                            <label>From</label>
+                            <input id="fromInput" type="datetime-local">
+                        </div>
+                        <div class="field">
+                            <label>To</label>
+                            <input id="toInput" type="datetime-local">
+                        </div>
+                    </div>
+                    <button class="btn-primary" id="loadChartBtn">Load Interactive Chart</button>
+                    <div class="split">
+                        <button class="btn-secondary" id="loadZonesBtn">Load S/R Zones</button>
+                        <button class="btn-secondary" id="toggleDrawBtn">Draw Lines: Off</button>
+                    </div>
+                    <button class="btn-danger" id="clearDrawingsBtn">Clear Drawings</button>
+                    <div class="muted" id="chartMeta">No data loaded</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head"><h2>Trade Overlays</h2></div>
+                <div class="panel-body stack">
+                    <div class="field">
+                        <label>Trades File</label>
+                        <input id="tradesFileInput" placeholder="/Users/.../phantom_backtest_trades.csv">
+                    </div>
+                    <button class="btn-secondary" id="loadTradesBtn">Overlay Trades</button>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr><th>Entry</th><th>Dir</th><th>PnL</th><th>Exit</th></tr>
+                            </thead>
+                            <tbody id="tradesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head"><h2>Report Compare</h2></div>
+                <div class="panel-body stack">
+                    <div class="field">
+                        <label>Baseline Report</label>
+                        <input id="baselineReportInput" placeholder="/Users/.../baseline_report.md">
+                    </div>
+                    <div class="field">
+                        <label>Candidate Report</label>
+                        <input id="candidateReportInput" placeholder="/Users/.../v4_report.md">
+                    </div>
+                    <button class="btn-primary" id="compareBtn">Compare Runs</button>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Metric</th><th>Baseline</th><th>Candidate</th><th>Delta</th></tr></thead>
+                            <tbody id="compareBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head">
+                    <h2>Live Runner</h2>
+                    <span class="status-pill" id="liveStatus">idle</span>
+                </div>
+                <div class="panel-body stack">
+                    <div class="split">
+                        <div class="field">
+                            <label>Days</label>
+                            <input id="liveDays" type="number" value="30">
+                        </div>
+                        <div class="field">
+                            <label>Interval</label>
+                            <select id="liveInterval">
+                                <option value="5m">5m</option>
+                                <option value="15m">15m</option>
+                                <option value="1h">1h</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="split">
+                        <button class="btn-primary" id="startLiveBtn">Start</button>
+                        <button class="btn-danger" id="stopLiveBtn">Stop</button>
+                    </div>
+                    <div class="field"><label>Progress</label><div style="height: 24px; background: rgba(20, 31, 46, 0.6); border: 1px solid rgba(130, 155, 185, 0.2); border-radius: 4px; overflow: hidden; position: relative;"><div id="progressBar" style="height: 100%; background: linear-gradient(90deg, #3ee6c2, #2dcaa8); width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #0a1018; font-weight: 600;">0%</div></div></div>
+                    <div id="liveLogs"></div>
+                    <div id="runHistory" style="border-top: 1px solid rgba(130, 155, 185, 0.15); padding-top: 8px;"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="stack">
+            <div class="panel">
+                <div class="panel-head"><h2>Market View</h2><span class="mono" id="marketRange">-</span></div>
+                <div class="panel-body">
+                    <div class="kpi-grid">
+                        <div class="kpi"><div class="k">Final Capital</div><div class="v" id="kFinal">-</div></div>
+                        <div class="kpi"><div class="k">Return</div><div class="v" id="kReturn">-</div></div>
+                        <div class="kpi"><div class="k">Trades</div><div class="v" id="kTrades">-</div></div>
+                        <div class="kpi"><div class="k">Win Rate</div><div class="v" id="kWin">-</div></div>
+                        <div class="kpi"><div class="k">Profit Factor</div><div class="v" id="kPF">-</div></div>
+                        <div class="kpi"><div class="k">Expectancy</div><div class="v" id="kExp">-</div></div>
+                        <div class="kpi"><div class="k">Max Drawdown</div><div class="v" id="kDD">-</div></div>
+                        <div class="kpi"><div class="k">Sharpe Ratio</div><div class="v" id="kSharpe">-</div></div>
+                    </div>
+                    <div id="marketChart" class="chart-wrap"></div>
+                </div>
+            </div>
+
+            <div class="sub-grid">
+                <div class="panel">
+                    <div class="panel-head"><h2>Trade Journal</h2><span class="pill" id="journalSummary">0 rows</span></div>
+                    <div class="panel-body stack">
+                        <div class="toolbar">
+                            <select id="journalDirectionFilter">
+                                <option value="all">Direction: All</option>
+                                <option value="long">Long</option>
+                                <option value="short">Short</option>
+                            </select>
+                            <select id="journalOutcomeFilter">
+                                <option value="all">Outcome: All</option>
+                                <option value="win">Win</option>
+                                <option value="loss">Loss</option>
+                            </select>
+                            <select id="journalSortBy">
+                                <option value="entry_desc">Sort: Latest</option>
+                                <option value="entry_asc">Sort: Oldest</option>
+                                <option value="pnl_desc">PnL: High to Low</option>
+                                <option value="pnl_asc">PnL: Low to High</option>
+                            </select>
+                        </div>
+                        <div class="table-wrap" style="max-height: 320px;">
+                            <table>
+                                <thead>
+                                <tr><th>Entry</th><th>Dir</th><th>PnL</th><th>Duration</th><th>Exit</th></tr>
+                                </thead>
+                                <tbody id="journalTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head"><h2>Zone Inspector & Settings</h2><span class="pill" id="zoneBadge">No zone selected</span></div>
+                    <div class="panel-body stack">
+                        <div class="muted" id="zoneInspectorText">Click any candle on the chart to inspect OHLC, body, and range.</div>
+                        <div class="split">
+                            <div class="field">
+                                <label>Starting Capital</label>
+                                <input id="settingCapital" type="number" value="10000" min="1000" step="100">
+                            </div>
+                            <div class="field">
+                                <label>Risk % / Trade</label>
+                                <input id="settingRiskPct" type="number" value="0.5" min="0.1" max="5" step="0.1">
+                            </div>
+                        </div>
+                        <div class="split">
+                            <div class="field">
+                                <label>Fee Rate %</label>
+                                <input id="settingFeePct" type="number" value="0.02" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="field">
+                                <label>FTMO Mode</label>
+                                <select id="settingFtmoMode">
+                                    <option value="off">Off</option>
+                                    <option value="on">On</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="split">
+                            <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
+                            <button class="btn-secondary" id="resetSettingsBtn">Reset Defaults</button>
+                        </div>
+                        <div class="muted" id="settingsStatus">Local settings are not saved yet.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head"><h2>Analytics</h2><span class="pill" id="analyticsSummary">Load trades to populate</span></div>
+                <div class="panel-body stack">
+                    <div class="sub-grid">
+                        <div id="analyticsHourChart" class="mini-chart"></div>
+                        <div id="analyticsDayChart" class="mini-chart"></div>
+                    </div>
+                    <div id="analyticsRChart" class="mini-chart"></div>
+                </div>
+            </div>
+        </main>
+    </section>
+</div>
+<div id="toastWrap" class="toast-wrap"></div>
+
+<script>
+const state = {
+    candles: [],
+    trades: [],
+    zones: [],
+    drawings: [],
+    drawMode: false,
+    chart: null,
+    config: null,
+    analyticsCharts: {},
+    chartClickBound: false,
+};
+
+const marketChartEl = document.getElementById('marketChart');
+const chartMetaEl = document.getElementById('chartMeta');
+const marketRangeEl = document.getElementById('marketRange');
+
+const kFinal = document.getElementById('kFinal');
+const kReturn = document.getElementById('kReturn');
+const kTrades = document.getElementById('kTrades');
+const kWin = document.getElementById('kWin');
+const kPF = document.getElementById('kPF');
+const kExp = document.getElementById('kExp');
+const kDD = document.getElementById('kDD');
+const kSharpe = document.getElementById('kSharpe');
+
+const symbolSelect = document.getElementById('symbolSelect');
+const dataFileInput = document.getElementById('dataFileInput');
+const tfSelect = document.getElementById('tfSelect');
+const maxPointsInput = document.getElementById('maxPoints');
+const fromInput = document.getElementById('fromInput');
+const toInput = document.getElementById('toInput');
+const loadZonesBtn = document.getElementById('loadZonesBtn');
+const toggleDrawBtn = document.getElementById('toggleDrawBtn');
+const clearDrawingsBtn = document.getElementById('clearDrawingsBtn');
+
+const tradesFileInput = document.getElementById('tradesFileInput');
+const tradesTableBody = document.getElementById('tradesTableBody');
+
+const baselineReportInput = document.getElementById('baselineReportInput');
+const candidateReportInput = document.getElementById('candidateReportInput');
+const compareBody = document.getElementById('compareBody');
+
+const liveStatus = document.getElementById('liveStatus');
+const liveLogs = document.getElementById('liveLogs');
+const journalTableBody = document.getElementById('journalTableBody');
+const journalSummary = document.getElementById('journalSummary');
+const analyticsSummary = document.getElementById('analyticsSummary');
+const journalDirectionFilter = document.getElementById('journalDirectionFilter');
+const journalOutcomeFilter = document.getElementById('journalOutcomeFilter');
+const journalSortBy = document.getElementById('journalSortBy');
+const zoneInspectorText = document.getElementById('zoneInspectorText');
+const zoneBadge = document.getElementById('zoneBadge');
+const settingCapital = document.getElementById('settingCapital');
+const settingRiskPct = document.getElementById('settingRiskPct');
+const settingFeePct = document.getElementById('settingFeePct');
+const settingFtmoMode = document.getElementById('settingFtmoMode');
+const settingsStatus = document.getElementById('settingsStatus');
+const toastWrap = document.getElementById('toastWrap');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const quickHelpBtn = document.getElementById('quickHelpBtn');
+
+function fmtMoney(v) {
+    if (!Number.isFinite(v)) return '-';
+    return '$' + v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function fmtPct(v) {
+    if (!Number.isFinite(v)) return '-';
+    return v.toFixed(2) + '%';
+}
+
+function toLocalInputValue(isoString) {
+    const d = new Date(isoString);
+    const pad = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function appendLog(line) {
+    liveLogs.textContent += line + '\n';
+    liveLogs.scrollTop = liveLogs.scrollHeight;
+}
+
+function showToast(message, ttlMs) {
+    if (!toastWrap) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    toastWrap.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, ttlMs || 2600);
+}
+
+function applyTheme(theme) {
+    const isLight = theme === 'light';
+    document.documentElement.style.setProperty('--bg-0', isLight ? '#f7fafc' : '#0a0e1a');
+    document.documentElement.style.setProperty('--bg-1', isLight ? '#edf2f7' : '#0d1220');
+    document.documentElement.style.setProperty('--bg-2', isLight ? '#e2e8f0' : '#101824');
+    document.documentElement.style.setProperty('--text-0', isLight ? '#0f172a' : '#f3f4f6');
+    document.documentElement.style.setProperty('--text-2', isLight ? '#334155' : '#9ca3af');
+    localStorage.setItem('platformTheme', theme);
+}
+
+function setupAutoSave() {
+    const ids = [
+        'symbolSelect', 'dataFileInput', 'tfSelect', 'maxPoints', 'fromInput', 'toInput',
+        'tradesFileInput', 'baselineReportInput', 'candidateReportInput',
+        'liveDays', 'liveInterval', 'journalDirectionFilter', 'journalOutcomeFilter', 'journalSortBy'
+    ];
+
+    const key = 'platformAutosave';
+    const raw = localStorage.getItem(key);
+    if (raw) {
+        try {
+            const saved = JSON.parse(raw);
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el && saved[id] !== undefined) el.value = saved[id];
+            });
+        } catch (_) {
+            // ignore invalid autosave payload
+        }
+    }
+
+    const persist = () => {
+        const payload = {};
+        ids.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) payload[id] = el.value;
+        });
+        localStorage.setItem(key, JSON.stringify(payload));
+    };
+
+    ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', persist);
+    });
+}
+
+function maybeShowOnboarding() {
+    const key = 'onboardingShownV1';
+    if (localStorage.getItem(key)) return;
+    showToast('Tip: Press Space to start Live Runner quickly.', 3200);
+    setTimeout(() => showToast('Tip: Ctrl/Cmd+L loads chart, Ctrl/Cmd+T loads trades.', 3400), 500);
+    setTimeout(() => showToast('Tip: Click a candle to inspect zone details.', 3400), 1000);
+    localStorage.setItem(key, '1');
+}
+
+function getTradeDurationMins(trade) {
+    if (!trade.entry_time || !trade.exit_time) return null;
+    const ms = new Date(trade.exit_time) - new Date(trade.entry_time);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    return Math.round(ms / 60000);
+}
+
+function renderTradeJournal() {
+    if (!journalTableBody) return;
+    const direction = (journalDirectionFilter && journalDirectionFilter.value) || 'all';
+    const outcome = (journalOutcomeFilter && journalOutcomeFilter.value) || 'all';
+    const sortBy = (journalSortBy && journalSortBy.value) || 'entry_desc';
+
+    let rows = state.trades.slice();
+
+    if (direction !== 'all') {
+        rows = rows.filter((t) => String(t.direction || '').toLowerCase() === direction);
+    }
+    if (outcome === 'win') {
+        rows = rows.filter((t) => Number(t.pnl || 0) > 0);
+    }
+    if (outcome === 'loss') {
+        rows = rows.filter((t) => Number(t.pnl || 0) < 0);
+    }
+
+    if (sortBy === 'entry_desc') {
+        rows.sort((a, b) => new Date(b.entry_time || 0) - new Date(a.entry_time || 0));
+    } else if (sortBy === 'entry_asc') {
+        rows.sort((a, b) => new Date(a.entry_time || 0) - new Date(b.entry_time || 0));
+    } else if (sortBy === 'pnl_desc') {
+        rows.sort((a, b) => Number(b.pnl || 0) - Number(a.pnl || 0));
+    } else if (sortBy === 'pnl_asc') {
+        rows.sort((a, b) => Number(a.pnl || 0) - Number(b.pnl || 0));
+    }
+
+    journalTableBody.innerHTML = '';
+    rows.slice(0, 250).forEach((t) => {
+        const duration = getTradeDurationMins(t);
+        const pnl = Number(t.pnl || 0);
+        const pnlColor = pnl > 0 ? 'style="color:#10b981;font-weight:600;"' : (pnl < 0 ? 'style="color:#ef4444;font-weight:600;"' : '');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (t.entry_time || '-') + '</td>' +
+            '<td>' + (t.direction || '-') + '</td>' +
+            '<td ' + pnlColor + '>' + pnl.toFixed(2) + '</td>' +
+            '<td>' + (duration !== null ? duration + 'm' : '-') + '</td>' +
+            '<td>' + (t.exit_reason || '-') + '</td>';
+        journalTableBody.appendChild(tr);
+    });
+
+    if (journalSummary) journalSummary.textContent = rows.length + ' rows';
+}
+
+function ensureAnalyticsChart(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    if (!state.analyticsCharts[id]) {
+        state.analyticsCharts[id] = echarts.init(el);
+        window.addEventListener('resize', () => state.analyticsCharts[id] && state.analyticsCharts[id].resize());
+    }
+    return state.analyticsCharts[id];
+}
+
+function renderAnalytics() {
+    if (!state.trades.length) {
+        if (analyticsSummary) analyticsSummary.textContent = 'Load trades to populate';
+        return;
+    }
+
+    const hourly = Array.from({ length: 24 }, (_, h) => ({ h, wins: 0, total: 0 }));
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => ({ d, pnl: 0 }));
+    const rBuckets = { '<-2R': 0, '-2R..-1R': 0, '-1R..0R': 0, '0R..1R': 0, '1R..2R': 0, '>2R': 0 };
+
+    const losses = state.trades.map((t) => Number(t.pnl || 0)).filter((v) => v < 0).map((v) => Math.abs(v));
+    const riskUnit = losses.length ? Math.max(1, losses.reduce((a, b) => a + b, 0) / losses.length) : 1;
+
+    state.trades.forEach((t) => {
+        const entry = t.entry_time ? new Date(t.entry_time) : null;
+        const pnl = Number(t.pnl || 0);
+        if (entry && !Number.isNaN(entry.getTime())) {
+            const h = entry.getHours();
+            hourly[h].total += 1;
+            if (pnl > 0) hourly[h].wins += 1;
+            days[entry.getDay()].pnl += pnl;
+        }
+
+        const r = pnl / riskUnit;
+        if (r < -2) rBuckets['<-2R'] += 1;
+        else if (r < -1) rBuckets['-2R..-1R'] += 1;
+        else if (r < 0) rBuckets['-1R..0R'] += 1;
+        else if (r < 1) rBuckets['0R..1R'] += 1;
+        else if (r < 2) rBuckets['1R..2R'] += 1;
+        else rBuckets['>2R'] += 1;
+    });
+
+    const hourChart = ensureAnalyticsChart('analyticsHourChart');
+    if (hourChart) {
+        hourChart.setOption({
+            title: { text: 'Win Rate by Hour', textStyle: { color: '#d1d5db', fontSize: 12 } },
+            backgroundColor: 'transparent',
+            grid: { left: 40, right: 20, top: 34, bottom: 30 },
+            xAxis: { type: 'category', data: hourly.map((x) => String(x.h).padStart(2, '0')), axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#4b5563' } } },
+            yAxis: { type: 'value', max: 100, axisLabel: { color: '#9ca3af', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(156,163,175,0.2)' } } },
+            tooltip: { trigger: 'axis' },
+            series: [{ type: 'bar', data: hourly.map((x) => x.total ? Number((x.wins * 100 / x.total).toFixed(1)) : 0), itemStyle: { color: '#00d4aa' } }],
+        }, true);
+    }
+
+    const dayChart = ensureAnalyticsChart('analyticsDayChart');
+    if (dayChart) {
+        dayChart.setOption({
+            title: { text: 'PnL by Day of Week', textStyle: { color: '#d1d5db', fontSize: 12 } },
+            backgroundColor: 'transparent',
+            grid: { left: 45, right: 20, top: 34, bottom: 30 },
+            xAxis: { type: 'category', data: days.map((x) => x.d), axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#4b5563' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af' }, splitLine: { lineStyle: { color: 'rgba(156,163,175,0.2)' } } },
+            tooltip: { trigger: 'axis' },
+            series: [{ type: 'bar', data: days.map((x) => Number(x.pnl.toFixed(2))), itemStyle: { color: '#3b82f6' } }],
+        }, true);
+    }
+
+    const rChart = ensureAnalyticsChart('analyticsRChart');
+    if (rChart) {
+        const labels = Object.keys(rBuckets);
+        rChart.setOption({
+            title: { text: 'R Distribution (Approx)', textStyle: { color: '#d1d5db', fontSize: 12 } },
+            backgroundColor: 'transparent',
+            grid: { left: 45, right: 20, top: 34, bottom: 30 },
+            xAxis: { type: 'category', data: labels, axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#4b5563' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af' }, splitLine: { lineStyle: { color: 'rgba(156,163,175,0.2)' } } },
+            tooltip: { trigger: 'axis' },
+            series: [{ type: 'bar', data: labels.map((l) => rBuckets[l]), itemStyle: { color: '#f59e0b' } }],
+        }, true);
+    }
+
+    const wins = state.trades.filter((t) => Number(t.pnl || 0) > 0).length;
+    const winRate = state.trades.length ? (wins * 100 / state.trades.length) : 0;
+    if (analyticsSummary) analyticsSummary.textContent = state.trades.length + ' trades | WR ' + winRate.toFixed(1) + '%';
+}
+
+function bindChartInspector() {
+    if (!state.chart || state.chartClickBound) return;
+    state.chart.on('click', (params) => {
+        if (params.seriesType !== 'candlestick') return;
+        const idx = params.dataIndex;
+        const candle = state.candles[idx];
+        if (!candle) return;
+
+        if (state.drawMode) {
+            const y = Number(candle.close);
+            if (Number.isFinite(y)) {
+                state.drawings.push(Number(y.toFixed(2)));
+                state.drawings = state.drawings.slice(-20);
+                saveDrawings();
+                renderChart();
+                showToast('Added drawing at ' + y.toFixed(2));
+            }
+            return;
+        }
+
+        const body = Math.abs(Number(candle.close) - Number(candle.open));
+        const range = Math.abs(Number(candle.high) - Number(candle.low));
+        if (zoneBadge) zoneBadge.textContent = 'Zone @ ' + new Date(candle.ts).toLocaleString();
+        if (zoneInspectorText) {
+            zoneInspectorText.textContent =
+                'O:' + Number(candle.open).toFixed(2) +
+                ' H:' + Number(candle.high).toFixed(2) +
+                ' L:' + Number(candle.low).toFixed(2) +
+                ' C:' + Number(candle.close).toFixed(2) +
+                ' | Body: ' + body.toFixed(2) + ' | Range: ' + range.toFixed(2);
+        }
+    });
+    state.chartClickBound = true;
+}
+
+function loadSettings() {
+    const raw = localStorage.getItem('platformSettings');
+    if (!raw) return;
+    try {
+        const s = JSON.parse(raw);
+        if (Number.isFinite(Number(s.capital))) settingCapital.value = s.capital;
+        if (Number.isFinite(Number(s.riskPct))) settingRiskPct.value = s.riskPct;
+        if (Number.isFinite(Number(s.feePct))) settingFeePct.value = s.feePct;
+        if (s.ftmoMode === 'on' || s.ftmoMode === 'off') settingFtmoMode.value = s.ftmoMode;
+        settingsStatus.textContent = 'Settings loaded from local storage.';
+    } catch (_) {
+        settingsStatus.textContent = 'Failed to parse saved settings.';
+    }
+}
+
+function saveSettings() {
+    const payload = {
+        capital: Number(settingCapital.value || 10000),
+        riskPct: Number(settingRiskPct.value || 0.5),
+        feePct: Number(settingFeePct.value || 0.02),
+        ftmoMode: settingFtmoMode.value || 'off',
+    };
+    localStorage.setItem('platformSettings', JSON.stringify(payload));
+    settingsStatus.textContent = 'Settings saved at ' + new Date().toLocaleTimeString() + '.';
+    showToast('Settings saved');
+}
+
+function resetSettings() {
+    settingCapital.value = 10000;
+    settingRiskPct.value = 0.5;
+    settingFeePct.value = 0.02;
+    settingFtmoMode.value = 'off';
+    localStorage.removeItem('platformSettings');
+    settingsStatus.textContent = 'Settings reset to defaults.';
+    showToast('Settings reset');
+}
+
+async function loadConfig() {
+    const res = await fetch('/platform/config');
+    const cfg = await res.json();
+    state.config = cfg;
+
+    if (cfg.defaultDataFiles && cfg.defaultDataFiles.XAUUSD && cfg.defaultDataFiles.XAUUSD.filePath) {
+        dataFileInput.value = cfg.defaultDataFiles.XAUUSD.filePath;
+    }
+    if (cfg.defaultTradesFile && cfg.defaultTradesFile.filePath) {
+        tradesFileInput.value = cfg.defaultTradesFile.filePath;
+    }
+    if (cfg.defaultReportFile && cfg.defaultReportFile.filePath) {
+        baselineReportInput.value = cfg.defaultReportFile.filePath;
+    }
+}
+
+function drawingStorageKey() {
+    return 'srDrawings:' + symbolSelect.value + ':' + tfSelect.value;
+}
+
+function loadDrawings() {
+    const raw = localStorage.getItem(drawingStorageKey());
+    if (!raw) {
+        state.drawings = [];
+        return;
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        state.drawings = Array.isArray(parsed) ? parsed.filter((n) => Number.isFinite(Number(n))).map(Number) : [];
+    } catch (_) {
+        state.drawings = [];
+    }
+}
+
+function saveDrawings() {
+    localStorage.setItem(drawingStorageKey(), JSON.stringify(state.drawings));
+}
+
+async function loadZones() {
+    const params = new URLSearchParams({
+        symbol: symbolSelect.value,
+        timeframe: tfSelect.value,
+        dataFile: dataFileInput.value.trim(),
+        maxZones: '3',
+    });
+
+    if (fromInput.value) params.set('from', new Date(fromInput.value).toISOString());
+    if (toInput.value) params.set('to', new Date(toInput.value).toISOString());
+
+    const res = await fetch('/platform/zones?' + params.toString());
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to load zones');
+    }
+
+    state.zones = Array.isArray(data.zones) ? data.zones : [];
+    renderChart();
+    if (zoneBadge) zoneBadge.textContent = state.zones.length + ' zones loaded';
+    if (zoneInspectorText) zoneInspectorText.textContent = 'Auto zones loaded. Click candles for details or enable draw mode for manual levels.';
+    showToast('Loaded ' + state.zones.length + ' zones');
+}
+
+function renderChart() {
+    if (!state.chart) {
+        state.chart = echarts.init(marketChartEl);
+        window.addEventListener('resize', () => state.chart && state.chart.resize());
+    }
+
+    const candleRows = state.candles.map((c) => [
+        new Date(c.ts).toISOString(),
+        c.open,
+        c.close,
+        c.low,
+        c.high,
+        c.volume,
+    ]);
+
+    const entryScatter = [];
+    const exitScatter = [];
+
+    for (const t of state.trades) {
+        if (t.entry_time && Number.isFinite(Number(t.entry_price))) {
+            entryScatter.push([t.entry_time, Number(t.entry_price), t.direction, t.pnl]);
+        }
+        if (t.exit_time && Number.isFinite(Number(t.exit_price))) {
+            exitScatter.push([t.exit_time, Number(t.exit_price), t.direction, t.pnl]);
+        }
+    }
+
+    const zoneMarkAreaData = state.zones.map((z) => ([
+        {
+            name: z.kind === 'support' ? 'Support' : 'Resistance',
+            xAxis: 'min',
+            yAxis: Number(z.low),
+            itemStyle: {
+                color: z.kind === 'support' ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
+            },
+        },
+        {
+            xAxis: 'max',
+            yAxis: Number(z.high),
+        },
+    ]));
+
+    const drawingLines = state.drawings.map((price, idx) => ({
+        yAxis: Number(price),
+        name: 'D' + (idx + 1),
+        lineStyle: { color: '#f59e0b', type: 'solid', width: 1.2 },
+        label: { formatter: 'D' + (idx + 1), color: '#f59e0b' },
+    }));
+
+    state.chart.setOption({
+        animationDuration: 450,
+        backgroundColor: 'transparent',
+        title: {
+            text: symbolSelect.value + ' (' + tfSelect.value + ')',
+            left: 'center',
+            top: 0,
+            textStyle: { color: '#d1d5db', fontSize: 14, fontWeight: 600 },
+        },
+        legend: {
+            textStyle: { color: '#c6d7eb' },
+            data: ['Candles', 'Entries', 'Exits', 'Zones', 'Drawings'],
+        },
+        tooltip: { trigger: 'axis' },
+        grid: { left: 40, right: 20, top: 60, bottom: 84 },
+        xAxis: {
+            type: 'category',
+            data: candleRows.map((r) => {
+                const d = new Date(r[0]);
+                const pad = (n) => n.toString().padStart(2, '0');
+                const date = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+                const time = pad(d.getHours()) + ':' + pad(d.getMinutes());
+                const tf = tfSelect.value;
+                if (tf === '1m' || tf === '5m') return date + '\n' + time;
+                if (tf === '15m' || tf === '1h') return time;
+                return date;
+            }),
+            boundaryGap: true,
+            axisLine: { lineStyle: { color: '#6d87a4' } },
+            axisLabel: { color: '#b8cbe0', interval: Math.ceil(candleRows.length / 12) || 0 },
+        },
+        yAxis: {
+            scale: true,
+            axisLine: { lineStyle: { color: '#6d87a4' } },
+            splitLine: { lineStyle: { color: 'rgba(122, 146, 174, 0.2)' } },
+            axisLabel: { color: '#b8cbe0' },
+        },
+        dataZoom: [
+            { type: 'inside', start: 70, end: 100 },
+            { type: 'slider', start: 70, end: 100, bottom: 30, height: 25 },
+        ],
+        series: [
+            {
+                name: 'Candles',
+                type: 'candlestick',
+                data: candleRows.map((r) => [r[1], r[2], r[3], r[4]]),
+                itemStyle: {
+                    color: '#3ee6c2',
+                    color0: '#ff667a',
+                    borderColor: '#2dcaa8',
+                    borderColor0: '#ff4a63',
+                },
+                markArea: zoneMarkAreaData.length ? {
+                    silent: true,
+                    data: zoneMarkAreaData,
+                } : { data: [] },
+                markLine: drawingLines.length ? {
+                    symbol: 'none',
+                    silent: true,
+                    data: drawingLines,
+                } : { data: [] },
+            },
+            {
+                name: 'Zones',
+                type: 'line',
+                data: [],
+                lineStyle: { opacity: 0 },
+                showSymbol: false,
+            },
+            {
+                name: 'Drawings',
+                type: 'line',
+                data: [],
+                lineStyle: { opacity: 0 },
+                showSymbol: false,
+            },
+            {
+                name: 'Entries',
+                type: 'scatter',
+                data: entryScatter,
+                symbolSize: 9,
+                itemStyle: { color: '#ffb454' },
+                encode: { x: 0, y: 1 },
+            },
+            {
+                name: 'Exits',
+                type: 'scatter',
+                data: exitScatter,
+                symbolSize: 8,
+                itemStyle: { color: '#5ea2ff' },
+                encode: { x: 0, y: 1 },
+            },
+        ],
+    }, true);
+
+    bindChartInspector();
+}
+
+function renderTradesTable() {
+    tradesTableBody.innerHTML = '';
+    const top = state.trades.slice(0, 120);
+    top.forEach((t) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (t.entry_time || '-') + '</td>' +
+            '<td>' + (t.direction || '-') + '</td>' +
+            '<td>' + Number(t.pnl || 0).toFixed(2) + '</td>' +
+            '<td>' + (t.exit_reason || '-') + '</td>';
+        tradesTableBody.appendChild(tr);
+    });
+}
+
+async function loadCandles() {
+    const params = new URLSearchParams({
+        symbol: symbolSelect.value,
+        timeframe: tfSelect.value,
+        dataFile: dataFileInput.value.trim(),
+        maxPoints: String(maxPointsInput.value || 5000),
+    });
+
+    if (fromInput.value) {
+        params.set('from', new Date(fromInput.value).toISOString());
+    }
+    if (toInput.value) {
+        params.set('to', new Date(toInput.value).toISOString());
+    }
+
+    const res = await fetch('/platform/candles?' + params.toString());
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to load candles');
+    }
+
+    state.candles = data.candles || [];
+    loadDrawings();
+    chartMetaEl.textContent = 'Returned ' + data.returnedCount + ' of ' + data.filteredCount + ' candles from ' + data.dataFile;
+    marketRangeEl.textContent = (data.range.from || '-') + ' -> ' + (data.range.to || '-');
+
+    renderChart();
+}
+
+function updateKpisFromMetrics(metrics) {
+    const asNum = (v) => Number(String(v || '').replace(/[$,% ]/g, ''));
+    const finalCapital = asNum(metrics.final_capital);
+    const totalReturn = asNum(metrics.total_return_pct);
+    const totalTrades = asNum(metrics.total_trades);
+    const winRate = asNum(metrics.win_rate_pct);
+    const profitFactor = asNum(metrics.profit_factor);
+    const expectancy = asNum(metrics.expectancy);
+    const maxDD = asNum(metrics.max_drawdown_pct);
+    const sharpeRatio = asNum(metrics.sharpe_ratio);
+
+    // Update display values
+    kFinal.textContent = Number.isFinite(finalCapital) ? fmtMoney(finalCapital) : '-';
+    kReturn.textContent = Number.isFinite(totalReturn) ? fmtPct(totalReturn) : '-';
+    kTrades.textContent = Number.isFinite(totalTrades) ? String(Math.round(totalTrades)) : '-';
+    kWin.textContent = Number.isFinite(winRate) ? fmtPct(winRate) : '-';
+    kPF.textContent = Number.isFinite(profitFactor) ? profitFactor.toFixed(2) : '-';
+    kExp.textContent = Number.isFinite(expectancy) ? fmtMoney(expectancy) : '-';
+    kDD.textContent = Number.isFinite(maxDD) ? fmtPct(maxDD) : '-';
+    kSharpe.textContent = Number.isFinite(sharpeRatio) ? sharpeRatio.toFixed(2) : '-';
+    
+    // Apply color coding to all metrics
+    // Win Rate: good if >= 40%
+    const winGood = Number.isFinite(winRate) && winRate >= 40;
+    kWin.parentElement.classList.toggle('good', winGood);
+    kWin.parentElement.classList.toggle('bad', Number.isFinite(winRate) && !winGood);
+    
+    // Return: good if >= 0%
+    const returnGood = Number.isFinite(totalReturn) && totalReturn >= 0;
+    kReturn.parentElement.classList.toggle('good', returnGood);
+    kReturn.parentElement.classList.toggle('bad', Number.isFinite(totalReturn) && !returnGood);
+    
+    // Profit Factor: good if >= 1.2
+    const pfGood = Number.isFinite(profitFactor) && profitFactor >= 1.2;
+    kPF.parentElement.classList.toggle('good', pfGood);
+    kPF.parentElement.classList.toggle('bad', Number.isFinite(profitFactor) && !pfGood);
+    
+    // Max Drawdown: good if >= -10% (closer to zero)
+    const ddGood = Number.isFinite(maxDD) && maxDD >= -10;
+    kDD.parentElement.classList.toggle('good', ddGood);
+    kDD.parentElement.classList.toggle('bad', Number.isFinite(maxDD) && !ddGood);
+    
+    // Sharpe Ratio: good if >= 1.0
+    const sharpeGood = Number.isFinite(sharpeRatio) && sharpeRatio >= 1.0;
+    kSharpe.parentElement.classList.toggle('good', sharpeGood);
+    kSharpe.parentElement.classList.toggle('bad', Number.isFinite(sharpeRatio) && !sharpeGood);
+}
+
+async function loadTrades() {
+    const params = new URLSearchParams({
+        tradesFile: tradesFileInput.value.trim(),
+    });
+
+    if (fromInput.value) params.set('from', new Date(fromInput.value).toISOString());
+    if (toInput.value) params.set('to', new Date(toInput.value).toISOString());
+
+    const res = await fetch('/platform/trades?' + params.toString());
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to load trades');
+    }
+
+    state.trades = data.trades || [];
+    renderTradesTable();
+    renderTradeJournal();
+    renderAnalytics();
+    renderChart();
+
+    const inferredReport = tradesFileInput.value.trim().replace('phantom_backtest_trades.csv', 'phantom_backtest_report.md');
+    if (inferredReport.endsWith('.md')) {
+        const reportRes = await fetch('/platform/report?reportFile=' + encodeURIComponent(inferredReport));
+        const reportData = await reportRes.json();
+        if (reportRes.ok) {
+            updateKpisFromMetrics(reportData.metrics || {});
+        }
+    }
+}
+
+function asNum(v) {
+    const n = Number(String(v || '').replace(/[$,%]/g, '').replace(/,/g, ''));
+    return Number.isFinite(n) ? n : null;
+}
+
+async function compareReports() {
+    compareBody.innerHTML = '';
+
+    const bRes = await fetch('/platform/report?reportFile=' + encodeURIComponent(baselineReportInput.value.trim()));
+    const cRes = await fetch('/platform/report?reportFile=' + encodeURIComponent(candidateReportInput.value.trim()));
+    const bData = await bRes.json();
+    const cData = await cRes.json();
+
+    if (!bRes.ok || !cRes.ok) {
+        throw new Error((bData.error || cData.error || 'Compare failed'));
+    }
+
+    const keys = [
+        'total_return_pct',
+        'total_trades',
+        'win_rate_pct',
+        'profit_factor',
+        'max_drawdown_pct',
+        'expectancy',
+        'sharpe_ratio',
+    ];
+
+    keys.forEach((k) => {
+        const b = bData.metrics[k] || '-';
+        const c = cData.metrics[k] || '-';
+        const bn = asNum(b);
+        const cn = asNum(c);
+        let delta = '-';
+        let deltaClass = 'neutral';
+        
+        if (bn !== null && cn !== null) {
+            const diff = cn - bn;
+            delta = (diff >= 0 ? '+' : '') + diff.toFixed(2);
             
-            const formData = new FormData();
-            const fileInput = document.getElementById('chartInput');
-            const resultDiv = document.getElementById('result');
-            
-            formData.append('chart', fileInput.files[0]);
-            
-            try {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = 'Analyzing chart...';
-                
-                const response = await fetch('/analyze-chart', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <h3>Analysis Results:</h3>
-                    <p><strong>Overall Trend:</strong> ${data.overallTrend}</p>
-                    <p><strong>Confidence Levels:</strong> ${data.confidenceLevels.map(c => (c * 100).toFixed(2) + '%').join(', ')}</p>
-                    <h4>Insights:</h4>
-                    <ul>
-                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
-                    </ul>
-                `;
-            } catch (error) {
-                resultDiv.innerHTML = 'Error analyzing chart. Please try again.';
-                console.error('Error:', error);
+            // Determine if delta is good or bad based on metric type
+            const goodIfHigher = k.includes('return') || k.includes('win') || k.includes('profit') || k.includes('sharpe');
+            deltaClass = (goodIfHigher && diff > 0) || (!goodIfHigher && diff < 0) ? 'positive' : 'negative';
+        }
+        
+        const tr = document.createElement('tr');
+        const deltaColor = deltaClass === 'positive' ? 'color: #10b981' : deltaClass === 'negative' ? 'color: #ef4444' : 'color: #9ca3af';
+        tr.innerHTML = '<td>' + k + '</td><td>' + b + '</td><td>' + c + '</td><td style="' + deltaColor + '; font-weight: 600;">' + delta + '</td>';
+        compareBody.appendChild(tr);
+    });
+    
+    // Try to visualize equity curves if available
+    if (bData.equityCurve && cData.equityCurve) {
+        renderEquityCurveComparison(bData.equityCurve, cData.equityCurve, 'Baseline', 'Candidate');
+    }
+}
+
+function renderEquityCurveComparison(baselineEq, candidateEq, baselineName, candidateName) {
+    const eqContainer = document.getElementById('equityCurveChart') || document.createElement('div');
+    if (!eqContainer.id) {
+        eqContainer.id = 'equityCurveChart';
+        eqContainer.style.height = '300px';
+        eqContainer.style.marginTop = '12px';
+        compareBody.parentElement.appendChild(eqContainer);
+    }
+    
+    const chart = echarts.getInstanceByDom(eqContainer) || echarts.init(eqContainer);
+    const baselineData = (baselineEq || []).slice(0, 500);
+    const candidateData = (candidateEq || []).slice(0, 500);
+    
+    chart.setOption({
+        backgroundColor: 'transparent',
+        legend: { textStyle: { color: '#d1d5db' }, data: [baselineName, candidateName] },
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(10, 14, 26, 0.95)', borderColor: '#00d4aa', textStyle: { color: '#f3f4f6' } },
+        grid: { left: 45, right: 20, top: 20, bottom: 40 },
+        xAxis: { type: 'category', data: baselineData.map((_, i) => String(i)), axisLine: { lineStyle: { color: '#6d87a4' } }, axisLabel: { color: '#b8cbe0', fontSize: 10 } },
+        yAxis: [ 
+            { scale: true, name: 'Equity', axisLine: { lineStyle: { color: '#6d87a4' } }, splitLine: { lineStyle: { color: 'rgba(122, 146, 174, 0.2)' } }, axisLabel: { color: '#b8cbe0' } },
+            { scale: true, name: 'Return %', position: 'right', axisLine: { lineStyle: { color: '#6d87a4' } }, splitLine: { lineStyle: { color: 'transparent' } }, axisLabel: { color: '#b8cbe0' } }
+        ],
+        series: [
+            { name: baselineName, type: 'line', data: baselineData, smooth: true, itemStyle: { color: '#3ee6c2' }, lineStyle: { width: 1.5 } },
+            { name: candidateName, type: 'line', data: candidateData, smooth: true, itemStyle: { color: '#ffb454' }, lineStyle: { width: 1.5 } }
+        ]
+    }, true);
+}
+
+async function startLive() {
+    const payload = {
+        symbol: symbolSelect.value,
+        interval: document.getElementById('liveInterval').value,
+        lookbackDays: Number(document.getElementById('liveDays').value || 30),
+        skipPlots: false,
+    };
+
+    liveLogs.textContent = '';
+    const res = await fetch('/backtest/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        appendLog('Start failed: ' + (data.error || 'unknown error'));
+        return;
+    }
+    liveStatus.textContent = data.state.status;
+}
+
+async function stopLive() {
+    const res = await fetch('/backtest/stop', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+        appendLog('Stop failed: ' + (data.error || 'unknown error'));
+    }
+}
+
+function setupSse() {
+    const stream = new EventSource('/backtest/stream');
+    const runId = new Date().toISOString();
+    
+    stream.addEventListener('snapshot', (ev) => {
+        const s = JSON.parse(ev.data);
+        liveStatus.textContent = s.status;
+        liveLogs.textContent = (s.logs || []).join('\n');
+        liveLogs.scrollTop = liveLogs.scrollHeight;
+        
+        // Update progress if available
+        if (s.progress !== undefined) {
+            const percent = Math.round(s.progress * 100);
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) {
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+            }
+        }
+    });
+    
+    stream.addEventListener('status', (ev) => {
+        const s = JSON.parse(ev.data);
+        liveStatus.textContent = s.status;
+        
+        // Update progress bar
+        if (s.progress !== undefined) {
+            const percent = Math.round(s.progress * 100);
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) {
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+            }
+        }
+        
+        // Store run history when complete
+        if (s.status && (s.status.includes('completed') || s.status.includes('stopped'))) {
+            storeRunHistory({
+                id: runId,
+                timestamp: new Date().toISOString(),
+                status: s.status,
+                symbol: symbolSelect.value,
+                interval: document.getElementById('liveInterval').value,
+                logs: (s.logs || []).slice(-10)
+            });
+        }
+    });
+    
+    stream.addEventListener('log', (ev) => {
+        appendLog(JSON.parse(ev.data).line);
+    });
+    
+    stream.addEventListener('error', (ev) => {
+        console.error('SSE error:', ev);
+        stream.close();
+    });
+}
+
+function storeRunHistory(run) {
+    let history = JSON.parse(localStorage.getItem('runHistory') || '[]');
+    history.unshift(run);
+    history = history.slice(0, 10); // Keep last 10 runs
+    localStorage.setItem('runHistory', JSON.stringify(history));
+    updateRunHistoryDisplay();
+}
+
+function updateRunHistoryDisplay() {
+    const history = JSON.parse(localStorage.getItem('runHistory') || '[]');
+    const historyContainer = document.getElementById('runHistory');
+    if (!historyContainer) return;
+    
+    historyContainer.innerHTML = '<div style="font-size: 11px; color: var(--text-2); margin-bottom: 8px;"><strong>Recent Runs:</strong></div>';
+    history.slice(0, 5).forEach((run) => {
+        const runEl = document.createElement('div');
+        runEl.style.padding = '6px';
+        runEl.style.fontSize = '10px';
+        runEl.style.background = 'rgba(20, 28, 40, 0.5)';
+        runEl.style.borderRadius = '4px';
+        runEl.style.marginBottom = '4px';
+        runEl.style.cursor = 'pointer';
+        runEl.style.borderLeft = '2px solid ' + (run.status.includes('completed') ? '#10b981' : '#ef4444');
+        
+        const time = new Date(run.timestamp).toLocaleTimeString();
+        const info = run.symbol + ' ' + run.interval + ' @ ' + time;
+        runEl.textContent = info;
+        runEl.title = run.status;
+        historyContainer.appendChild(runEl);
+    });
+}
+
+async function init() {
+    await loadConfig();
+    await loadCandles();
+    loadSettings();
+
+    // Setup drag-and-drop for data file input
+    ['dataFileInput', 'tradesFileInput', 'baselineReportInput', 'candidateReportInput'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                el.style.background = 'rgba(62, 230, 194, 0.15)';
+                el.style.borderColor = '#3ee6c2';
+            });
+            el.addEventListener('dragleave', () => {
+                el.style.background = '';
+                el.style.borderColor = '';
+            });
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                el.style.background = '';
+                el.style.borderColor = '';
+                const text = e.dataTransfer.getData('text');
+                if (text) el.value = text;
+            });
+        }
+    });
+
+    document.getElementById('loadChartBtn').addEventListener('click', async () => {
+        try {
+            await loadCandles();
+        } catch (err) {
+            chartMetaEl.textContent = 'Error: ' + err.message;
+        }
+    });
+
+    // Auto-reload zones when timeframe changes
+    if (tfSelect) {
+        tfSelect.addEventListener('change', async () => {
+            loadDrawings();  // Reload drawings for new timeframe
+            renderChart();   // Refresh with new timeframe label and axis format
+            if (state.zones.length > 0) {  // If zones were previously loaded, reload for new TF
+                try {
+                    await loadZones();
+                } catch (err) {
+                    console.error('Zone reload on TF change failed:', err);
+                }
             }
         });
-    </script>
+    }
+
+    if (loadZonesBtn) {
+        loadZonesBtn.addEventListener('click', async () => {
+            try {
+                await loadZones();
+            } catch (err) {
+                chartMetaEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    }
+
+    if (toggleDrawBtn) {
+        toggleDrawBtn.addEventListener('click', () => {
+            state.drawMode = !state.drawMode;
+            toggleDrawBtn.textContent = 'Draw Lines: ' + (state.drawMode ? 'On' : 'Off');
+            if (zoneInspectorText) {
+                zoneInspectorText.textContent = state.drawMode
+                    ? 'Draw mode ON: click candle to add horizontal level.'
+                    : 'Draw mode OFF: click candle to inspect OHLC and candle structure.';
+            }
+            showToast('Draw mode ' + (state.drawMode ? 'enabled' : 'disabled'));
+        });
+    }
+
+    if (clearDrawingsBtn) {
+        clearDrawingsBtn.addEventListener('click', () => {
+            state.drawings = [];
+            state.zones = [];
+            saveDrawings();
+            renderChart();
+            if (zoneBadge) zoneBadge.textContent = 'No zones';
+            showToast('Cleared drawings and zones');
+        });
+    }
+
+    document.getElementById('loadTradesBtn').addEventListener('click', async () => {
+        try {
+            await loadTrades();
+        } catch (err) {
+            chartMetaEl.textContent = 'Error: ' + err.message;
+        }
+    });
+
+    document.getElementById('compareBtn').addEventListener('click', async () => {
+        try {
+            await compareReports();
+        } catch (err) {
+            chartMetaEl.textContent = 'Error: ' + err.message;
+        }
+    });
+
+    document.getElementById('startLiveBtn').addEventListener('click', startLive);
+    document.getElementById('stopLiveBtn').addEventListener('click', stopLive);
+    if (journalDirectionFilter) journalDirectionFilter.addEventListener('change', renderTradeJournal);
+    if (journalOutcomeFilter) journalOutcomeFilter.addEventListener('change', renderTradeJournal);
+    if (journalSortBy) journalSortBy.addEventListener('change', renderTradeJournal);
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    const resetBtn = document.getElementById('resetSettingsBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveSettings);
+    if (resetBtn) resetBtn.addEventListener('click', resetSettings);
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const cur = localStorage.getItem('platformTheme') || 'dark';
+            const next = cur === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            showToast('Theme: ' + next);
+        });
+    }
+    if (quickHelpBtn) {
+        quickHelpBtn.addEventListener('click', () => {
+            showToast('Shortcuts: Space start, Ctrl/Cmd+L load chart, Ctrl/Cmd+T load trades', 3600);
+        });
+    }
+    
+    // Setup keyboard shortcut: Space to start live
+    document.addEventListener('keydown', (e) => {
+        const isMac = navigator.platform.toUpperCase().includes('MAC');
+        const mod = isMac ? e.metaKey : e.ctrlKey;
+
+        if (e.code === 'Space' && e.target === document.body) {
+            e.preventDefault();
+            startLive();
+            showToast('Live run started');
+        }
+        if (mod && e.key.toLowerCase() === 'l') {
+            e.preventDefault();
+            loadCandles().then(() => showToast('Chart reloaded'));
+        }
+        if (mod && e.key.toLowerCase() === 't') {
+            e.preventDefault();
+            loadTrades().then(() => showToast('Trades loaded'));
+        }
+        if (mod && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            loadZones().then(() => showToast('S/R zones loaded'));
+        }
+        if (e.key.toLowerCase() === 'd' && e.target === document.body) {
+            e.preventDefault();
+            state.drawMode = !state.drawMode;
+            if (toggleDrawBtn) toggleDrawBtn.textContent = 'Draw Lines: ' + (state.drawMode ? 'On' : 'Off');
+            showToast('Draw mode ' + (state.drawMode ? 'enabled' : 'disabled'));
+        }
+    });
+
+    applyTheme(localStorage.getItem('platformTheme') || 'dark');
+    setupAutoSave();
+    maybeShowOnboarding();
+    setupSse();
+    updateRunHistoryDisplay();
+}
+
+init().catch((err) => {
+    chartMetaEl.textContent = 'Init failed: ' + err.message;
+});
+</script>
 </body>
 </html>
