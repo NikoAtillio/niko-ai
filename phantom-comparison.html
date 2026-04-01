@@ -370,7 +370,7 @@
       </div>
 
       <div class="curve-box">
-        <svg id="curveSvg" viewBox="0 0 1100 360" preserveAspectRatio="none"></svg>
+        <svg id="curveSvg" viewBox="0 0 1100 390" preserveAspectRatio="none"></svg>
         <div class="curve-tooltip" id="curveTooltip"></div>
         <div class="curve-legend" id="curveLegend"></div>
         <div class="curve-note" id="curveNote">Loading capital curve data...</div>
@@ -922,7 +922,7 @@
       }
 
       const w = 1100;
-      const h = 360;
+      const h = 390;
       const m = { top: 18, right: 20, bottom: 34, left: 64 };
       const pw = w - m.left - m.right;
       const ph = h - m.top - m.bottom;
@@ -939,8 +939,32 @@
       const xMax = new Date(Math.max(...allX.map(d => d.getTime())));
       const yMin = Math.min(...allY);
       const yMax = Math.max(...allY);
-      const y0 = curveMode.value === 'absolute' ? 5000 : Math.max(40, yMin - 4);
-      const y1 = curveMode.value === 'absolute' ? 15000 : (yMax + 6);
+
+      let y0;
+      let y1;
+      let absStep = 500;
+
+      if (curveMode.value === 'absolute') {
+        // Dynamic bounds: 5% below observed low and 5% above observed high.
+        const lowerBuffered = Math.max(0, yMin * 0.95);
+        const upperBuffered = Math.max(lowerBuffered + 1, yMax * 1.05);
+        const span = upperBuffered - lowerBuffered;
+
+        // Keep grid readable for very large/small ranges while preserving stepped increments.
+        if (span <= 15000) absStep = 500;
+        else if (span <= 30000) absStep = 1000;
+        else if (span <= 60000) absStep = 2000;
+        else absStep = 5000;
+
+        y0 = Math.floor(lowerBuffered / absStep) * absStep;
+        y1 = Math.ceil(upperBuffered / absStep) * absStep;
+
+        // Ensure at least one increment of breathing room.
+        if (y1 <= y0) y1 = y0 + absStep;
+      } else {
+        y0 = Math.max(40, yMin - 4);
+        y1 = yMax + 6;
+      }
 
       const xSpan = (xMax.getTime() - xMin.getTime()) || 1;
       const sx = x => m.left + ((x.getTime() - xMin.getTime()) / xSpan) * pw;
@@ -948,14 +972,14 @@
 
       const grid = [];
       const yTicks = curveMode.value === 'absolute'
-        ? Array.from({ length: 21 }, (_, i) => 5000 + (i * 500)).filter(v => v <= 15000)
+        ? Array.from({ length: Math.floor((y1 - y0) / absStep) + 1 }, (_, i) => y0 + (i * absStep))
         : Array.from({ length: 7 }, (_, i) => y0 + (i / 6) * (y1 - y0));
 
       for (const val of yTicks) {
         const gy = sy(val);
         grid.push(`<line x1="${m.left}" y1="${gy}" x2="${w - m.right}" y2="${gy}" stroke="rgba(255,255,255,0.14)" />`);
         const yLabel = curveMode.value === 'absolute'
-          ? ((val % 1000 === 0 || val === 5000 || val === 15000) ? `£${Math.round(val).toLocaleString()}` : '')
+          ? ((val % (absStep * 2) === 0 || val === y0 || val === y1) ? `£${Math.round(val).toLocaleString()}` : '')
           : `${val.toFixed(1)}`;
         grid.push(`<text x="${m.left - 8}" y="${gy + 4}" text-anchor="end" fill="rgba(238,248,242,0.85)" font-size="11">${yLabel}</text>`);
       }
@@ -1087,7 +1111,7 @@
         return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText}</span>`;
       }).join('');
 
-      curveNote.textContent = `Showing ${periodKey} curves from modeled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalized mode sets start to index 100 for shape-only comparison.' : 'Absolute mode uses fixed £5,000-£15,000 axis with 500 steps and £1,000 labels.'}`;
+      curveNote.textContent = `Showing ${periodKey} curves from modeled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalized mode sets start to index 100 for shape-only comparison.' : `Absolute mode auto-scales with 5% below low and 5% above high, rounded to ${absStep.toLocaleString()}-point steps.`}`;
     }
 
     async function initCurves() {
