@@ -342,7 +342,7 @@
   <div class="wrap">
     <section class="hero">
       <h1>US100 Strategy Comparison Dashboard</h1>
-      <p>Interactive cross-comparison for v1-v4 across test periods. Filter by period, strategy version, and scenario; sort by any metric; and use chart mode for quick ranking checks.</p>
+      <p>Interactive cross-comparison for v1-v3 across test periods. Filter by period, strategy version, and scenario; sort by any metric; and use chart mode for quick ranking checks.</p>
     </section>
 
     <section class="panel">
@@ -357,6 +357,15 @@
             <option value="absolute">Absolute Capital</option>
             <option value="normalized">Normalized (Start = 100)</option>
           </select>
+          <div class="footnote" style="margin-top:6px;">Normalized mode starts each series at index 100 so you compare curve shape, not account size.</div>
+        </div>
+        <div>
+          <label for="startCapitalInput">Scenario: Starting Capital (£)</label>
+          <input id="startCapitalInput" type="number" min="1000" step="500" value="5000" />
+        </div>
+        <div>
+          <label for="riskMultiplierInput">Scenario: Risk Multiplier (1.00 = baseline)</label>
+          <input id="riskMultiplierInput" type="number" min="0.1" max="3" step="0.05" value="1.00" />
         </div>
       </div>
 
@@ -381,7 +390,6 @@
             <option value="v1">v1</option>
             <option value="v2">v2</option>
             <option value="v3">v3</option>
-            <option value="v4">v4</option>
           </select>
         </div>
         <div>
@@ -477,7 +485,6 @@
       { period:'2023-24', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1220, winRate:43.1, profitFactor:1.308, netReturn:53.61, maxDD:-5.24, expectancy:4.39, finalCapital:15361.37, status:'Completed' },
       { period:'2023-24', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1004, winRate:43.2, profitFactor:1.450, netReturn:41.55, maxDD:-3.79, expectancy:4.14, finalCapital:14155.23, status:'Completed' },
       { period:'2023-24', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-      { period:'2023-24', version:'v4', scenario:'B', strategyLabel:'Alternate implementation', entryTf:'M5', trades:97, winRate:4.1, profitFactor:0.010, netReturn:-40.71, maxDD:-54.29, expectancy:-41.97, finalCapital:4570.65, status:'Poor performance' },
 
       // 2024-25
       { period:'2024-25', version:'v1', scenario:'D', strategyLabel:'H1+H4 Confluence (pre-fix)', entryTf:'M1', trades:289, winRate:34.9, profitFactor:0.798, netReturn:46.38, maxDD:-14.66, expectancy:16.05, finalCapital:14637.65, status:'Completed' },
@@ -485,7 +492,6 @@
       { period:'2024-25', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1197, winRate:40.0, profitFactor:1.289, netReturn:48.07, maxDD:-8.00, expectancy:4.02, finalCapital:14806.94, status:'Completed' },
       { period:'2024-25', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1185, winRate:40.9, profitFactor:1.352, netReturn:39.53, maxDD:-3.24, expectancy:3.34, finalCapital:13952.54, status:'Completed' },
       { period:'2024-25', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-      { period:'2024-25', version:'v4', scenario:'B', strategyLabel:'Alternate implementation', entryTf:'M5', trades:82, winRate:9.8, profitFactor:0.059, netReturn:-30.91, maxDD:-41.20, expectancy:-37.69, finalCapital:5880.24, status:'Poor performance' },
 
       // 2025-26
       { period:'2025-26', version:'v1', scenario:'D', strategyLabel:'H1+H4 Confluence (pre-fix)', entryTf:'M1', trades:230, winRate:22.6, profitFactor:0.420, netReturn:-10.43, maxDD:-21.11, expectancy:-4.53, finalCapital:8957.22, status:'Completed' },
@@ -493,7 +499,6 @@
       { period:'2025-26', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1194, winRate:38.3, profitFactor:1.131, netReturn:20.72, maxDD:-6.26, expectancy:1.74, finalCapital:12072.08, status:'Completed' },
       { period:'2025-26', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1161, winRate:40.1, profitFactor:1.202, netReturn:20.61, maxDD:-3.67, expectancy:1.78, finalCapital:12061.39, status:'Completed' },
       { period:'2025-26', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-      { period:'2025-26', version:'v4', scenario:'B', strategyLabel:'Alternate implementation', entryTf:'M5', trades:127, winRate:11.0, profitFactor:0.037, netReturn:-36.45, maxDD:-46.16, expectancy:-28.70, finalCapital:5384.46, status:'Poor performance' },
     ];
 
     const state = {
@@ -519,8 +524,11 @@
     const recCards = document.getElementById('recCards');
     const recRows = document.getElementById('recRows');
     const recNote = document.getElementById('recNote');
+    const startCapitalInput = document.getElementById('startCapitalInput');
+    const riskMultiplierInput = document.getElementById('riskMultiplierInput');
 
     let curveData = null;
+    const periodOrder = { '2023-24': 1, '2024-25': 2, '2025-26': 3 };
 
     const periods = [...new Set(rows.map(r => r.period))];
     const scenarios = [...new Set(rows.map(r => r.scenario))].sort();
@@ -554,14 +562,89 @@
       return Array.from(periodChecksEl.querySelectorAll('input:checked')).map(i => i.value);
     }
 
+    function getScenarioSettings() {
+      const startCapital = Math.max(1000, Number(startCapitalInput.value || 5000));
+      const riskMultiplier = Math.max(0.1, Number(riskMultiplierInput.value || 1));
+      return { startCapital, riskMultiplier };
+    }
+
+    function getCurveSeries(period, version, scenario) {
+      if (!curveData || !curveData.periods || !curveData.periods[period]) return null;
+      return curveData.periods[period].find(s => s.version === version && s.scenario === scenario) || null;
+    }
+
+    function modelSeries(series, startCapital, riskMultiplier) {
+      const baselineStart = Number(curveData.startCapital || 10000);
+      const points = series.points || [];
+      if (!points.length) {
+        return { points: [], finalCapital: startCapital, returnPct: 0, maxDDPct: 0 };
+      }
+
+      let prevBase = baselineStart;
+      let cap = startCapital;
+      let peak = cap;
+      let minDD = 0;
+      const modeledPoints = [];
+
+      for (const p of points) {
+        const base = Number(p.capital);
+        const baseRet = prevBase !== 0 ? (base / prevBase) - 1 : 0;
+        const scaledRet = baseRet * riskMultiplier;
+        cap = cap * (1 + scaledRet);
+        peak = Math.max(peak, cap);
+        const dd = peak !== 0 ? ((cap - peak) / peak) * 100 : 0;
+        minDD = Math.min(minDD, dd);
+
+        modeledPoints.push({
+          trade: p.trade,
+          date: p.date,
+          capital: cap,
+          baselineCapital: base,
+        });
+        prevBase = base;
+      }
+
+      return {
+        points: modeledPoints,
+        finalCapital: cap,
+        returnPct: ((cap / startCapital) - 1) * 100,
+        maxDDPct: minDD,
+      };
+    }
+
+    function getModeledRows() {
+      const { startCapital, riskMultiplier } = getScenarioSettings();
+
+      return rows
+        .filter(r => r.version !== 'v4')
+        .map(r => {
+          if (r.status !== 'Completed') return { ...r };
+          const series = getCurveSeries(r.period, r.version, r.scenario);
+          if (!series) return { ...r };
+
+          const modeled = modelSeries(series, startCapital, riskMultiplier);
+          const netPnl = modeled.finalCapital - startCapital;
+
+          return {
+            ...r,
+            netReturn: modeled.returnPct,
+            finalCapital: modeled.finalCapital,
+            maxDD: modeled.maxDDPct,
+            expectancy: r.trades ? netPnl / r.trades : r.expectancy,
+            netPnl,
+          };
+        });
+    }
+
     function getFiltered() {
       const pSet = new Set(selectedPeriods());
       const version = versionFilter.value;
       const scenario = scenarioFilter.value;
       const status = statusFilter.value;
       const q = searchInput.value.trim().toLowerCase();
+      const activeRows = getModeledRows();
 
-      return rows.filter(r => {
+      return activeRows.filter(r => {
         if (!pSet.has(r.period)) return false;
         if (version !== 'ALL' && r.version !== version) return false;
         if (scenario !== 'ALL' && r.scenario !== scenario) return false;
@@ -640,8 +723,9 @@
       }
 
       const sorted = [...complete].sort((a, b) => {
-        if (metric === 'maxDD') return b.maxDD - a.maxDD;
-        return b[metric] - a[metric];
+        const p = (periodOrder[a.period] || 99) - (periodOrder[b.period] || 99);
+        if (p !== 0) return p;
+        return `${a.version}-${a.scenario}`.localeCompare(`${b.version}-${b.scenario}`);
       }).slice(0, 10);
 
       const values = sorted.map(r => Math.abs(r[metric]));
@@ -683,7 +767,8 @@
 
     function renderRecommendation() {
       const order = ['2023-24', '2024-25', '2025-26'];
-      const completed = rows.filter(r => r.status === 'Completed');
+      const { startCapital, riskMultiplier } = getScenarioSettings();
+      const completed = getModeledRows().filter(r => r.status === 'Completed');
       const grouped = {};
 
       for (const r of completed) {
@@ -702,10 +787,10 @@
           const avgWin = arrOrd.reduce((s, x) => s + x.winRate, 0) / arrOrd.length;
           const worstDD = Math.min(...arrOrd.map(x => x.maxDD));
 
-          let compounded = 5000;
+          let compounded = startCapital;
           const yearly = arrOrd.map(x => {
-            const endCap = 5000 * (1 + x.netReturn / 100);
-            const endProfit = endCap - 5000;
+            const endCap = startCapital * (1 + x.netReturn / 100);
+            const endProfit = endCap - startCapital;
             compounded *= (1 + x.netReturn / 100);
             return {
               period: x.period,
@@ -713,7 +798,7 @@
               endCap,
               endProfit,
               ddPct: x.maxDD,
-              ddPrice: Math.abs(x.maxDD) / 100 * 5000,
+              ddPrice: Math.abs(x.maxDD) / 100 * startCapital,
               win: x.winRate,
               pf: x.profitFactor,
             };
@@ -727,7 +812,7 @@
             avgWin,
             worstDD,
             compounded,
-            compoundedProfit: compounded - 5000,
+            compoundedProfit: compounded - startCapital,
             yearly,
           };
         })
@@ -759,7 +844,7 @@
         <div class="rec-card">
           <h4>Accumulated Retained Profit</h4>
           <div class="rec-big">£${best.compoundedProfit.toFixed(2)}</div>
-          <div class="rec-sub">£5,000 compounded to £${best.compounded.toFixed(2)}</div>
+          <div class="rec-sub">£${startCapital.toLocaleString()} compounded to £${best.compounded.toFixed(2)}</div>
         </div>
         <div class="rec-card">
           <h4>Risk & Quality</h4>
@@ -782,7 +867,7 @@
         </tr>
       `).join('');
 
-      recNote.textContent = 'Model uses £5,000 start. End-year and drawdown £ values are scaled from backtest percentages; accumulated profit is period-to-period compounded.';
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}. End-year and drawdown £ values are scaled from modeled percentages; accumulated profit is period-to-period compounded.`;
     }
 
     function render() {
@@ -816,14 +901,19 @@
         'v2 D': '#22c55e',
         'v2 B': '#eab308',
         'v2 A': '#a78bfa',
-        'v4 B (alt)': '#ef4444',
       };
       return map[label] || '#f59e0b';
     }
 
     function renderCurve(periodKey) {
       if (!curveData || !curveData.periods || !curveData.periods[periodKey]) return;
-      const seriesList = curveData.periods[periodKey].filter(s => Array.isArray(s.points) && s.points.length);
+      const { startCapital, riskMultiplier } = getScenarioSettings();
+      const sourceSeries = curveData.periods[periodKey]
+        .filter(s => s.version !== 'v4' && Array.isArray(s.points) && s.points.length);
+      const seriesList = sourceSeries.map(s => {
+        const modeled = modelSeries(s, startCapital, riskMultiplier);
+        return { ...s, modeledPoints: modeled.points, finalCapital: modeled.finalCapital };
+      });
       if (!seriesList.length) {
         curveSvg.innerHTML = '';
         curveLegend.innerHTML = '';
@@ -837,12 +927,12 @@
       const pw = w - m.left - m.right;
       const ph = h - m.top - m.bottom;
 
-      const allX = seriesList.flatMap(s => s.points.map(p => new Date(p.date)));
-      const allYRaw = seriesList.flatMap(s => s.points.map(p => (p.capital / curveData.startCapital) * 5000));
+      const allX = seriesList.flatMap(s => s.modeledPoints.map(p => new Date(p.date)));
+      const allYRaw = seriesList.flatMap(s => s.modeledPoints.map(p => p.capital));
       let allY = allYRaw;
 
       if (curveMode.value === 'normalized') {
-        allY = allYRaw.map(v => (v / 5000) * 100);
+        allY = allYRaw.map(v => (v / startCapital) * 100);
       }
 
       const xMin = new Date(Math.min(...allX.map(d => d.getTime())));
@@ -850,7 +940,7 @@
       const yMin = Math.min(...allY);
       const yMax = Math.max(...allY);
       const y0 = curveMode.value === 'absolute' ? 5000 : Math.max(40, yMin - 4);
-      const y1 = curveMode.value === 'absolute' ? 20000 : (yMax + 6);
+      const y1 = curveMode.value === 'absolute' ? 15000 : (yMax + 6);
 
       const xSpan = (xMax.getTime() - xMin.getTime()) || 1;
       const sx = x => m.left + ((x.getTime() - xMin.getTime()) / xSpan) * pw;
@@ -858,13 +948,15 @@
 
       const grid = [];
       const yTicks = curveMode.value === 'absolute'
-        ? [5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000, 20000]
+        ? Array.from({ length: 21 }, (_, i) => 5000 + (i * 500)).filter(v => v <= 15000)
         : Array.from({ length: 7 }, (_, i) => y0 + (i / 6) * (y1 - y0));
 
       for (const val of yTicks) {
         const gy = sy(val);
         grid.push(`<line x1="${m.left}" y1="${gy}" x2="${w - m.right}" y2="${gy}" stroke="rgba(255,255,255,0.14)" />`);
-        const yLabel = curveMode.value === 'absolute' ? `£${Math.round(val).toLocaleString()}` : `${val.toFixed(1)}`;
+        const yLabel = curveMode.value === 'absolute'
+          ? ((val % 1000 === 0 || val === 5000 || val === 15000) ? `£${Math.round(val).toLocaleString()}` : '')
+          : `${val.toFixed(1)}`;
         grid.push(`<text x="${m.left - 8}" y="${gy + 4}" text-anchor="end" fill="rgba(238,248,242,0.85)" font-size="11">${yLabel}</text>`);
       }
 
@@ -894,10 +986,10 @@
       const drawPoints = [];
       const lines = seriesList.map(s => {
         const color = curveColor(s.label);
-        const points = s.points.map(p => {
+        const points = s.modeledPoints.map(p => {
           const dt = new Date(p.date);
-          const capital5k = (p.capital / curveData.startCapital) * 5000;
-          const yVal = curveMode.value === 'normalized' ? (capital5k / 5000) * 100 : capital5k;
+          const capitalVal = p.capital;
+          const yVal = curveMode.value === 'normalized' ? (capitalVal / startCapital) * 100 : capitalVal;
           const px = sx(dt);
           const py = sy(yVal);
           drawPoints.push({
@@ -906,8 +998,8 @@
             label: s.label,
             trade: p.trade,
             date: dt,
-            capital5k,
-            capitalRun: p.capital,
+            capitalModel: capitalVal,
+            capitalRun: p.baselineCapital,
           });
           return `${px.toFixed(2)},${py.toFixed(2)}`;
         }).join(' ');
@@ -923,7 +1015,7 @@
         <line id="crossH" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
         <circle id="crossDot" cx="0" cy="0" r="4" fill="#ffffff" stroke="#0f1720" stroke-width="1.2" style="display:none" />
         <text x="${w / 2}" y="${h - 8}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (Months + Week Segments)</text>
-        <text x="16" y="${h / 2}" transform="rotate(-90 16 ${h / 2})" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">${curveMode.value === 'normalized' ? 'Index (Start = 100)' : 'Capital (£) with £5,000 start model'}</text>
+        <text x="16" y="${h / 2}" transform="rotate(-90 16 ${h / 2})" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">${curveMode.value === 'normalized' ? 'Index (Start = 100)' : `Capital (£) from scenario start £${startCapital.toLocaleString()}`}</text>
       `;
 
       const crossV = document.getElementById('crossV');
@@ -977,7 +1069,7 @@
           <div><strong>${nearest.label}</strong></div>
           <div>Date: ${dateStr}</div>
           <div>Trade #: ${nearest.trade}</div>
-          <div>Capital (£5k model): £${nearest.capital5k.toFixed(2)}</div>
+          <div>Capital (scenario model): £${nearest.capitalModel.toFixed(2)}</div>
           <div>Capital (run basis): £${nearest.capitalRun.toFixed(2)}</div>
         `;
         curveTooltip.style.display = 'block';
@@ -989,13 +1081,13 @@
 
       curveLegend.innerHTML = seriesList.map(s => {
         const finalVal = curveMode.value === 'normalized'
-          ? ((s.finalCapital / curveData.startCapital) * 100).toFixed(1)
-          : ((s.finalCapital / curveData.startCapital) * 5000).toFixed(2);
+          ? ((s.finalCapital / startCapital) * 100).toFixed(1)
+          : s.finalCapital.toFixed(2);
         const finalText = curveMode.value === 'normalized' ? finalVal : `£${finalVal}`;
         return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText}</span>`;
       }).join('');
 
-      curveNote.textContent = `Showing ${periodKey} curves from trade-by-trade outputs. ${curveMode.value === 'normalized' ? 'Normalized mode uses index baseline.' : 'Absolute mode scales each run to a £5,000 start with fixed £5,000-£20,000 axis increments.'}`;
+      curveNote.textContent = `Showing ${periodKey} curves from modeled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalized mode sets start to index 100 for shape-only comparison.' : 'Absolute mode uses fixed £5,000-£15,000 axis with 500 steps and £1,000 labels.'}`;
     }
 
     async function initCurves() {
@@ -1018,6 +1110,14 @@
 
     curveYearSelect.addEventListener('change', () => renderCurve(curveYearSelect.value));
     curveMode.addEventListener('change', () => renderCurve(curveYearSelect.value));
+    startCapitalInput.addEventListener('input', () => {
+      render();
+      renderCurve(curveYearSelect.value);
+    });
+    riskMultiplierInput.addEventListener('input', () => {
+      render();
+      renderCurve(curveYearSelect.value);
+    });
 
     render();
     initCurves();
