@@ -224,7 +224,7 @@
     .curve-toolbar {
       display: grid;
       gap: 10px;
-      grid-template-columns: 1.15fr 1.15fr 1fr 1fr;
+      grid-template-columns: repeat(5, minmax(170px, 1fr));
       align-items: start;
       margin-bottom: 10px;
     }
@@ -392,8 +392,12 @@
           <input id="startCapitalInput" type="number" min="1000" step="500" value="5000" />
         </div>
         <div>
-          <label for="riskMultiplierInput">Scenario: Risk Multiplier (1.00 = baseline)</label>
+          <label for="riskMultiplierInput">Scenario: Risk Multiplier</label>
           <input id="riskMultiplierInput" type="number" min="0.1" max="3" step="0.05" value="1.00" />
+        </div>
+        <div>
+          <label for="withdrawalPctInput">Monthly Withdrawal %</label>
+          <input id="withdrawalPctInput" type="number" min="0" max="100" step="1" value="0" />
         </div>
       </div>
 
@@ -450,6 +454,7 @@
         </div>
       </div>
 
+      <h3 style="margin:12px 0 10px; font-size:1rem; color:#23402d;">Strategy Results</h3>
       <div class="cards" id="cards"></div>
 
       <div class="bars" id="bars"></div>
@@ -481,7 +486,7 @@
     </section>
 
     <section class="panel">
-      <h3 style="margin:0 0 10px; font-size:1rem; color:#23402d;">Recommended Strategy (Modelled at £5,000 Start)</h3>
+      <h3 id="recHeading" style="margin:0 0 10px; font-size:1rem; color:#23402d;">Recommended Strategy (Modelled at £5,000 Start)</h3>
       <div class="recommend-grid" id="recCards"></div>
       <div class="rec-table">
         <table>
@@ -552,8 +557,10 @@
     const recCards = document.getElementById('recCards');
     const recRows = document.getElementById('recRows');
     const recNote = document.getElementById('recNote');
+    const recHeading = document.getElementById('recHeading');
     const startCapitalInput = document.getElementById('startCapitalInput');
     const riskMultiplierInput = document.getElementById('riskMultiplierInput');
+    const withdrawalPctInput = document.getElementById('withdrawalPctInput');
 
     let curveData = null;
     const periodOrder = { '2023-24': 1, '2024-25': 2, '2025-26': 3 };
@@ -593,7 +600,8 @@
     function getScenarioSettings() {
       const startCapital = Math.max(1000, Number(startCapitalInput.value || 5000));
       const riskMultiplier = Math.max(0.1, Number(riskMultiplierInput.value || 1));
-      return { startCapital, riskMultiplier };
+      const withdrawalPct = Math.min(100, Math.max(0, Number(withdrawalPctInput.value || 0)));
+      return { startCapital, riskMultiplier, withdrawalPct };
     }
 
     function getCurveSeries(period, version, scenario) {
@@ -601,20 +609,43 @@
       return curveData.periods[period].find(s => s.version === version && s.scenario === scenario) || null;
     }
 
-    function modelSeries(series, startCapital, riskMultiplier) {
+    function modelSeries(series, startCapital, riskMultiplier, withdrawalPct) {
       const baselineStart = Number(curveData.startCapital || 10000);
       const points = series.points || [];
       if (!points.length) {
-        return { points: [], finalCapital: startCapital, returnPct: 0, maxDDPct: 0 };
+        return { points: [], finalCapital: startCapital, returnPct: 0, maxDDPct: 0, withdrawnTotal: 0 };
       }
 
       let prevBase = baselineStart;
       let cap = startCapital;
       let peak = cap;
       let minDD = 0;
+      let withdrawnTotal = 0;
+      let currentMonth = null;
+      let monthStartCap = cap;
       const modeledPoints = [];
 
+      function applyMonthWithdrawal() {
+        if (withdrawalPct <= 0) return;
+        const monthProfit = Math.max(0, cap - monthStartCap);
+        if (monthProfit <= 0) return;
+        const withdrawn = monthProfit * (withdrawalPct / 100);
+        cap -= withdrawn;
+        withdrawnTotal += withdrawn;
+      }
+
       for (const p of points) {
+        const dt = new Date(p.date);
+        const monthKey = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
+        if (currentMonth === null) {
+          currentMonth = monthKey;
+          monthStartCap = cap;
+        } else if (monthKey !== currentMonth) {
+          applyMonthWithdrawal();
+          currentMonth = monthKey;
+          monthStartCap = cap;
+        }
+
         const base = Number(p.capital);
         const baseRet = prevBase !== 0 ? (base / prevBase) - 1 : 0;
         const scaledRet = baseRet * riskMultiplier;
@@ -628,20 +659,25 @@
           date: p.date,
           capital: cap,
           baselineCapital: base,
+          withdrawnTotal,
         });
         prevBase = base;
       }
+
+      // Apply final month-end withdrawal.
+      applyMonthWithdrawal();
 
       return {
         points: modeledPoints,
         finalCapital: cap,
         returnPct: ((cap / startCapital) - 1) * 100,
         maxDDPct: minDD,
+        withdrawnTotal,
       };
     }
 
     function getModeledRows() {
-      const { startCapital, riskMultiplier } = getScenarioSettings();
+      const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
 
       return rows
         .filter(r => r.version !== 'v4')
@@ -650,7 +686,7 @@
           const series = getCurveSeries(r.period, r.version, r.scenario);
           if (!series) return { ...r };
 
-          const modeled = modelSeries(series, startCapital, riskMultiplier);
+          const modeled = modelSeries(series, startCapital, riskMultiplier, withdrawalPct);
           const netPnl = modeled.finalCapital - startCapital;
 
           return {
@@ -660,6 +696,7 @@
             maxDD: modeled.maxDDPct,
             expectancy: r.trades ? netPnl / r.trades : r.expectancy,
             netPnl,
+            withdrawnTotal: modeled.withdrawnTotal,
           };
         });
     }
@@ -732,7 +769,7 @@
         <div class="metric-card">
           <h3>Best Drawdown Control</h3>
           <div class="value">${fmt(bestDD.maxDD)}%</div>
-          <div class="meta">Higher is better (less negative): ${bestDD.period} | ${bestDD.version}-${bestDD.scenario}</div>
+          <div class="meta">${bestDD.period} | ${bestDD.version}-${bestDD.scenario}</div>
         </div>
         <div class="metric-card">
           <h3>Worst Return</h3>
@@ -795,7 +832,7 @@
 
     function renderRecommendation() {
       const order = ['2023-24', '2024-25', '2025-26'];
-      const { startCapital, riskMultiplier } = getScenarioSettings();
+      const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
       const completed = getModeledRows().filter(r => r.status === 'Completed');
       const grouped = {};
 
@@ -858,6 +895,7 @@
       }
 
       const best = candidates[0];
+      recHeading.textContent = `Recommended Strategy (Modelled at £${startCapital.toLocaleString()} Start)`;
       recCards.innerHTML = `
         <div class="rec-card">
           <h4>Recommended Strategy</h4>
@@ -895,7 +933,10 @@
         </tr>
       `).join('');
 
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded.`;
+      const withdrawalText = withdrawalPct > 0
+        ? `monthly withdrawal ${withdrawalPct.toFixed(0)}% of each month's positive profit`
+        : 'no monthly withdrawals (full compounding)';
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded.`;
     }
 
     function render() {
@@ -925,22 +966,22 @@
 
     function curveColor(label) {
       const map = {
-        'v1 D (pre-fix)': '#38bdf8',
-        'v2 D': '#22c55e',
-        'v2 B': '#eab308',
-        'v2 A': '#a78bfa',
+        'v1 D (pre-fix)': '#0072B2',
+        'v2 D': '#009E73',
+        'v2 B': '#D55E00',
+        'v2 A': '#CC79A7',
       };
-      return map[label] || '#f59e0b';
+      return map[label] || '#FFFFFF';
     }
 
     function renderCurve(periodKey) {
       if (!curveData || !curveData.periods || !curveData.periods[periodKey]) return;
-      const { startCapital, riskMultiplier } = getScenarioSettings();
+      const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
       const sourceSeries = curveData.periods[periodKey]
         .filter(s => s.version !== 'v4' && Array.isArray(s.points) && s.points.length);
       const seriesList = sourceSeries.map(s => {
-        const modeled = modelSeries(s, startCapital, riskMultiplier);
-        return { ...s, modeledPoints: modeled.points, finalCapital: modeled.finalCapital };
+        const modeled = modelSeries(s, startCapital, riskMultiplier, withdrawalPct);
+        return { ...s, modeledPoints: modeled.points, finalCapital: modeled.finalCapital, withdrawnTotal: modeled.withdrawnTotal };
       });
       if (!seriesList.length) {
         curveSvg.innerHTML = '';
@@ -1166,10 +1207,10 @@
           ? ((s.finalCapital / startCapital) * 100).toFixed(1)
           : s.finalCapital.toFixed(2);
         const finalText = curveMode.value === 'normalized' ? finalVal : `£${finalVal}`;
-        return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText}</span>`;
+        return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText} | withdrawn £${(s.withdrawnTotal || 0).toFixed(0)}</span>`;
       }).join('');
 
-      curveNote.textContent = `Showing ${periodKey} curves from modelled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalised mode sets start to index 100 for shape-only comparison.' : `Absolute mode auto-scales with 5% below low and 5% above high, rounded to ${absStep.toLocaleString()}-point steps.`}`;
+      curveNote.textContent = `Showing year ${periodKey} with £${startCapital.toLocaleString()} starting capital, risk at x${riskMultiplier.toFixed(2)}, and monthly withdrawal at ${withdrawalPct.toFixed(0)}% of each month's positive profit.`;
     }
 
     async function initCurves() {
@@ -1197,6 +1238,10 @@
       renderCurve(curveYearSelect.value);
     });
     riskMultiplierInput.addEventListener('input', () => {
+      render();
+      renderCurve(curveYearSelect.value);
+    });
+    withdrawalPctInput.addEventListener('input', () => {
       render();
       renderCurve(curveYearSelect.value);
     });
