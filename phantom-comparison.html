@@ -75,11 +75,12 @@
       font-weight: 600;
     }
 
-    select, input[type="text"] {
+    select, input[type="text"], input[type="number"] {
       width: 100%;
-      padding: 9px 10px;
+      height: 38px;
+      padding: 8px 10px;
       border: 1px solid #c9d3ca;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #fcfdfb;
       color: var(--ink);
     }
@@ -223,9 +224,36 @@
     .curve-toolbar {
       display: grid;
       gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      align-items: end;
+      grid-template-columns: 1.15fr 1.15fr 1fr 1fr;
+      align-items: start;
       margin-bottom: 10px;
+    }
+
+    .curve-toolbar > div {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .curve-toolbar label {
+      white-space: nowrap;
+      min-height: 20px;
+    }
+
+    @media (max-width: 1080px) {
+      .curve-toolbar {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .curve-toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .curve-toolbar label {
+        white-space: normal;
+      }
     }
 
     .curve-box {
@@ -238,7 +266,7 @@
 
     #curveSvg {
       width: 100%;
-      height: 360px;
+      height: 420px;
       display: block;
       background: linear-gradient(180deg, #0f1720, #182430);
       border-radius: 8px;
@@ -278,16 +306,17 @@
     .curve-tooltip {
       position: absolute;
       pointer-events: none;
-      background: rgba(18, 27, 36, 0.95);
+      background: rgba(18, 27, 36, 0.62);
       color: #e9f4ee;
-      border: 1px solid rgba(156, 212, 189, 0.35);
+      border: 1px solid rgba(156, 212, 189, 0.22);
       border-radius: 8px;
-      padding: 8px 10px;
+      padding: 7px 9px;
       font-size: 0.77rem;
       line-height: 1.35;
       display: none;
-      min-width: 190px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      min-width: 150px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+      backdrop-filter: blur(1.5px);
       z-index: 5;
     }
 
@@ -355,9 +384,8 @@
           <label for="curveMode">Curve Scale</label>
           <select id="curveMode">
             <option value="absolute">Absolute Capital</option>
-            <option value="normalized">Normalized (Start = 100)</option>
+            <option value="normalized">Normalised (Start = 100)</option>
           </select>
-          <div class="footnote" style="margin-top:6px;">Normalized mode starts each series at index 100 so you compare curve shape, not account size.</div>
         </div>
         <div>
           <label for="startCapitalInput">Scenario: Starting Capital (£)</label>
@@ -370,7 +398,7 @@
       </div>
 
       <div class="curve-box">
-        <svg id="curveSvg" viewBox="0 0 1100 390" preserveAspectRatio="none"></svg>
+        <svg id="curveSvg" viewBox="0 0 1400 430" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="curve-tooltip" id="curveTooltip"></div>
         <div class="curve-legend" id="curveLegend"></div>
         <div class="curve-note" id="curveNote">Loading capital curve data...</div>
@@ -867,7 +895,7 @@
         </tr>
       `).join('');
 
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}. End-year and drawdown £ values are scaled from modeled percentages; accumulated profit is period-to-period compounded.`;
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded.`;
     }
 
     function render() {
@@ -921,9 +949,9 @@
         return;
       }
 
-      const w = 1100;
-      const h = 390;
-      const m = { top: 18, right: 20, bottom: 34, left: 64 };
+      const w = 1400;
+      const h = 430;
+      const m = { top: 18, right: 22, bottom: 62, left: 72 };
       const pw = w - m.left - m.right;
       const ph = h - m.top - m.bottom;
 
@@ -990,7 +1018,7 @@
         const mx = sx(cur);
         const monthName = cur.toLocaleString('en-GB', { month: 'short' });
         grid.push(`<line x1="${mx}" y1="${m.top}" x2="${mx}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.10)" />`);
-        monthLabels.push(`<text x="${mx + 3}" y="${h - 18}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
+          monthLabels.push(`<text x="${mx + 3}" y="${h - 34}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
 
         const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
         const span = next.getTime() - cur.getTime();
@@ -999,7 +1027,7 @@
           if (wk > xMax) continue;
           const wx = sx(wk);
           grid.push(`<line x1="${wx}" y1="${h - m.bottom}" x2="${wx}" y2="${h - m.bottom + 6}" stroke="rgba(255,255,255,0.35)" />`);
-          monthLabels.push(`<text x="${wx - 6}" y="${h - 6}" fill="rgba(196,216,203,0.85)" font-size="9">w${wi}</text>`);
+          monthLabels.push(`<text x="${wx - 6}" y="${h - 18}" fill="rgba(196,216,203,0.85)" font-size="9">w${wi}</text>`);
         }
         cur = next;
       }
@@ -1038,7 +1066,7 @@
         <line id="crossV" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
         <line id="crossH" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
         <circle id="crossDot" cx="0" cy="0" r="4" fill="#ffffff" stroke="#0f1720" stroke-width="1.2" style="display:none" />
-        <text x="${w / 2}" y="${h - 8}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (Months + Week Segments)</text>
+        <text x="${w / 2}" y="${h - 4}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (months + week segments)</text>
         <text x="16" y="${h / 2}" transform="rotate(-90 16 ${h / 2})" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">${curveMode.value === 'normalized' ? 'Index (Start = 100)' : `Capital (£) from scenario start £${startCapital.toLocaleString()}`}</text>
       `;
 
@@ -1046,6 +1074,7 @@
       const crossH = document.getElementById('crossH');
       const crossDot = document.getElementById('crossDot');
       const svgRect = curveSvg.getBoundingClientRect();
+      let activeHoverLabel = null;
 
       function hideCrosshair() {
         crossV.style.display = 'none';
@@ -1057,20 +1086,51 @@
       curveSvg.onmouseleave = hideCrosshair;
       curveSvg.onmousemove = ev => {
         if (!drawPoints.length) return;
-        const rect = curveSvg.getBoundingClientRect();
-        const mx = ((ev.clientX - rect.left) / rect.width) * w;
-        const my = ((ev.clientY - rect.top) / rect.height) * h;
+        const pt = curveSvg.createSVGPoint();
+        pt.x = ev.clientX;
+        pt.y = ev.clientY;
+        const local = pt.matrixTransform(curveSvg.getScreenCTM().inverse());
+        const mx = Math.min(w - m.right, Math.max(m.left, local.x));
+        const my = Math.min(h - m.bottom, Math.max(m.top, local.y));
 
-        let nearest = drawPoints[0];
-        let best = Number.POSITIVE_INFINITY;
-        for (const p of drawPoints) {
-          const dx = p.px - mx;
-          const dy = p.py - my;
-          const d = dx * dx + dy * dy;
-          if (d < best) {
-            best = d;
-            nearest = p;
+        function findNearest(points) {
+          let nearestPoint = points[0];
+          let bestScore = Number.POSITIVE_INFINITY;
+          for (const p of points) {
+            const dx = Math.abs(p.px - mx);
+            const dy = Math.abs(p.py - my);
+            const score = dy + (dx * 0.22);
+            if (score < bestScore) {
+              bestScore = score;
+              nearestPoint = p;
+            }
           }
+          return nearestPoint;
+        }
+
+        const globalNearest = findNearest(drawPoints);
+        let nearest = globalNearest;
+
+        if (activeHoverLabel) {
+          const activePoints = drawPoints.filter(p => p.label === activeHoverLabel);
+          if (activePoints.length) {
+            const activeNearest = findNearest(activePoints);
+            const activeDy = Math.abs(activeNearest.py - my);
+            const globalDy = Math.abs(globalNearest.py - my);
+
+            // Keep the current line unless another is clearly closer.
+            if (globalNearest.label !== activeHoverLabel && globalDy + 5 < activeDy) {
+              nearest = globalNearest;
+              activeHoverLabel = globalNearest.label;
+            } else {
+              nearest = activeNearest;
+            }
+          } else {
+            activeHoverLabel = globalNearest.label;
+            nearest = globalNearest;
+          }
+        } else {
+          activeHoverLabel = globalNearest.label;
         }
 
         crossV.setAttribute('x1', nearest.px);
@@ -1088,18 +1148,16 @@
         crossH.style.display = 'block';
         crossDot.style.display = 'block';
 
-        const dateStr = nearest.date.toLocaleString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
+        const dateStr = nearest.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
         curveTooltip.innerHTML = `
           <div><strong>${nearest.label}</strong></div>
-          <div>Date: ${dateStr}</div>
-          <div>Trade #: ${nearest.trade}</div>
-          <div>Capital (scenario model): £${nearest.capitalModel.toFixed(2)}</div>
-          <div>Capital (run basis): £${nearest.capitalRun.toFixed(2)}</div>
+          <div>${dateStr}</div>
+          <div>£${nearest.capitalModel.toFixed(2)}</div>
         `;
         curveTooltip.style.display = 'block';
         const tx = ev.clientX - svgRect.left + 14;
         const ty = ev.clientY - svgRect.top - 14;
-        curveTooltip.style.left = `${Math.min(tx, svgRect.width - 215)}px`;
+        curveTooltip.style.left = `${Math.min(tx, svgRect.width - 170)}px`;
         curveTooltip.style.top = `${Math.max(ty, 8)}px`;
       };
 
@@ -1111,7 +1169,7 @@
         return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText}</span>`;
       }).join('');
 
-      curveNote.textContent = `Showing ${periodKey} curves from modeled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalized mode sets start to index 100 for shape-only comparison.' : `Absolute mode auto-scales with 5% below low and 5% above high, rounded to ${absStep.toLocaleString()}-point steps.`}`;
+      curveNote.textContent = `Showing ${periodKey} curves from modelled scenario settings (start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}). ${curveMode.value === 'normalized' ? 'Normalised mode sets start to index 100 for shape-only comparison.' : `Absolute mode auto-scales with 5% below low and 5% above high, rounded to ${absStep.toLocaleString()}-point steps.`}`;
     }
 
     async function initCurves() {
