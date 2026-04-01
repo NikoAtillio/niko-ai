@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strategy Lab</title>
+  <style>
+    :root {
+      --bg: #eef2ef;
+      --panel: #ffffff;
+      --ink: #172018;
+      --muted: #5b675f;
+      --line: #d6ded8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+      --soft: #f6faf7;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef2ef 55%, #e7ece8 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 12px 16px 42px;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 22px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 58%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 1.82rem;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      max-width: 980px;
+      line-height: 1.5;
+      opacity: 0.94;
+    }
+
+    .page-nav {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.92));
+      box-shadow: 0 8px 20px rgba(10, 34, 17, 0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 360px);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .page-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .page-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2f855a, #0b7285);
+      box-shadow: 0 0 0 5px rgba(47, 133, 90, 0.18);
+      flex: 0 0 auto;
+    }
+
+    .page-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #143329;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #5b675f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-control {
+      justify-self: end;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .page-nav label {
+      margin: 0 0 5px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .page-nav select,
+    select,
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdfb;
+      color: var(--ink);
+      padding: 8px 10px;
+      font: inherit;
+    }
+
+    .page-nav select {
+      height: 40px;
+      background: #ffffff;
+      font-weight: 600;
+    }
+
+    .panel {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #23402d;
+    }
+
+    .label {
+      display: block;
+      font-size: 0.79rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .strategy-text {
+      min-height: 118px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .btn:hover { filter: brightness(0.98); }
+
+    .rec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdf9;
+      padding: 12px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .card .value {
+      margin-top: 6px;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .card .meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    .tf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .tf-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .tf-card header {
+      padding: 10px 12px;
+      background: #edf3ee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tf-card header strong { color: #23402d; }
+
+    .tf-card .body {
+      padding: 12px;
+    }
+
+    .zone-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid #edf1ec;
+      font-size: 0.86rem;
+    }
+
+    .zone-row:last-child { border-bottom: 0; }
+
+    .pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.73rem;
+      background: #eef6f3;
+      color: #295241;
+      border: 1px solid #cfe6db;
+      white-space: nowrap;
+    }
+
+    .chart-sample {
+      height: 120px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background:
+        linear-gradient(to right, rgba(15, 23, 32, 0.12) 1px, transparent 1px) 0 0 / 20% 100%,
+        linear-gradient(to top, rgba(15, 23, 32, 0.12) 1px, transparent 1px) 0 0 / 100% 20%,
+        linear-gradient(135deg, rgba(11, 114, 133, 0.18), rgba(47, 133, 90, 0.18));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-sample::before,
+    .chart-sample::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .chart-sample::before {
+      background: linear-gradient(115deg, transparent 0 20%, rgba(255,255,255,0.55) 20% 22%, transparent 22% 36%, rgba(255,255,255,0.55) 36% 38%, transparent 38% 100%);
+      opacity: 0.55;
+    }
+
+    .chart-sample::after {
+      background: radial-gradient(circle at 30% 75%, rgba(47,133,90,0.35), transparent 12%),
+                  radial-gradient(circle at 62% 40%, rgba(11,114,133,0.35), transparent 12%),
+                  radial-gradient(circle at 82% 60%, rgba(211,94,0,0.28), transparent 12%);
+      mix-blend-mode: multiply;
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #cfe6db;
+      background: #f3faf6;
+      color: #295241;
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .muted-box {
+      border: 1px dashed #cfd9d3;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfefb;
+    }
+
+    @media (max-width: 980px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .page-nav { grid-template-columns: 1fr; }
+
+      .page-nav-control {
+        justify-self: stretch;
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="page-nav" aria-label="Primary site navigation">
+      <div class="page-nav-brand">
+        <span class="page-nav-dot" aria-hidden="true"></span>
+        <div>
+          <div class="page-nav-title">Niko AI Lab</div>
+          <div class="page-nav-subtitle">Strategy Design Workspace</div>
+        </div>
+      </div>
+      <div class="page-nav-control">
+        <label for="pageSelect">Navigate</label>
+        <select id="pageSelect" onchange="window.location.assign(this.value)">
+          <option value="index.html">Strategy Research Terminal</option>
+          <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
+          <option value="strategy-lab.html" selected>Strategy Lab</option>
+          <option value="admin.html">Admin Panel</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="hero">
+      <h1>Strategy Lab</h1>
+      <p>Translate strategy theory into deterministic rules, preview recognition across multiple timeframes, confirm the parameters, then pass the strategy to the backtest engine.</p>
+    </section>
+
+    <section class="panel">
+      <div class="grid-2">
+        <div>
+          <h2 class="section-title">Strategy Theory Input</h2>
+          <label class="label" for="strategyText">Describe the strategy in plain English</label>
+          <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
+          <div class="btn-row">
+            <button class="btn primary" id="recogniseBtn" type="button">Recognise Strategy</button>
+            <button class="btn" id="resetBtn" type="button">Reset Example</button>
+          </div>
+        </div>
+        <div>
+          <h2 class="section-title">Recognition Status</h2>
+          <div class="muted-box">
+            <div class="status" id="statusPill">Ready for recognition</div>
+            <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
+          </div>
+          <div style="margin-top:12px;" class="muted-box">
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
+            <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Strategy Recognition Preview</h2>
+      <div class="rec-grid" id="summaryCards"></div>
+    </section>
+
+    <section class="panel">
+      <div class="grid-2">
+        <div>
+          <h2 class="section-title">Suggested Parameters</h2>
+          <div class="grid-3">
+            <div>
+              <label class="label" for="marketSelect">Market</label>
+              <select id="marketSelect">
+                <option>BTCUSD</option>
+                <option>XAUUSD</option>
+                <option>US100</option>
+                <option>EURUSD</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="primaryTf">Primary TF</label>
+              <select id="primaryTf">
+                <option>H4</option>
+                <option>H1</option>
+                <option>M15</option>
+                <option>M5</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="riskInput">Risk per trade (%)</label>
+              <input id="riskInput" type="number" step="0.05" value="0.50" />
+            </div>
+            <div>
+              <label class="label" for="zoneWidth">Zone width (%)</label>
+              <input id="zoneWidth" type="number" step="0.01" value="0.18" />
+            </div>
+            <div>
+              <label class="label" for="touchCount">Min touches</label>
+              <input id="touchCount" type="number" step="1" value="2" />
+            </div>
+            <div>
+              <label class="label" for="confirmationRule">Confirmation</label>
+              <select id="confirmationRule">
+                <option>Rejection candle</option>
+                <option>Break and retest</option>
+                <option>Momentum close</option>
+                <option>Volume spike</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn primary" id="confirmBtn" type="button">Confirm Parameters</button>
+            <button class="btn" id="runBtn" type="button">Send to Backtest</button>
+          </div>
+        </div>
+        <div>
+          <h2 class="section-title">Confirmation Prompt</h2>
+          <div class="muted-box">
+            <div class="small-note" id="confirmationText">Once recognised, the system will ask you to confirm that the suggested support/resistance parameters match your intent.</div>
+          </div>
+          <div style="margin-top:12px;" class="muted-box">
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Execution note</strong>
+            <div class="small-note">The backtest engine remains deterministic. The lab only translates and validates the strategy, then passes a structured configuration to execution.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Multi-timeframe Support / Resistance Example</h2>
+      <p class="small-note">This preview shows how the same detected structure can be explained on multiple timeframes before the strategy is executed.</p>
+      <div class="tf-grid">
+        <div class="tf-card">
+          <header>
+            <strong>H4 Recognition</strong>
+            <span class="pill">Higher timeframe</span>
+          </header>
+          <div class="body">
+            <div class="chart-sample"></div>
+            <div class="zone-row"><span>Support zone at 2238 - 2244</span><span class="pill">2 touches</span></div>
+            <div class="zone-row"><span>Resistance zone at 2271 - 2276</span><span class="pill">3 touches</span></div>
+            <div class="small-note">Use H4 to define the bias and the structural zone map.</div>
+          </div>
+        </div>
+        <div class="tf-card">
+          <header>
+            <strong>H1 Recognition</strong>
+            <span class="pill">Structure filter</span>
+          </header>
+          <div class="body">
+            <div class="chart-sample"></div>
+            <div class="zone-row"><span>Support retest with wick rejection</span><span class="pill">Confirmed</span></div>
+            <div class="zone-row"><span>Breakout invalidation rule</span><span class="pill">Below zone low</span></div>
+            <div class="small-note">Use H1 to confirm zone validity and rule alignment.</div>
+          </div>
+        </div>
+        <div class="tf-card">
+          <header>
+            <strong>M15 / M5 Entry</strong>
+            <span class="pill">Execution trigger</span>
+          </header>
+          <div class="body">
+            <div class="chart-sample"></div>
+            <div class="zone-row"><span>Entry trigger</span><span class="pill">Rejection close</span></div>
+            <div class="zone-row"><span>Stop loss</span><span class="pill">Beyond zone</span></div>
+            <div class="small-note">Use lower timeframes for precise entry timing and risk placement.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Structured Strategy Schema</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Recognised Strategy</h3>
+          <div class="value">Support / Resistance Mean Reversion</div>
+          <div class="meta">This is a structured preview of how the lab interprets the strategy theory before execution.</div>
+        </div>
+        <div class="card">
+          <h3>Backtest Payload</h3>
+          <div class="meta mono" id="schemaPreview" style="white-space: pre-wrap;">{
+  "name": "Support / Resistance Mean Reversion",
+  "market": "BTCUSD",
+  "timeframes": ["H4", "H1", "M15"],
+  "rules": { ... }
+}</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const pageSelect = document.getElementById('pageSelect');
+    const strategyText = document.getElementById('strategyText');
+    const recogniseBtn = document.getElementById('recogniseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const runBtn = document.getElementById('runBtn');
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const confirmationText = document.getElementById('confirmationText');
+    const summaryCards = document.getElementById('summaryCards');
+    const schemaPreview = document.getElementById('schemaPreview');
+    const marketSelect = document.getElementById('marketSelect');
+    const primaryTf = document.getElementById('primaryTf');
+    const riskInput = document.getElementById('riskInput');
+    const zoneWidth = document.getElementById('zoneWidth');
+    const touchCount = document.getElementById('touchCount');
+    const confirmationRule = document.getElementById('confirmationRule');
+
+    const exampleText = `Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.`;
+
+    function setStatus(title, text) {
+      statusPill.textContent = title;
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderPreview() {
+      const market = marketSelect.value;
+      const tf = primaryTf.value;
+      const risk = Number(riskInput.value || 0.5);
+      const width = Number(zoneWidth.value || 0.18);
+      const touches = Number(touchCount.value || 2);
+      const conf = confirmationRule.value;
+
+      const cards = [
+        { title: 'Detected Strategy Type', value: 'Support / Resistance', meta: 'The lab interprets the strategy as a zone-based structure model.' },
+        { title: 'Timeframe Hierarchy', value: 'H4 -> H1 -> M15', meta: 'Higher timeframe defines zones; lower timeframe confirms entry.' },
+        { title: 'Suggested Zone Width', value: `${width.toFixed(2)}%`, meta: 'Applied as the tolerance band around detected levels.' },
+        { title: 'Suggested Risk', value: `${risk.toFixed(2)}%`, meta: 'Proposed position sizing per trade.' },
+        { title: 'Required Touches', value: `${touches}`, meta: 'Minimum number of touches needed before a zone is considered valid.' },
+        { title: 'Confirmation Rule', value: conf, meta: 'Entry will only trigger once this confirmation is seen.' },
+      ];
+
+      summaryCards.innerHTML = cards.map(card => `
+        <div class="card">
+          <h3>${escapeHtml(card.title)}</h3>
+          <div class="value">${escapeHtml(card.value)}</div>
+          <div class="meta">${escapeHtml(card.meta)}</div>
+        </div>
+      `).join('');
+
+      schemaPreview.textContent = JSON.stringify({
+        name: 'Support / Resistance Mean Reversion',
+        market,
+        primaryTimeframe: tf,
+        rules: {
+          zoneWidthPct: width,
+          minTouches: touches,
+          confirmation: conf,
+          riskPerTradePct: risk,
+          entryBias: 'buy support / sell resistance',
+          invalidation: 'close beyond zone boundary',
+        },
+      }, null, 2);
+
+      confirmationText.textContent = `We detected a support/resistance strategy on ${market} using ${tf} as the primary execution timeframe. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
+    }
+
+    function recogniseStrategy() {
+      const text = strategyText.value.toLowerCase();
+      const market = marketSelect.value;
+      if (text.includes('support') && text.includes('resistance')) {
+        setStatus('Strategy recognised', `Recognised a support/resistance framework for ${market}. The lab will propose zone rules, confirmation rules, and execution timing.`);
+      } else {
+        setStatus('Strategy recognised', 'The strategy has been translated into structured rules for review.');
+      }
+      renderPreview();
+    }
+
+    recogniseBtn.addEventListener('click', recogniseStrategy);
+    resetBtn.addEventListener('click', () => {
+      strategyText.value = exampleText;
+      marketSelect.value = 'BTCUSD';
+      primaryTf.value = 'H4';
+      riskInput.value = '0.50';
+      zoneWidth.value = '0.18';
+      touchCount.value = '2';
+      confirmationRule.value = 'Rejection candle';
+      setStatus('Ready for recognition', 'The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.' );
+      renderPreview();
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      setStatus('Parameters confirmed', 'The detected strategy parameters have been approved by the user and are ready for deterministic backtesting.');
+    });
+
+    runBtn.addEventListener('click', () => {
+      setStatus('Backtest queued', 'This prototype page is now ready to hand the structured strategy payload to the backend backtest engine.');
+    });
+
+    [marketSelect, primaryTf, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
+      el.addEventListener('input', renderPreview);
+      el.addEventListener('change', renderPreview);
+    });
+
+    pageSelect.addEventListener('change', () => {
+      window.location.href = pageSelect.value;
+    });
+
+    strategyText.value = exampleText;
+    renderPreview();
+  </script>
+</body>
+</html>

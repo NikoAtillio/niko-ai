@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strategy Admin Panel</title>
+  <style>
+    :root {
+      --bg: #eef3ef;
+      --panel: #ffffff;
+      --ink: #132018;
+      --muted: #5f6d64;
+      --line: #d5ddd8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+      --warn: #b45309;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef3ef 55%, #e6ece7 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 12px 16px 48px;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 22px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 60%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      max-width: 900px;
+      line-height: 1.5;
+      opacity: 0.94;
+    }
+
+    .page-nav {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.92));
+      box-shadow: 0 8px 20px rgba(10, 34, 17, 0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 360px);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .page-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .page-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2f855a, #0b7285);
+      box-shadow: 0 0 0 5px rgba(47, 133, 90, 0.18);
+      flex: 0 0 auto;
+    }
+
+    .page-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #143329;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #5f6d64;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-control {
+      justify-self: end;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .page-nav label {
+      margin: 0 0 5px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .page-nav select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      color: #172018;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 760px) {
+      .page-nav {
+        grid-template-columns: 1fr;
+      }
+
+      .page-nav-control {
+        justify-self: stretch;
+        max-width: none;
+      }
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+      align-items: center;
+    }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.10);
+      color: #eef8f2;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(4px);
+    }
+
+    .btn.secondary {
+      background: #f8fbf7;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .card .value {
+      margin-top: 6px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .card .meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .section {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+    }
+
+    .section h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      color: #23402d;
+    }
+
+    .section p.note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 0 0 12px;
+      align-items: end;
+    }
+
+    .filters label {
+      display: block;
+      font-size: 0.77rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .filters input,
+    .filters select {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 9px;
+      background: #fbfdf9;
+      color: var(--ink);
+      font-size: 0.86rem;
+    }
+
+    .filters .btn {
+      height: 36px;
+      justify-content: center;
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--ink);
+      border-radius: 10px;
+      backdrop-filter: none;
+    }
+
+    .filter-meta {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1050px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #edf1ec;
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #edf3ee;
+      color: #304236;
+      z-index: 1;
+    }
+
+    tbody tr:hover { background: #f7fbf5; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.74rem;
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--muted);
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .split { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      th, td { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="page-nav" aria-label="Primary site navigation">
+      <div class="page-nav-brand">
+        <span class="page-nav-dot" aria-hidden="true"></span>
+        <div>
+          <div class="page-nav-title">Niko AI Lab</div>
+          <div class="page-nav-subtitle">Admin & Run Operations</div>
+        </div>
+      </div>
+      <div class="page-nav-control">
+        <label for="pageSelect">Navigate</label>
+        <select id="pageSelect" onchange="window.location.assign(this.value)">
+          <option value="index.html">Strategy Research Terminal</option>
+          <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
+          <option value="strategy-lab.html">Strategy Lab</option>
+          <option value="admin.html" selected>Admin Panel</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="hero">
+      <h1>Strategy Admin Panel</h1>
+      <p>Browse saved strategy runs, inspect imported data and artifacts, and export run history as CSV or JSON. This panel reads from the backend history store, so it reflects what has actually been processed through the site.</p>
+      <div class="toolbar">
+        <a class="btn" href="/platform/admin/export/runs.csv">Download Runs CSV</a>
+        <a class="btn" href="/platform/admin/export/runs.json">Download Runs JSON</a>
+        <a class="btn secondary" href="/phantom-comparison.html">Open Comparison Dashboard</a>
+        <button class="btn secondary" id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </section>
+
+    <section class="grid" id="summaryGrid"></section>
+
+    <div class="split">
+      <section class="section">
+        <h2>Saved Runs</h2>
+        <p class="note">Each row is one saved recommendation snapshot. Use the CSV/JSON exports to integrate with other tools or archives.</p>
+        <div class="filters">
+          <div>
+            <label for="marketFilter">Market</label>
+            <select id="marketFilter">
+              <option value="ALL">All markets</option>
+            </select>
+          </div>
+          <div>
+            <label for="strategyFilter">Strategy Contains</label>
+            <input id="strategyFilter" type="text" placeholder="e.g. v2 B" />
+          </div>
+          <div>
+            <label for="fromDateFilter">Created From</label>
+            <input id="fromDateFilter" type="date" />
+          </div>
+          <div>
+            <label for="toDateFilter">Created To</label>
+            <input id="toDateFilter" type="date" />
+          </div>
+          <div>
+            <label for="minReturnFilter">Min Return %</label>
+            <input id="minReturnFilter" type="number" step="0.1" placeholder="No minimum" />
+          </div>
+          <button class="btn" id="resetFiltersBtn" type="button">Reset Filters</button>
+        </div>
+        <div class="filter-meta" id="filterMeta">Showing all runs.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Dataset</th>
+                <th>Market</th>
+                <th>View</th>
+                <th>Strategy</th>
+                <th>Return %</th>
+                <th>PF</th>
+                <th>Worst DD %</th>
+                <th>Compounded Profit</th>
+              </tr>
+            </thead>
+            <tbody id="runsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Files & Artifacts</h2>
+        <p class="note">This shows the files currently available to the app and any generated outputs stored by the backend.</p>
+        <div id="fileLists"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const summaryGrid = document.getElementById('summaryGrid');
+    const runsBody = document.getElementById('runsBody');
+    const fileLists = document.getElementById('fileLists');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const pageSelect = document.getElementById('pageSelect');
+    const marketFilter = document.getElementById('marketFilter');
+    const strategyFilter = document.getElementById('strategyFilter');
+    const fromDateFilter = document.getElementById('fromDateFilter');
+    const toDateFilter = document.getElementById('toDateFilter');
+    const minReturnFilter = document.getElementById('minReturnFilter');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+    const filterMeta = document.getElementById('filterMeta');
+
+    let allRuns = [];
+    let loadWarning = '';
+
+    function fmtMoney(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? `£${n.toFixed(2)}` : 'N/A';
+    }
+
+    function fmtPct(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? `${n.toFixed(2)}%` : 'N/A';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderSummaryCards(data) {
+      const cards = [
+        {
+          title: 'Saved Runs',
+          value: data.runCount,
+          meta: 'Persistent run summaries stored by the backend.',
+        },
+        {
+          title: 'Uploads',
+          value: data.directories?.uploads?.entries?.length || 0,
+          meta: 'Files present in the uploads directory.',
+        },
+        {
+          title: 'Artifacts',
+          value: data.directories?.backtest_artifacts?.entries?.length || 0,
+          meta: 'Generated charts, CSVs, and reports from runs.',
+        },
+        {
+          title: 'History Store',
+          value: data.directories?.saved_runs?.entries?.length || 0,
+          meta: 'Backend JSON files used for archived runs.',
+        },
+      ];
+      summaryGrid.innerHTML = cards.map(card => `
+        <div class="card">
+          <h3>${escapeHtml(card.title)}</h3>
+          <div class="value">${escapeHtml(card.value)}</div>
+          <div class="meta">${escapeHtml(card.meta)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderRuns(runs) {
+      if (!runs.length) {
+        runsBody.innerHTML = '<tr><td colspan="9">No saved runs yet.</td></tr>';
+        return;
+      }
+
+      runsBody.innerHTML = runs.map(run => {
+        const summary = run.summary || {};
+        const best = summary.best || {};
+        return `
+          <tr>
+            <td class="mono">${escapeHtml(new Date(run.createdAt).toLocaleString())}</td>
+            <td>${escapeHtml(summary.datasetTitle || '')}</td>
+            <td>${escapeHtml(summary.market || '')}</td>
+            <td><span class="pill">${escapeHtml(summary.periodKey === 'ALL' ? 'All loaded periods' : summary.periodKey || '')}</span></td>
+            <td>${escapeHtml(best.label || '')}</td>
+            <td>${escapeHtml(fmtPct(best.avgRet))}</td>
+            <td>${escapeHtml(Number.isFinite(Number(best.avgPf)) ? Number(best.avgPf).toFixed(3) : 'N/A')}</td>
+            <td>${escapeHtml(fmtPct(best.worstDD))}</td>
+            <td>${escapeHtml(fmtMoney(best.compoundedProfit))}</td>
+          </tr>
+        `;
+      }).join('');
+
+      if (loadWarning) {
+        summaryGrid.innerHTML += `
+          <div class="card" style="grid-column: 1 / -1; border-color:#f2cf8a; background:#fff8eb;">
+            <h3 style="color:#8b5c00;">Admin API Warning</h3>
+            <div class="meta" style="color:#8b5c00;">${escapeHtml(loadWarning)}</div>
+          </div>
+        `;
+      }
+    }
+
+    function updateMarketFilterOptions(runs) {
+      const markets = [...new Set(runs.map(run => (run.summary?.market || '').trim()).filter(Boolean))].sort();
+      const current = marketFilter.value;
+      marketFilter.innerHTML = ['<option value="ALL">All markets</option>', ...markets.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`)].join('');
+      if (markets.includes(current)) {
+        marketFilter.value = current;
+      }
+    }
+
+    function applyFilters() {
+      const market = marketFilter.value;
+      const strategyQ = strategyFilter.value.trim().toLowerCase();
+      const fromDate = fromDateFilter.value ? new Date(`${fromDateFilter.value}T00:00:00`).getTime() : null;
+      const toDate = toDateFilter.value ? new Date(`${toDateFilter.value}T23:59:59`).getTime() : null;
+      const minReturn = minReturnFilter.value === '' ? null : Number(minReturnFilter.value);
+
+      const filtered = allRuns.filter(run => {
+        const summary = run.summary || {};
+        const best = summary.best || {};
+        const createdMs = new Date(run.createdAt).getTime();
+
+        if (market !== 'ALL' && (summary.market || '') !== market) return false;
+        if (strategyQ && !(best.label || '').toLowerCase().includes(strategyQ)) return false;
+        if (fromDate !== null && createdMs < fromDate) return false;
+        if (toDate !== null && createdMs > toDate) return false;
+        if (minReturn !== null && Number.isFinite(minReturn)) {
+          const ret = Number(best.avgRet);
+          if (!Number.isFinite(ret) || ret < minReturn) return false;
+        }
+        return true;
+      });
+
+      renderRuns(filtered);
+      filterMeta.textContent = `Showing ${filtered.length} of ${allRuns.length} run(s).`;
+    }
+
+    function renderFiles(directories) {
+      if (!directories || !Object.keys(directories).length) {
+        fileLists.innerHTML = '<div class="card"><div class="meta">Directory overview not available in fallback mode.</div></div>';
+        return;
+      }
+      const blocks = Object.entries(directories).map(([name, payload]) => {
+        const entries = payload.entries || [];
+        return `
+          <div class="card" style="margin-bottom:12px;">
+            <h3>${escapeHtml(name)}</h3>
+            <div class="meta mono">${escapeHtml(payload.path)}</div>
+            <div class="meta">${payload.exists ? `${entries.length} item(s)` : 'Directory does not exist yet.'}</div>
+            <div style="margin-top:10px; max-height:220px; overflow:auto; border-top:1px solid var(--line); padding-top:10px;">
+              ${entries.length ? entries.map(entry => `
+                <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid #f0f2ef; font-size:0.84rem;">
+                  <span>${escapeHtml(entry.name)}${entry.isDirectory ? '/' : ''}</span>
+                  <span class="mono">${entry.isDirectory ? 'dir' : `${Math.max(1, Math.round(entry.size / 1024))} KB`}</span>
+                </div>
+              `).join('') : '<div class="meta">No files found.</div>'}
+            </div>
+          </div>
+        `;
+      });
+      fileLists.innerHTML = blocks.join('');
+    }
+
+    async function tryLoadAdminOverview() {
+      const res = await fetch('/platform/admin/overview');
+      if (res.ok) {
+        return await res.json();
+      }
+      throw new Error(`admin-overview-${res.status}`);
+    }
+
+    async function tryLoadRunsOnly() {
+      const res = await fetch('/platform/runs');
+      if (!res.ok) throw new Error(`runs-${res.status}`);
+      const payload = await res.json();
+      const runs = payload.runs || [];
+      return {
+        runCount: runs.length,
+        runs,
+        directories: {},
+      };
+    }
+
+    function loadRunsFromLocalStorage() {
+      try {
+        const runs = JSON.parse(localStorage.getItem('phantomRunHistory') || '[]');
+        if (!Array.isArray(runs)) return null;
+        const mapped = runs.map((summary, idx) => ({
+          id: `local-${idx}`,
+          createdAt: summary.generatedAt || new Date().toISOString(),
+          summary,
+        }));
+        return {
+          runCount: mapped.length,
+          runs: mapped,
+          directories: {},
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    async function loadOverview() {
+      let data = null;
+      loadWarning = '';
+
+      try {
+        data = await tryLoadAdminOverview();
+      } catch {
+        try {
+          data = await tryLoadRunsOnly();
+          loadWarning = 'The admin overview endpoint is unavailable (404). Showing run history from /platform/runs instead. Start the Node server to enable full file/artifact inventory.';
+        } catch {
+          const localData = loadRunsFromLocalStorage();
+          if (localData) {
+            data = localData;
+            loadWarning = 'Backend endpoints are unavailable. Showing browser-saved run history only (localStorage).';
+          }
+        }
+      }
+
+      if (!data) {
+        throw new Error('HTTP 404 (admin endpoints unavailable)');
+      }
+
+      renderSummaryCards(data);
+      allRuns = (data.runs || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      updateMarketFilterOptions(allRuns);
+      applyFilters();
+      renderFiles(data.directories || {});
+    }
+
+    refreshBtn.addEventListener('click', () => {
+      void loadOverview();
+    });
+
+    pageSelect.addEventListener('change', () => {
+      window.location.href = pageSelect.value;
+    });
+
+    [marketFilter, strategyFilter, fromDateFilter, toDateFilter, minReturnFilter].forEach(el => {
+      el.addEventListener('input', applyFilters);
+      el.addEventListener('change', applyFilters);
+    });
+
+    resetFiltersBtn.addEventListener('click', () => {
+      marketFilter.value = 'ALL';
+      strategyFilter.value = '';
+      fromDateFilter.value = '';
+      toDateFilter.value = '';
+      minReturnFilter.value = '';
+      applyFilters();
+    });
+
+    loadOverview().catch(err => {
+      summaryGrid.innerHTML = `<div class="card"><h3>Error</h3><div class="meta">${escapeHtml(err.message)}</div></div>`;
+      runsBody.innerHTML = '<tr><td colspan="9">Unable to load run history.</td></tr>';
+      fileLists.innerHTML = '<div class="card"><div class="meta">Unable to load file lists.</div></div>';
+    });
+  </script>
+</body>
+</html>

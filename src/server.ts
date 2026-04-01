@@ -12,6 +12,14 @@ const chartAnalyzer = new ChartAIAnalyzer();
 
 const WORKSPACE_ROOT = process.cwd();
 const ARTIFACT_DIR = path.join(WORKSPACE_ROOT, 'backtest_artifacts');
+const RUN_HISTORY_DIR = path.join(WORKSPACE_ROOT, 'saved_runs');
+const RUN_HISTORY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_runs.json');
+const RUN_HISTORY_LIMIT = 100;
+const ADMIN_SCAN_DIRS = [
+	path.join(WORKSPACE_ROOT, 'uploads'),
+	ARTIFACT_DIR,
+	RUN_HISTORY_DIR,
+];
 
 const DEFAULT_DATA_FILES: Record<string, string> = {
 	XAUUSD: '/Users/niko/Downloads/XAUUSD_M1_202404010105_202603302033.csv',
@@ -77,6 +85,12 @@ interface DataCacheEntry {
 	byTimeframe: Map<string, CandleRecord[]>;
 }
 
+interface StrategyRunRecord {
+	id: string;
+	createdAt: string;
+	summary: unknown;
+}
+
 const MAX_LOG_LINES = 2000;
 
 const backtestState: BacktestState = {
@@ -92,6 +106,88 @@ const sseClients = new Set<Response>();
 const dataCache = new Map<string, DataCacheEntry>();
 const tradesCache = new Map<string, TradeRecord[]>();
 const reportCache = new Map<string, Record<string, string>>();
+
+function loadRunHistory(): StrategyRunRecord[] {
+	try {
+		if (!fs.existsSync(RUN_HISTORY_FILE)) {
+			return [];
+		}
+		const text = fs.readFileSync(RUN_HISTORY_FILE, 'utf8');
+		const parsed = JSON.parse(text);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+}
+
+function saveRunHistory(runs: StrategyRunRecord[]): void {
+	fs.mkdirSync(RUN_HISTORY_DIR, { recursive: true });
+	fs.writeFileSync(RUN_HISTORY_FILE, `${JSON.stringify(runs.slice(0, RUN_HISTORY_LIMIT), null, 2)}\n`, 'utf8');
+}
+
+function createRunId(): string {
+	return `run_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function listDirectoryEntries(dirPath: string): Array<{ name: string; isDirectory: boolean; size: number; modifiedAt: string | null }> {
+	if (!fs.existsSync(dirPath)) {
+		return [];
+	}
+
+	return fs.readdirSync(dirPath, { withFileTypes: true }).map((entry) => {
+		const fullPath = path.join(dirPath, entry.name);
+		const stat = fs.statSync(fullPath);
+		return {
+			name: entry.name,
+			isDirectory: entry.isDirectory(),
+			size: entry.isDirectory() ? 0 : stat.size,
+			modifiedAt: stat.mtime.toISOString(),
+		};
+	});
+}
+
+function flattenRunSummary(run: StrategyRunRecord): Record<string, unknown> {
+	const summary = (run.summary && typeof run.summary === 'object') ? run.summary as Record<string, unknown> : {};
+	const best = (summary.best && typeof summary.best === 'object') ? summary.best as Record<string, unknown> : {};
+	return {
+		id: run.id,
+		createdAt: run.createdAt,
+		datasetTitle: summary.datasetTitle || '',
+		market: summary.market || '',
+		periodKey: summary.periodKey || '',
+		startCapital: summary.startCapital ?? '',
+		riskMultiplier: summary.riskMultiplier ?? '',
+		withdrawalPct: summary.withdrawalPct ?? '',
+		strategyLabel: best.label || '',
+		avgReturnPct: best.avgRet ?? '',
+		avgProfitFactor: best.avgPf ?? '',
+		avgWinRatePct: best.avgWin ?? '',
+		worstDrawdownPct: best.worstDD ?? '',
+		compoundedProfit: best.compoundedProfit ?? '',
+		compoundedCapital: best.compounded ?? '',
+		note: summary.note || '',
+	};
+}
+
+function toCsvValue(value: unknown): string {
+	const text = value === null || value === undefined ? '' : String(value);
+	if (/[",\n]/.test(text)) {
+		return `"${text.replace(/"/g, '""')}"`;
+	}
+	return text;
+}
+
+function runsToCsv(runs: StrategyRunRecord[]): string {
+	const rows = runs.map((run) => flattenRunSummary(run));
+	const headers = Object.keys(rows[0] || {
+		id: '', createdAt: '', datasetTitle: '', market: '', periodKey: '', startCapital: '', riskMultiplier: '', withdrawalPct: '', strategyLabel: '', avgReturnPct: '', avgProfitFactor: '', avgWinRatePct: '', worstDrawdownPct: '', compoundedProfit: '', compoundedCapital: '', note: '',
+	});
+	const lines = [headers.join(',')];
+	for (const row of rows) {
+		lines.push(headers.map((header) => toCsvValue(row[header])).join(','));
+	}
+	return `${lines.join('\n')}\n`;
+}
 
 function normalizePath(p: string): string {
 	return path.resolve(p);
@@ -689,6 +785,91 @@ app.get('/platform/report', (req: Request, res: Response): void => {
 		});
 	} catch (error) {
 		res.status(400).json({ error: (error as Error).message });
+	}
+});
+
+app.get('/platform/runs', (_req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	res.json({
+		count: runs.length,
+		runs,
+	});
+});
+
+app.get('/platform/runs/:id', (req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	const run = runs.find((entry) => entry.id === req.params.id);
+	if (!run) {
+		res.status(404).json({ error: 'Run not found' });
+		return;
+	}
+	res.json(run);
+});
+
+app.get('/platform/admin/overview', (_req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	const directories = Object.fromEntries(ADMIN_SCAN_DIRS.map((dirPath) => [
+		path.basename(dirPath),
+		{
+			path: dirPath,
+			exists: fs.existsSync(dirPath),
+			entries: listDirectoryEntries(dirPath),
+		},
+	]));
+
+	res.json({
+		workspaceRoot: WORKSPACE_ROOT,
+		runHistoryFile: RUN_HISTORY_FILE,
+		runs: runs.map((run) => ({ id: run.id, createdAt: run.createdAt, summary: run.summary })),
+		directories,
+		defaultDataFiles: DEFAULT_DATA_FILES,
+		artifactsDir: ARTIFACT_DIR,
+		runCount: runs.length,
+	});
+});
+
+app.get('/platform/admin/export/runs.json', (_req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	res.json({
+		count: runs.length,
+		runs,
+	});
+});
+
+app.get('/platform/admin/export/runs.csv', (_req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+	res.setHeader('Content-Disposition', 'attachment; filename="strategy-runs.csv"');
+	res.send(runsToCsv(runs));
+});
+
+app.get('/admin', (_req: Request, res: Response): void => {
+	res.sendFile(path.join(WORKSPACE_ROOT, 'public', 'admin.html'));
+});
+
+app.get('/strategy-lab', (_req: Request, res: Response): void => {
+	res.sendFile(path.join(WORKSPACE_ROOT, 'public', 'strategy-lab.html'));
+});
+
+app.post('/platform/runs', (req: Request, res: Response): void => {
+	try {
+		if (!req.body || typeof req.body !== 'object') {
+			res.status(400).json({ error: 'Invalid run summary payload' });
+			return;
+		}
+
+		const runs = loadRunHistory();
+		const record: StrategyRunRecord = {
+			id: createRunId(),
+			createdAt: new Date().toISOString(),
+			summary: req.body,
+		};
+
+		runs.unshift(record);
+		saveRunHistory(runs);
+		res.status(201).json(record);
+	} catch (error) {
+		res.status(500).json({ error: (error as Error).message });
 	}
 });
 
