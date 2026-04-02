@@ -2002,6 +2002,28 @@ function startBacktestExecution(params: {
 	return { ok: true, state: backtestState };
 }
 
+app.use((req: Request, res: Response, next) => {
+	const origin = String(req.headers.origin || '');
+	const allowLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+	if (allowLocal) {
+		res.header('Access-Control-Allow-Origin', origin);
+		res.header('Vary', 'Origin');
+	} else {
+		res.header('Access-Control-Allow-Origin', '*');
+	}
+
+	res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+	res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+	if (req.method === 'OPTIONS') {
+		res.status(204).end();
+		return;
+	}
+
+	next();
+});
+
 app.use(express.static('public'));
 app.use(express.json());
 
