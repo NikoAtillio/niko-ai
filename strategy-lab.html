@@ -235,6 +235,34 @@
       line-height: 1.45;
     }
 
+    .card.confidence-high .value { color: #2f855a; }
+    .card.confidence-medium .value { color: #0b7285; }
+    .card.confidence-low .value { color: #b45309; }
+
+    .mono {
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.81rem;
+      line-height: 1.45;
+    }
+
+    .schema-editor {
+      width: 100%;
+      min-height: 250px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fbf8;
+      color: #183125;
+      padding: 10px;
+      resize: vertical;
+    }
+
+    .schema-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
     .tf-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -335,6 +363,30 @@
       font-weight: 700;
     }
 
+    .status.status--neutral {
+      border-color: #cfe6db;
+      background: #f3faf6;
+      color: #295241;
+    }
+
+    .status.status--success {
+      border-color: #b9dfcb;
+      background: #e9f8ef;
+      color: #1f6b44;
+    }
+
+    .status.status--warning {
+      border-color: #f1d39f;
+      background: #fff6e8;
+      color: #9a5a09;
+    }
+
+    .status.status--error {
+      border-color: #f2b9b9;
+      background: #fff0f0;
+      color: #9a1f1f;
+    }
+
     .muted-box {
       border: 1px dashed #cfd9d3;
       border-radius: 12px;
@@ -383,6 +435,13 @@
       <div class="grid-2">
         <div>
           <h2 class="section-title">Strategy Theory Input</h2>
+          <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
+            <div>
+              <label class="label" for="strategyTemplateInput">Import strategy template</label>
+              <input id="strategyTemplateInput" type="file" accept=".json,.txt,.md,.yaml,.yml,.csv" />
+            </div>
+            <button class="btn" id="importTemplateBtn" type="button">Load Template</button>
+          </div>
           <label class="label" for="strategyText">Describe the strategy in plain English</label>
           <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
           <div class="btn-row">
@@ -525,12 +584,16 @@
         </div>
         <div class="card">
           <h3>Backtest Payload</h3>
-          <div class="meta mono" id="schemaPreview" style="white-space: pre-wrap;">{
+          <div class="schema-actions">
+            <button class="btn" id="applyConfigBtn" type="button">Apply Config Edits</button>
+            <button class="btn" id="downloadConfigBtn" type="button">Download Config JSON</button>
+          </div>
+          <textarea class="schema-editor mono" id="schemaPreview" spellcheck="false">{
   "name": "Support / Resistance Mean Reversion",
   "market": "BTCUSD",
   "timeframes": ["H4", "H1", "M15"],
   "rules": { ... }
-}</div>
+}</textarea>
         </div>
       </div>
     </section>
@@ -538,11 +601,15 @@
 
   <script>
     const pageSelect = document.getElementById('pageSelect');
+    const strategyTemplateInput = document.getElementById('strategyTemplateInput');
+    const importTemplateBtn = document.getElementById('importTemplateBtn');
     const strategyText = document.getElementById('strategyText');
     const recogniseBtn = document.getElementById('recogniseBtn');
     const resetBtn = document.getElementById('resetBtn');
     const confirmBtn = document.getElementById('confirmBtn');
     const runBtn = document.getElementById('runBtn');
+    const applyConfigBtn = document.getElementById('applyConfigBtn');
+    const downloadConfigBtn = document.getElementById('downloadConfigBtn');
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const confirmationText = document.getElementById('confirmationText');
@@ -554,12 +621,136 @@
     const zoneWidth = document.getElementById('zoneWidth');
     const touchCount = document.getElementById('touchCount');
     const confirmationRule = document.getElementById('confirmationRule');
+    let confirmedStrategyId = '';
+    let activeRunId = '';
+    let statusPollTimer = null;
+    let latestRecognition = null;
+    let latestTemplateText = '';
+    let latestStrategyConfig = null;
 
     const exampleText = `Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.`;
 
-    function setStatus(title, text) {
+    function setStatus(title, text, tone = 'neutral') {
       statusPill.textContent = title;
       statusText.textContent = text;
+      statusPill.className = `status status--${tone}`;
+    }
+
+    function setSelectIfPresent(selectEl, value) {
+      if (!value) return;
+      const options = Array.from(selectEl.options).map((opt) => String(opt.value));
+      if (options.includes(String(value))) {
+        selectEl.value = String(value);
+      }
+    }
+
+    function stopRunStatusPolling() {
+      if (statusPollTimer) {
+        clearInterval(statusPollTimer);
+        statusPollTimer = null;
+      }
+    }
+
+    async function pollRunStatus() {
+      if (!activeRunId) return;
+      try {
+        const response = await fetch(`/platform/strategy-lab/runs/${encodeURIComponent(activeRunId)}/status`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Unable to poll run status');
+        }
+
+        const status = String(payload.status || 'queued');
+        if (status === 'running') {
+          setStatus('Backtest running', `Run ${activeRunId} is running through the deterministic engine.`, 'warning');
+        } else if (status === 'completed') {
+          setStatus('Backtest completed', `Run ${activeRunId} completed successfully.`, 'success');
+          stopRunStatusPolling();
+        } else if (status === 'failed') {
+          setStatus('Backtest failed', `Run ${activeRunId} finished with failure.`, 'error');
+          stopRunStatusPolling();
+        } else {
+          setStatus('Backtest queued', `Run ${activeRunId} status is ${status}.`, 'warning');
+        }
+      } catch (error) {
+        setStatus('Status check failed', (error && error.message) ? error.message : 'Unable to check run status', 'error');
+      }
+    }
+
+    function startRunStatusPolling(runId) {
+      activeRunId = runId || '';
+      if (!activeRunId) return;
+      stopRunStatusPolling();
+      void pollRunStatus();
+      statusPollTimer = setInterval(() => {
+        void pollRunStatus();
+      }, 4000);
+    }
+
+    function mapTfToInterval(tf) {
+      const key = String(tf || '').toUpperCase();
+      if (key === 'M5') return '5m';
+      if (key === 'M15') return '15m';
+      if (key === 'H1') return '1h';
+      if (key === 'H4') return '4h';
+      return '1m';
+    }
+
+    function buildRequestPayload() {
+      return {
+        theoryText: strategyText.value,
+        templateName: latestRecognition?.name || 'Structured Rule Strategy',
+        market: marketSelect.value,
+        primaryTimeframe: primaryTf.value,
+        riskPerTradePct: Number(riskInput.value || 0.5),
+        zoneWidthPct: Number(zoneWidth.value || 0.18),
+        minTouches: Number(touchCount.value || 2),
+        confirmation: confirmationRule.value,
+      };
+    }
+
+    function buildPreviewStrategyConfig() {
+      const recognition = latestRecognition;
+      const timeframes = recognition?.timeframes?.length ? recognition.timeframes : [primaryTf.value, 'H1', 'M15'];
+      const rr = Number(recognition?.rules?.rrTarget);
+      const rrTarget = Number.isFinite(rr) ? rr : null;
+      return {
+        schemaVersion: '1.0',
+        emittedAt: new Date().toISOString(),
+        name: recognition?.name || 'Structured Rule Strategy',
+        market: marketSelect.value,
+        execution: {
+          primaryTimeframe: primaryTf.value,
+          engineInterval: mapTfToInterval(primaryTf.value),
+          timeframes,
+          bias: recognition?.bias || 'neutral',
+          sessions: recognition?.sessions || [],
+        },
+        risk: {
+          riskPerTradePct: Number(riskInput.value || 0.5),
+          zoneWidthPct: Number(zoneWidth.value || 0.18),
+          minTouches: Number(touchCount.value || 2),
+          rrTarget,
+        },
+        entry: {
+          style: recognition?.entryStyle || 'Rule confirmation',
+          confirmation: confirmationRule.value,
+          invalidation: recognition?.rules?.invalidation || 'hard invalidation on rule break',
+        },
+        exit: {
+          targetStyle: recognition?.targetStyle || 'Fixed profit target',
+          objective: recognition?.objective || 'Optimize for risk-adjusted return with drawdown and stability constraints.',
+        },
+        indicators: recognition?.indicators || [],
+        metadata: {
+          strategyType: recognition?.strategyType || 'Rule-Based Strategy',
+          confidence: Number(recognition?.confidence || 0),
+          confidenceBand: recognition?.confidenceBand || 'medium',
+          parserVersion: recognition?.rules?.parserVersion || 'v2',
+          templateName: recognition?.name || 'Structured Rule Strategy',
+        },
+        notes: recognition?.notes || ['Preview config generated from current UI state.'],
+      };
     }
 
     function escapeHtml(value) {
@@ -578,54 +769,121 @@
       const width = Number(zoneWidth.value || 0.18);
       const touches = Number(touchCount.value || 2);
       const conf = confirmationRule.value;
+      const recognition = latestRecognition;
+
+      const timeframeText = recognition?.timeframes?.length ? recognition.timeframes.join(' -> ') : `${tf} -> H1 -> M15`;
+      const sessionText = recognition?.sessions?.length ? recognition.sessions.join(', ') : 'None detected';
+      const indicatorText = recognition?.indicators?.length ? recognition.indicators.join(', ') : 'None detected';
+      const confidenceText = recognition ? `${(Number(recognition.confidence || 0) * 100).toFixed(0)}% (${recognition.confidenceBand || 'medium'})` : 'Pending';
+      const confidenceClass = recognition?.confidenceBand ? `confidence-${recognition.confidenceBand}` : '';
 
       const cards = [
-        { title: 'Detected Strategy Type', value: 'Support / Resistance', meta: 'The lab interprets the strategy as a zone-based structure model.' },
-        { title: 'Timeframe Hierarchy', value: 'H4 -> H1 -> M15', meta: 'Higher timeframe defines zones; lower timeframe confirms entry.' },
-        { title: 'Suggested Zone Width', value: `${width.toFixed(2)}%`, meta: 'Applied as the tolerance band around detected levels.' },
-        { title: 'Suggested Risk', value: `${risk.toFixed(2)}%`, meta: 'Proposed position sizing per trade.' },
-        { title: 'Required Touches', value: `${touches}`, meta: 'Minimum number of touches needed before a zone is considered valid.' },
-        { title: 'Confirmation Rule', value: conf, meta: 'Entry will only trigger once this confirmation is seen.' },
+        { title: 'Detected Strategy Type', value: recognition?.strategyType || 'Pending recognition', meta: recognition?.name || 'The lab will infer the strategy archetype from the provided text or template.' },
+        { title: 'Confidence', value: confidenceText, meta: recognition ? 'Composite confidence based on archetype, entry, stop, target, sessions, and indicators.' : 'Run recognition to score the strategy.', style: confidenceClass },
+        { title: 'Timeframe Hierarchy', value: timeframeText, meta: 'Higher timeframe defines structure; lower timeframe confirms entries.' },
+        { title: 'Entry Style', value: recognition?.entryStyle || 'Pending', meta: 'Detected entry trigger such as rejection, retest, crossover, or momentum close.' },
+        { title: 'Stop Model', value: recognition?.stopStyle || 'Pending', meta: 'Detected invalidation model such as ATR, swing structure, or zone boundary.' },
+        { title: 'Target Model', value: recognition?.targetStyle || 'Pending', meta: recognition?.objective || 'Detected profit-taking logic and objective.' },
+        { title: 'Sessions / Filters', value: sessionText, meta: indicatorText },
+        { title: 'Suggested Risk', value: `${risk.toFixed(2)}%`, meta: `Template value: ${recognition?.rules?.riskPerTradePct ?? risk.toFixed(2)}%` },
+        { title: 'Zone Width / Touches', value: `${width.toFixed(2)}% / ${touches}`, meta: `Template suggests ${recognition?.rules?.minTouches ?? touches} minimum touches.` },
+        { title: 'Confirmation Rule', value: recognition?.rules?.confirmation || conf, meta: 'Entry only executes when the confirmation condition is satisfied.' },
       ];
 
       summaryCards.innerHTML = cards.map(card => `
-        <div class="card">
+        <div class="card ${escapeHtml(card.style || '')}">
           <h3>${escapeHtml(card.title)}</h3>
           <div class="value">${escapeHtml(card.value)}</div>
           <div class="meta">${escapeHtml(card.meta)}</div>
         </div>
       `).join('');
 
-      schemaPreview.textContent = JSON.stringify({
-        name: 'Support / Resistance Mean Reversion',
-        market,
-        primaryTimeframe: tf,
-        rules: {
-          zoneWidthPct: width,
-          minTouches: touches,
-          confirmation: conf,
-          riskPerTradePct: risk,
-          entryBias: 'buy support / sell resistance',
-          invalidation: 'close beyond zone boundary',
-        },
-      }, null, 2);
+      const previewConfig = latestStrategyConfig || buildPreviewStrategyConfig();
+      schemaPreview.value = JSON.stringify(previewConfig, null, 2);
 
-      confirmationText.textContent = `We detected a support/resistance strategy on ${market} using ${tf} as the primary execution timeframe. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
+      confirmationText.textContent = `We detected ${recognition?.strategyType || 'a structured strategy'} on ${market} using ${tf} as the primary execution timeframe. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
     }
 
-    function recogniseStrategy() {
-      const text = strategyText.value.toLowerCase();
-      const market = marketSelect.value;
-      if (text.includes('support') && text.includes('resistance')) {
-        setStatus('Strategy recognised', `Recognised a support/resistance framework for ${market}. The lab will propose zone rules, confirmation rules, and execution timing.`);
-      } else {
-        setStatus('Strategy recognised', 'The strategy has been translated into structured rules for review.');
+    async function importStrategyTemplate() {
+      const file = strategyTemplateInput.files && strategyTemplateInput.files[0];
+      if (!file) {
+        setStatus('Template import', 'Choose a strategy template file first.', 'warning');
+        return;
       }
-      renderPreview();
+
+      try {
+        const templateText = await file.text();
+        const response = await fetch('/platform/strategy-lab/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templateText, templateName: file.name }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Template import failed');
+        }
+
+        latestRecognition = payload.recognition || null;
+        latestStrategyConfig = payload.strategyConfig || null;
+        latestTemplateText = templateText;
+        const normalized = payload.normalized || {};
+        strategyText.value = normalized.theoryText || templateText;
+        marketSelect.value = normalized.market || marketSelect.value;
+        primaryTf.value = normalized.primaryTimeframe || primaryTf.value;
+        riskInput.value = String(normalized.riskPerTradePct ?? riskInput.value);
+        zoneWidth.value = String(normalized.zoneWidthPct ?? zoneWidth.value);
+        touchCount.value = String(normalized.minTouches ?? touchCount.value);
+        confirmationRule.value = normalized.confirmation || confirmationRule.value;
+        confirmedStrategyId = '';
+        activeRunId = '';
+        stopRunStatusPolling();
+        renderPreview();
+        setStatus('Template imported', `Loaded ${file.name} and normalized it into a structured strategy draft.`, 'success');
+      } catch (error) {
+        setStatus('Template import failed', (error && error.message) ? error.message : 'Unable to import strategy template', 'error');
+      }
     }
 
-    recogniseBtn.addEventListener('click', recogniseStrategy);
+    async function recogniseStrategy() {
+      try {
+        const response = await fetch('/platform/strategy-lab/recognize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildRequestPayload()),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Recognition failed');
+        }
+
+        latestRecognition = payload.recognition || null;
+        latestStrategyConfig = payload.strategyConfig || null;
+        confirmedStrategyId = '';
+        renderPreview();
+        const rec = payload.recognition || {};
+        setStatus(
+          'Strategy recognised',
+          `Recognised ${rec.strategyType || 'a structured strategy'} on ${rec.market || marketSelect.value}. Confidence ${(Number(rec.confidence || 0) * 100).toFixed(0)}%.`,
+          'success',
+        );
+      } catch (error) {
+        setStatus('Recognition failed', (error && error.message) ? error.message : 'Unable to recognise strategy', 'error');
+      }
+    }
+
+    recogniseBtn.addEventListener('click', () => {
+      recogniseStrategy();
+    });
+    importTemplateBtn.addEventListener('click', () => {
+      importStrategyTemplate();
+    });
     resetBtn.addEventListener('click', () => {
+      stopRunStatusPolling();
+      activeRunId = '';
+      latestRecognition = null;
+      latestTemplateText = '';
+      latestStrategyConfig = null;
+      strategyTemplateInput.value = '';
       strategyText.value = exampleText;
       marketSelect.value = 'BTCUSD';
       primaryTf.value = 'H4';
@@ -637,17 +895,162 @@
       renderPreview();
     });
 
-    confirmBtn.addEventListener('click', () => {
-      setStatus('Parameters confirmed', 'The detected strategy parameters have been approved by the user and are ready for deterministic backtesting.');
+    confirmBtn.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/platform/strategy-lab/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...buildRequestPayload(),
+            templateText: latestTemplateText || strategyText.value,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Confirmation failed');
+        }
+
+        confirmedStrategyId = payload.record?.id || '';
+        latestRecognition = payload.record?.recognition || latestRecognition;
+        latestStrategyConfig = payload.record?.strategyConfig || payload.strategyConfig || latestStrategyConfig;
+        renderPreview();
+        setStatus(
+          'Parameters confirmed',
+          `Strategy confirmed and saved with id ${confirmedStrategyId || 'unknown'}. Ready for deterministic backtest queueing.`,
+          'success',
+        );
+      } catch (error) {
+        setStatus('Confirmation failed', (error && error.message) ? error.message : 'Unable to confirm strategy', 'error');
+      }
     });
 
-    runBtn.addEventListener('click', () => {
-      setStatus('Backtest queued', 'This prototype page is now ready to hand the structured strategy payload to the backend backtest engine.');
+    runBtn.addEventListener('click', async () => {
+      try {
+        if (!confirmedStrategyId) {
+          const confirmResponse = await fetch('/platform/strategy-lab/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...buildRequestPayload(),
+              templateText: latestTemplateText || strategyText.value,
+              }),
+          });
+          const confirmPayload = await confirmResponse.json();
+          if (!confirmResponse.ok) {
+            throw new Error(confirmPayload.error || 'Please confirm strategy before queueing backtest');
+          }
+          confirmedStrategyId = confirmPayload.record?.id || '';
+          latestRecognition = confirmPayload.record?.recognition || latestRecognition;
+          latestStrategyConfig = confirmPayload.record?.strategyConfig || confirmPayload.strategyConfig || latestStrategyConfig;
+          renderPreview();
+        }
+
+        const riskPct = Number(riskInput.value || 0.5);
+        const response = await fetch('/platform/strategy-lab/backtest-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategyId: confirmedStrategyId,
+            interval: mapTfToInterval(primaryTf.value),
+            capital: 10000,
+            risk: riskPct / 100,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Backtest queue request failed');
+        }
+
+        activeRunId = payload.queuedRun?.id || '';
+        startRunStatusPolling(activeRunId);
+
+        setStatus(
+          payload.autoStart?.started ? 'Backtest started' : 'Backtest queued',
+          payload.autoStart?.started
+            ? `Run ${activeRunId} started automatically.`
+            : `Queued run ${activeRunId}. ${payload.autoStart?.error || ''}`,
+          payload.autoStart?.started ? 'success' : 'warning',
+        );
+      } catch (error) {
+        setStatus('Queue failed', (error && error.message) ? error.message : 'Unable to queue backtest request', 'error');
+      }
     });
 
     [marketSelect, primaryTf, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
-      el.addEventListener('input', renderPreview);
-      el.addEventListener('change', renderPreview);
+      el.addEventListener('input', () => {
+        latestStrategyConfig = null;
+        renderPreview();
+      });
+      el.addEventListener('change', () => {
+        latestStrategyConfig = null;
+        renderPreview();
+      });
+    });
+
+    strategyText.addEventListener('input', () => {
+      latestStrategyConfig = null;
+    });
+
+    strategyTemplateInput.addEventListener('change', () => {
+      if (strategyTemplateInput.files && strategyTemplateInput.files[0]) {
+        setStatus('Template selected', strategyTemplateInput.files[0].name, 'neutral');
+      }
+    });
+
+    applyConfigBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(schemaPreview.value);
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Config must be a JSON object');
+        }
+
+        latestStrategyConfig = parsed;
+
+        if (typeof parsed.market === 'string') {
+          setSelectIfPresent(marketSelect, parsed.market);
+        }
+
+        if (parsed.execution && typeof parsed.execution === 'object') {
+          setSelectIfPresent(primaryTf, parsed.execution.primaryTimeframe);
+        }
+
+        if (parsed.risk && typeof parsed.risk === 'object') {
+          if (Number.isFinite(Number(parsed.risk.riskPerTradePct))) {
+            riskInput.value = String(parsed.risk.riskPerTradePct);
+          }
+          if (Number.isFinite(Number(parsed.risk.zoneWidthPct))) {
+            zoneWidth.value = String(parsed.risk.zoneWidthPct);
+          }
+          if (Number.isFinite(Number(parsed.risk.minTouches))) {
+            touchCount.value = String(parsed.risk.minTouches);
+          }
+        }
+
+        if (parsed.entry && typeof parsed.entry === 'object' && typeof parsed.entry.confirmation === 'string') {
+          setSelectIfPresent(confirmationRule, parsed.entry.confirmation);
+        }
+
+        confirmedStrategyId = '';
+        renderPreview();
+        setStatus('Config applied', 'Schema edits were applied to the active strategy inputs. Re-confirm before queueing.', 'success');
+      } catch (error) {
+        setStatus('Config invalid', (error && error.message) ? error.message : 'Schema JSON is invalid.', 'error');
+      }
+    });
+
+    downloadConfigBtn.addEventListener('click', () => {
+      const config = latestStrategyConfig || buildPreviewStrategyConfig();
+      const blob = new Blob([`${JSON.stringify(config, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const safeName = String(config.name || 'strategy').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      anchor.href = url;
+      anchor.download = `${safeName || 'strategy'}-config.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setStatus('Config exported', 'Downloaded strategy config JSON for execution and versioning.', 'success');
     });
 
     pageSelect.addEventListener('change', () => {
