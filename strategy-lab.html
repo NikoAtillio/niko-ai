@@ -269,6 +269,61 @@
       gap: 12px;
     }
 
+    .proof-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .proof-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .proof-card header {
+      padding: 10px 12px;
+      background: #edf3ee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .proof-card .body {
+      padding: 12px;
+    }
+
+    .proof-head-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .proof-confidence {
+      border-radius: 999px;
+      border: 1px solid #c7ded3;
+      background: #eff8f3;
+      color: #1f6b44;
+      padding: 2px 8px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .proof-chart {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid #dbe5de;
+      background: #f8fbf9;
+      display: block;
+      margin-bottom: 10px;
+    }
+
     .tf-card {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -435,15 +490,61 @@
       <div class="grid-2">
         <div>
           <h2 class="section-title">Strategy Theory Input</h2>
-          <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
-            <div>
-              <label class="label" for="strategyTemplateInput">Import strategy template</label>
-              <input id="strategyTemplateInput" type="file" accept=".json,.txt,.md,.yaml,.yml,.csv" />
-            </div>
-            <button class="btn" id="importTemplateBtn" type="button">Load Template</button>
+          <div class="btn-row" style="margin-top:0; margin-bottom:10px;">
+            <button class="btn primary" id="theoryTabBtn" type="button">Strategy Input</button>
+            <button class="btn" id="marketDataTabBtn" type="button">Market Data</button>
           </div>
-          <label class="label" for="strategyText">Describe the strategy in plain English</label>
-          <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
+
+          <div id="theoryInputPane">
+            <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
+              <div>
+                <label class="label" for="strategyTemplateInput">Import strategy template</label>
+                <input id="strategyTemplateInput" type="file" accept=".json,.txt,.md,.yaml,.yml,.csv,.py,.ini,.toml" />
+              </div>
+              <button class="btn" id="importTemplateBtn" type="button">Load Template</button>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
+              <div>
+                <label class="label" for="starterStrategySelect">Start from a key strategy</label>
+                <select id="starterStrategySelect">
+                  <option value="">Choose a starter strategy...</option>
+                  <option value="Trend Trading">Trend Trading</option>
+                  <option value="Range Trading">Range Trading</option>
+                  <option value="Breakout Trading">Breakout Trading</option>
+                  <option value="Scalping">Scalping</option>
+                  <option value="Swing Trading">Swing Trading</option>
+                  <option value="Position Trading">Position Trading</option>
+                  <option value="News Trading">News Trading</option>
+                  <option value="Gap Trading">Gap Trading</option>
+                </select>
+              </div>
+              <button class="btn" id="applyStarterBtn" type="button">Use Starter</button>
+            </div>
+            <label class="label" for="strategyText">Describe the strategy in plain English</label>
+            <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
+          </div>
+
+          <div id="theoryDataPane" style="display:none;">
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div>
+                <label class="label" for="theoryMarketSelect">Preloaded market instrument</label>
+                <select id="theoryMarketSelect">
+                  <option>BTCUSD</option>
+                  <option>XAUUSD</option>
+                  <option>US100</option>
+                  <option>EURUSD</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="theoryDatasetFileSelect">Preloaded dataset file (optional)</label>
+                <select id="theoryDatasetFileSelect">
+                  <option value="">Auto select from market</option>
+                </select>
+              </div>
+            </div>
+            <div class="small-note">Select your hosted instrument data here. Recognition and proof will run against this dataset, and timeframe is auto-inferred from the strategy text when specified.</div>
+          </div>
+
           <div class="btn-row">
             <button class="btn primary" id="recogniseBtn" type="button">Recognise Strategy</button>
             <button class="btn" id="resetBtn" type="button">Reset Example</button>
@@ -465,6 +566,14 @@
 
     <section class="panel">
       <h2 class="section-title">Strategy Recognition Preview</h2>
+      <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
+        <select id="proofTfMode" style="max-width: 220px;">
+          <option value="lower">Proof timeframe: Lower than execution</option>
+          <option value="base" selected>Proof timeframe: Same as execution</option>
+          <option value="higher">Proof timeframe: Higher than execution</option>
+        </select>
+        <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
+      </div>
       <div class="rec-grid" id="summaryCards"></div>
     </section>
 
@@ -483,12 +592,22 @@
               </select>
             </div>
             <div>
+              <label class="label" for="datasetFileSelect">Dataset source (optional)</label>
+              <select id="datasetFileSelect">
+                <option value="">Auto select from market</option>
+              </select>
+            </div>
+            <div>
               <label class="label" for="primaryTf">Primary TF</label>
               <select id="primaryTf">
                 <option>H4</option>
                 <option>H1</option>
                 <option>M15</option>
                 <option>M5</option>
+                <option>M30</option>
+                <option>D1</option>
+                <option>W1</option>
+                <option>MN1</option>
               </select>
             </div>
             <div>
@@ -532,46 +651,9 @@
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Multi-timeframe Support / Resistance Example</h2>
-      <p class="small-note">This preview shows how the same detected structure can be explained on multiple timeframes before the strategy is executed.</p>
-      <div class="tf-grid">
-        <div class="tf-card">
-          <header>
-            <strong>H4 Recognition</strong>
-            <span class="pill">Higher timeframe</span>
-          </header>
-          <div class="body">
-            <div class="chart-sample"></div>
-            <div class="zone-row"><span>Support zone at 2238 - 2244</span><span class="pill">2 touches</span></div>
-            <div class="zone-row"><span>Resistance zone at 2271 - 2276</span><span class="pill">3 touches</span></div>
-            <div class="small-note">Use H4 to define the bias and the structural zone map.</div>
-          </div>
-        </div>
-        <div class="tf-card">
-          <header>
-            <strong>H1 Recognition</strong>
-            <span class="pill">Structure filter</span>
-          </header>
-          <div class="body">
-            <div class="chart-sample"></div>
-            <div class="zone-row"><span>Support retest with wick rejection</span><span class="pill">Confirmed</span></div>
-            <div class="zone-row"><span>Breakout invalidation rule</span><span class="pill">Below zone low</span></div>
-            <div class="small-note">Use H1 to confirm zone validity and rule alignment.</div>
-          </div>
-        </div>
-        <div class="tf-card">
-          <header>
-            <strong>M15 / M5 Entry</strong>
-            <span class="pill">Execution trigger</span>
-          </header>
-          <div class="body">
-            <div class="chart-sample"></div>
-            <div class="zone-row"><span>Entry trigger</span><span class="pill">Rejection close</span></div>
-            <div class="zone-row"><span>Stop loss</span><span class="pill">Beyond zone</span></div>
-            <div class="small-note">Use lower timeframes for precise entry timing and risk placement.</div>
-          </div>
-        </div>
-      </div>
+      <h2 class="section-title">Visual Proof of Recognition</h2>
+      <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
+      <div id="proofGrid" class="proof-grid"></div>
     </section>
 
     <section class="panel">
@@ -603,19 +685,32 @@
     const pageSelect = document.getElementById('pageSelect');
     const strategyTemplateInput = document.getElementById('strategyTemplateInput');
     const importTemplateBtn = document.getElementById('importTemplateBtn');
+    const theoryTabBtn = document.getElementById('theoryTabBtn');
+    const marketDataTabBtn = document.getElementById('marketDataTabBtn');
+    const theoryInputPane = document.getElementById('theoryInputPane');
+    const theoryDataPane = document.getElementById('theoryDataPane');
     const strategyText = document.getElementById('strategyText');
+    const starterStrategySelect = document.getElementById('starterStrategySelect');
+    const applyStarterBtn = document.getElementById('applyStarterBtn');
     const recogniseBtn = document.getElementById('recogniseBtn');
     const resetBtn = document.getElementById('resetBtn');
     const confirmBtn = document.getElementById('confirmBtn');
     const runBtn = document.getElementById('runBtn');
     const applyConfigBtn = document.getElementById('applyConfigBtn');
     const downloadConfigBtn = document.getElementById('downloadConfigBtn');
+    const proofBtn = document.getElementById('proofBtn');
+    const proofTfMode = document.getElementById('proofTfMode');
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const confirmationText = document.getElementById('confirmationText');
     const summaryCards = document.getElementById('summaryCards');
+    const proofSummary = document.getElementById('proofSummary');
+    const proofGrid = document.getElementById('proofGrid');
     const schemaPreview = document.getElementById('schemaPreview');
+    const theoryMarketSelect = document.getElementById('theoryMarketSelect');
+    const theoryDatasetFileSelect = document.getElementById('theoryDatasetFileSelect');
     const marketSelect = document.getElementById('marketSelect');
+    const datasetFileSelect = document.getElementById('datasetFileSelect');
     const primaryTf = document.getElementById('primaryTf');
     const riskInput = document.getElementById('riskInput');
     const zoneWidth = document.getElementById('zoneWidth');
@@ -627,13 +722,82 @@
     let latestRecognition = null;
     let latestTemplateText = '';
     let latestStrategyConfig = null;
+    let latestProof = null;
+    let datasetCatalog = [];
 
     const exampleText = `Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.`;
+    const starterStrategies = {
+      'Trend Trading': 'Trend trading strategy: follow the dominant H4 and H1 direction using moving averages, enter on pullback continuation on M15, stop below the pullback swing low, target 2R.',
+      'Range Trading': 'Range trading strategy: identify consolidating price between support and resistance on H1, buy near support and sell near resistance with rejection confirmation, stop outside the range, target opposite boundary.',
+      'Breakout Trading': 'Breakout trading strategy: enter when price closes above resistance or below support on H1, confirm with break and retest on M15, stop back inside breakout zone, ride the start of a new trend.',
+      'Scalping': 'Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.',
+      'Swing Trading': 'Swing trading strategy: capture multi-day price swings from H4 pivots in trend direction, enter on H1 correction completion, stop below recent swing, target next structural level over days to weeks.',
+      'Position Trading': 'Position trading strategy: hold positions for months based on D1 and W1 macro trend structure, scale in on pullbacks, wider stop on major invalidation, target large directional moves.',
+      'News Trading': 'News trading strategy: trade around major economic releases like CPI, NFP and FOMC, focus on volatility expansion candles on M5 after release, avoid pre-news noise, use strict risk control and fast management.',
+      'Gap Trading': 'Gap trading strategy: detect opening price gaps between sessions, evaluate continuation versus gap-fill behaviour on M15 and H1, enter after confirmation candle, stop beyond gap edge, target continuation or full fill.',
+    };
+
+    async function parseJsonResponse(response) {
+      const raw = await response.text();
+      if (!raw) {
+        return {};
+      }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        const preview = raw.slice(0, 140).replace(/\s+/g, ' ').trim();
+        throw new Error(`Server returned non-JSON response (possible server route issue): ${preview}`);
+      }
+    }
+
+    function buildApiCandidates(path) {
+      const normalized = String(path || '').replace(/^\/+/, '');
+      const pathname = String(window.location.pathname || '/');
+      const currentDir = pathname.endsWith('/') ? pathname : pathname.replace(/\/[^/]*$/, '/');
+      const publicIdx = currentDir.indexOf('/public/');
+      const appBase = publicIdx >= 0 ? currentDir.slice(0, publicIdx + 1) : '/';
+
+      const candidates = [
+        `/${normalized}`,
+        `${appBase}${normalized}`,
+      ];
+
+      return Array.from(new Set(candidates.map((p) => p.replace(/\/+/g, '/'))));
+    }
+
+    async function fetchJsonWithFallback(path, init) {
+      const candidates = buildApiCandidates(path);
+      let lastError = null;
+
+      for (const candidate of candidates) {
+        const response = await fetch(candidate, init);
+        try {
+          const payload = await parseJsonResponse(response);
+          return { response, payload };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError || new Error('API request failed');
+    }
 
     function setStatus(title, text, tone = 'neutral') {
       statusPill.textContent = title;
       statusText.textContent = text;
       statusPill.className = `status status--${tone}`;
+    }
+
+    function activateTheoryTab(which) {
+      const isData = which === 'data';
+      theoryInputPane.style.display = '';
+      theoryDataPane.style.display = '';
+      theoryTabBtn.classList.toggle('primary', !isData);
+      marketDataTabBtn.classList.toggle('primary', isData);
+
+      if (isData) {
+        theoryDataPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
 
     function setSelectIfPresent(selectEl, value) {
@@ -654,8 +818,7 @@
     async function pollRunStatus() {
       if (!activeRunId) return;
       try {
-        const response = await fetch(`/platform/strategy-lab/runs/${encodeURIComponent(activeRunId)}/status`);
-        const payload = await response.json();
+        const { response, payload } = await fetchJsonWithFallback(`/platform/strategy-lab/runs/${encodeURIComponent(activeRunId)}/status`);
         if (!response.ok) {
           throw new Error(payload.error || 'Unable to poll run status');
         }
@@ -689,11 +852,75 @@
 
     function mapTfToInterval(tf) {
       const key = String(tf || '').toUpperCase();
+      if (key === 'M1') return '1m';
       if (key === 'M5') return '5m';
       if (key === 'M15') return '15m';
+      if (key === 'M30') return '30m';
       if (key === 'H1') return '1h';
       if (key === 'H4') return '4h';
+      if (key === 'D1') return '1d';
+      if (key === 'W1') return '1wk';
+      if (key === 'MN1') return '1mo';
       return '1m';
+    }
+
+    function syncDatasetFileOptions() {
+      const symbol = String(marketSelect.value || '').toUpperCase();
+      const market = datasetCatalog.find((entry) => String(entry.symbol || '').toUpperCase() === symbol);
+      const current = datasetFileSelect.value;
+      const theoryCurrent = theoryDatasetFileSelect.value;
+
+      const baseOption = '<option value="">Auto select from market</option>';
+      if (!market || !Array.isArray(market.files) || !market.files.length) {
+        datasetFileSelect.innerHTML = `${baseOption}<option value="" disabled>No uploaded files detected for this market</option>`;
+        theoryDatasetFileSelect.innerHTML = `${baseOption}<option value="" disabled>No uploaded files detected for this market</option>`;
+        datasetFileSelect.value = '';
+        theoryDatasetFileSelect.value = '';
+        return;
+      }
+
+      const rows = market.files.map((file) => {
+        const tf = String(file.timeframe || '').toUpperCase();
+        const path = String(file.filePath || '');
+        return `<option value="${escapeHtml(path)}">${escapeHtml(tf)} :: ${escapeHtml(path)}</option>`;
+      });
+      datasetFileSelect.innerHTML = `${baseOption}${rows.join('')}`;
+      theoryDatasetFileSelect.innerHTML = `${baseOption}${rows.join('')}`;
+      if (current && market.files.some((file) => String(file.filePath) === current)) {
+        datasetFileSelect.value = current;
+      } else {
+        datasetFileSelect.value = '';
+      }
+      if (theoryCurrent && market.files.some((file) => String(file.filePath) === theoryCurrent)) {
+        theoryDatasetFileSelect.value = theoryCurrent;
+      } else {
+        theoryDatasetFileSelect.value = datasetFileSelect.value;
+      }
+    }
+
+    async function loadDatasetCatalog() {
+      try {
+        const { response, payload } = await fetchJsonWithFallback('/platform/datasets');
+        if (!response.ok) {
+          throw new Error(payload.error || 'Dataset catalog unavailable');
+        }
+        datasetCatalog = Array.isArray(payload.markets) ? payload.markets : [];
+        if (datasetCatalog.length) {
+          const current = String(marketSelect.value || '').toUpperCase();
+          const marketOptions = datasetCatalog
+            .map((market) => `<option value="${escapeHtml(market.symbol)}">${escapeHtml(market.symbol)}</option>`)
+            .join('');
+          marketSelect.innerHTML = marketOptions;
+          theoryMarketSelect.innerHTML = marketOptions;
+          const keepCurrent = datasetCatalog.some((market) => String(market.symbol || '').toUpperCase() === current);
+          marketSelect.value = keepCurrent ? current : String(datasetCatalog[0].symbol || '');
+          theoryMarketSelect.value = marketSelect.value;
+          syncDatasetFileOptions();
+          setStatus('Datasets loaded', `Discovered ${datasetCatalog.length} market datasets from uploads.`, 'neutral');
+        }
+      } catch {
+        datasetCatalog = [];
+      }
     }
 
     function buildRequestPayload() {
@@ -706,6 +933,7 @@
         zoneWidthPct: Number(zoneWidth.value || 0.18),
         minTouches: Number(touchCount.value || 2),
         confirmation: confirmationRule.value,
+        dataFile: datasetFileSelect.value || '',
       };
     }
 
@@ -762,6 +990,187 @@
         .replace(/'/g, '&#39;');
     }
 
+    function renderProofChartSvg(windowCandles, centerTs, overlays) {
+      if (!Array.isArray(windowCandles) || !windowCandles.length) {
+        return '<svg class="proof-chart" viewBox="0 0 560 200" preserveAspectRatio="none"></svg>';
+      }
+
+      const width = 560;
+      const height = 200;
+      const padX = 28;
+      const padY = 18;
+      const minPrice = Math.min(...windowCandles.map(c => Number(c.low || c.close || 0)));
+      const maxPrice = Math.max(...windowCandles.map(c => Number(c.high || c.close || 0)));
+      const span = Math.max(1e-9, maxPrice - minPrice);
+
+      const points = windowCandles.map((c, idx) => {
+        const x = padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
+        const y = height - padY - ((Number(c.close || 0) - minPrice) / span) * (height - padY * 2);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      }).join(' ');
+
+      let centerIndex = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+      windowCandles.forEach((c, idx) => {
+        const d = Math.abs(Number(c.ts || 0) - Number(centerTs || 0));
+        if (d < bestDist) {
+          bestDist = d;
+          centerIndex = idx;
+        }
+      });
+
+      const markerX = padX + (centerIndex / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
+      const markerY = height - padY - ((Number(windowCandles[centerIndex].close || 0) - minPrice) / span) * (height - padY * 2);
+
+      const findNearestIndexByTs = (ts) => {
+        let best = 0;
+        let dist = Number.POSITIVE_INFINITY;
+        windowCandles.forEach((c, idx) => {
+          const d = Math.abs(Number(c.ts || 0) - Number(ts || 0));
+          if (d < dist) {
+            dist = d;
+            best = idx;
+          }
+        });
+        return best;
+      };
+
+      const xFromTs = (ts) => {
+        const idx = findNearestIndexByTs(ts);
+        return padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
+      };
+
+      const yFromPrice = (price) => {
+        return height - padY - ((Number(price || 0) - minPrice) / span) * (height - padY * 2);
+      };
+
+      const overlayMarkup = (Array.isArray(overlays) ? overlays : []).map((ov) => {
+        if (!ov || !ov.kind) {
+          return '';
+        }
+
+        if (ov.kind === 'hline' && Number.isFinite(Number(ov.price))) {
+          const y = yFromPrice(ov.price);
+          return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" stroke="#b45309" stroke-width="1.2" stroke-dasharray="6 4"></line>`;
+        }
+
+        if (ov.kind === 'vline' && Number.isFinite(Number(ov.ts))) {
+          const x = xFromTs(ov.ts);
+          return `<line x1="${x}" y1="${padY}" x2="${x}" y2="${height - padY}" stroke="#6d28d9" stroke-width="1.2" stroke-dasharray="4 4"></line>`;
+        }
+
+        if (ov.kind === 'box' && Number.isFinite(Number(ov.startTs)) && Number.isFinite(Number(ov.endTs)) && Number.isFinite(Number(ov.low)) && Number.isFinite(Number(ov.high))) {
+          const x1 = xFromTs(ov.startTs);
+          const x2 = xFromTs(ov.endTs);
+          const y1 = yFromPrice(ov.high);
+          const y2 = yFromPrice(ov.low);
+          const x = Math.min(x1, x2);
+          const w = Math.max(1, Math.abs(x2 - x1));
+          const y = Math.min(y1, y2);
+          const h = Math.max(1, Math.abs(y2 - y1));
+          return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(180,83,9,0.08)" stroke="#b45309" stroke-width="1.2"></rect>`;
+        }
+
+        if (ov.kind === 'channel' && Number.isFinite(Number(ov.startTs)) && Number.isFinite(Number(ov.endTs))) {
+          const x1 = xFromTs(ov.startTs);
+          const x2 = xFromTs(ov.endTs);
+          if (
+            Number.isFinite(Number(ov.upperStartPrice)) &&
+            Number.isFinite(Number(ov.upperEndPrice)) &&
+            Number.isFinite(Number(ov.lowerStartPrice)) &&
+            Number.isFinite(Number(ov.lowerEndPrice))
+          ) {
+            const uy1 = yFromPrice(ov.upperStartPrice);
+            const uy2 = yFromPrice(ov.upperEndPrice);
+            const ly1 = yFromPrice(ov.lowerStartPrice);
+            const ly2 = yFromPrice(ov.lowerEndPrice);
+            return `
+              <polygon points="${x1},${uy1} ${x2},${uy2} ${x2},${ly2} ${x1},${ly1}" fill="rgba(11,114,133,0.08)"></polygon>
+              <line x1="${x1}" y1="${uy1}" x2="${x2}" y2="${uy2}" stroke="#0b7285" stroke-width="1.2"></line>
+              <line x1="${x1}" y1="${ly1}" x2="${x2}" y2="${ly2}" stroke="#0b7285" stroke-width="1.2"></line>
+            `;
+          }
+        }
+
+        return '';
+      }).join('');
+
+      return `
+        <svg class="proof-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Strategy proof chart window">
+          <rect x="0" y="0" width="${width}" height="${height}" fill="#f8fbf9"></rect>
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#d6ded8" />
+          <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#d6ded8" />
+          ${overlayMarkup}
+          <polyline points="${points}" fill="none" stroke="#0b7285" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <line x1="${markerX}" y1="${padY}" x2="${markerX}" y2="${height - padY}" stroke="#2f855a" stroke-width="1.4" stroke-dasharray="4 4"></line>
+          <circle cx="${markerX}" cy="${markerY}" r="4.2" fill="#2f855a"></circle>
+        </svg>
+      `;
+    }
+
+    function renderProofPanel() {
+      const proof = latestProof;
+      if (!proof || !Array.isArray(proof.examples) || !proof.examples.length) {
+        proofSummary.textContent = 'No proof examples yet. Click Generate Visual Proof after recognition to inspect real pattern windows from your selected data.';
+        proofGrid.innerHTML = '<div class="muted-box small-note">Proof windows will appear here with chart snapshots and rationale for each detected example.</div>';
+        return;
+      }
+
+      proofSummary.textContent = `Detected ${proof.exampleCount} chart example(s) on ${proof.symbol} ${String(proof.timeframe || '').toUpperCase()} (${String(proof.timeframeMode || 'base')}) using ${proof.parameters?.confirmation || 'rule confirmation'} and ${Number(proof.parameters?.zoneWidthPct || 0).toFixed(2)}% zone width.`;
+
+      proofGrid.innerHTML = proof.examples.map((ex, idx) => {
+        const dt = new Date(Number(ex.centerTs || 0));
+        const stamp = Number.isFinite(dt.getTime()) ? dt.toISOString() : 'n/a';
+        return `
+          <article class="proof-card">
+            <header>
+              <strong>Example ${idx + 1}: ${escapeHtml(ex.title || 'Pattern example')}</strong>
+              <span class="proof-head-meta">
+                <span class="proof-confidence">Confidence ${(Number(ex.confidence || 0) * 100).toFixed(0)}%</span>
+                <span class="pill">${escapeHtml(String(proof.timeframe || '').toUpperCase())}</span>
+              </span>
+            </header>
+            <div class="body">
+              ${renderProofChartSvg(ex.window || [], ex.centerTs, ex.overlays || [])}
+              <div class="zone-row"><span>Recognition timestamp</span><span class="pill">${escapeHtml(stamp)}</span></div>
+              <div class="zone-row"><span>Center price</span><span class="pill">${escapeHtml(Number(ex.centerPrice || 0).toFixed(4))}</span></div>
+              <div class="zone-row"><span>Example confidence</span><span class="pill">${escapeHtml((Number(ex.confidence || 0) * 100).toFixed(0))}%</span></div>
+              <div class="small-note">${escapeHtml(ex.rationale || 'Detected by strategy proof scanner.')}</div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function generateVisualProof() {
+      try {
+        const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/proof', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...buildRequestPayload(),
+            templateText: latestTemplateText || strategyText.value,
+            proofTfMode: proofTfMode.value,
+            maxExamples: 3,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Unable to generate strategy proof');
+        }
+
+        latestRecognition = payload.recognition || latestRecognition;
+        latestProof = payload.proof || null;
+        renderPreview();
+        renderProofPanel();
+        setStatus('Visual proof generated', `Found ${latestProof?.exampleCount || 0} chart example(s) supporting the recognised strategy.`, 'success');
+      } catch (error) {
+        latestProof = null;
+        renderProofPanel();
+        setStatus('Proof generation failed', (error && error.message) ? error.message : 'Unable to generate proof', 'error');
+      }
+    }
+
     function renderPreview() {
       const market = marketSelect.value;
       const tf = primaryTf.value;
@@ -776,6 +1185,7 @@
       const indicatorText = recognition?.indicators?.length ? recognition.indicators.join(', ') : 'None detected';
       const confidenceText = recognition ? `${(Number(recognition.confidence || 0) * 100).toFixed(0)}% (${recognition.confidenceBand || 'medium'})` : 'Pending';
       const confidenceClass = recognition?.confidenceBand ? `confidence-${recognition.confidenceBand}` : '';
+      const selectedDataset = datasetFileSelect.value || recognition?.metadata?.dataFile || 'Auto from market mapping';
 
       const cards = [
         { title: 'Detected Strategy Type', value: recognition?.strategyType || 'Pending recognition', meta: recognition?.name || 'The lab will infer the strategy archetype from the provided text or template.' },
@@ -785,6 +1195,7 @@
         { title: 'Stop Model', value: recognition?.stopStyle || 'Pending', meta: 'Detected invalidation model such as ATR, swing structure, or zone boundary.' },
         { title: 'Target Model', value: recognition?.targetStyle || 'Pending', meta: recognition?.objective || 'Detected profit-taking logic and objective.' },
         { title: 'Sessions / Filters', value: sessionText, meta: indicatorText },
+        { title: 'Dataset Source', value: selectedDataset, meta: 'Uploaded market/timeframe file used for deterministic test datasets.' },
         { title: 'Suggested Risk', value: `${risk.toFixed(2)}%`, meta: `Template value: ${recognition?.rules?.riskPerTradePct ?? risk.toFixed(2)}%` },
         { title: 'Zone Width / Touches', value: `${width.toFixed(2)}% / ${touches}`, meta: `Template suggests ${recognition?.rules?.minTouches ?? touches} minimum touches.` },
         { title: 'Confirmation Rule', value: recognition?.rules?.confirmation || conf, meta: 'Entry only executes when the confirmation condition is satisfied.' },
@@ -813,12 +1224,11 @@
 
       try {
         const templateText = await file.text();
-        const response = await fetch('/platform/strategy-lab/import', {
+        const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ templateText, templateName: file.name }),
         });
-        const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Template import failed');
         }
@@ -829,6 +1239,9 @@
         const normalized = payload.normalized || {};
         strategyText.value = normalized.theoryText || templateText;
         marketSelect.value = normalized.market || marketSelect.value;
+        theoryMarketSelect.value = marketSelect.value;
+        syncDatasetFileOptions();
+        datasetFileSelect.value = normalized.dataFile || datasetFileSelect.value;
         primaryTf.value = normalized.primaryTimeframe || primaryTf.value;
         riskInput.value = String(normalized.riskPerTradePct ?? riskInput.value);
         zoneWidth.value = String(normalized.zoneWidthPct ?? zoneWidth.value);
@@ -846,26 +1259,32 @@
 
     async function recogniseStrategy() {
       try {
-        const response = await fetch('/platform/strategy-lab/recognize', {
+        const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/recognize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildRequestPayload()),
         });
-        const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Recognition failed');
         }
 
         latestRecognition = payload.recognition || null;
         latestStrategyConfig = payload.strategyConfig || null;
+        if (payload.recognition?.primaryTimeframe) {
+          setSelectIfPresent(primaryTf, String(payload.recognition.primaryTimeframe));
+        }
+        latestProof = null;
         confirmedStrategyId = '';
         renderPreview();
+        renderProofPanel();
         const rec = payload.recognition || {};
         setStatus(
           'Strategy recognised',
           `Recognised ${rec.strategyType || 'a structured strategy'} on ${rec.market || marketSelect.value}. Confidence ${(Number(rec.confidence || 0) * 100).toFixed(0)}%.`,
           'success',
         );
+
+        await generateVisualProof();
       } catch (error) {
         setStatus('Recognition failed', (error && error.message) ? error.message : 'Unable to recognise strategy', 'error');
       }
@@ -877,15 +1296,36 @@
     importTemplateBtn.addEventListener('click', () => {
       importStrategyTemplate();
     });
+    theoryTabBtn.addEventListener('click', () => activateTheoryTab('input'));
+    marketDataTabBtn.addEventListener('click', () => activateTheoryTab('data'));
+    applyStarterBtn.addEventListener('click', () => {
+      const key = starterStrategySelect.value;
+      if (!key || !starterStrategies[key]) {
+        setStatus('Starter strategy', 'Select a starter strategy first.', 'warning');
+        return;
+      }
+      strategyText.value = starterStrategies[key];
+      latestTemplateText = '';
+      latestStrategyConfig = null;
+      latestProof = null;
+      setStatus('Starter loaded', `Loaded ${key}. You can refine it before recognition.`, 'neutral');
+      renderPreview();
+      renderProofPanel();
+    });
+    proofBtn.addEventListener('click', () => {
+      generateVisualProof();
+    });
     resetBtn.addEventListener('click', () => {
       stopRunStatusPolling();
       activeRunId = '';
       latestRecognition = null;
       latestTemplateText = '';
       latestStrategyConfig = null;
+      latestProof = null;
       strategyTemplateInput.value = '';
       strategyText.value = exampleText;
       marketSelect.value = 'BTCUSD';
+      theoryMarketSelect.value = 'BTCUSD';
       primaryTf.value = 'H4';
       riskInput.value = '0.50';
       zoneWidth.value = '0.18';
@@ -893,11 +1333,12 @@
       confirmationRule.value = 'Rejection candle';
       setStatus('Ready for recognition', 'The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.' );
       renderPreview();
+      renderProofPanel();
     });
 
     confirmBtn.addEventListener('click', async () => {
       try {
-        const response = await fetch('/platform/strategy-lab/confirm', {
+        const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -905,7 +1346,6 @@
             templateText: latestTemplateText || strategyText.value,
           }),
         });
-        const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Confirmation failed');
         }
@@ -927,7 +1367,7 @@
     runBtn.addEventListener('click', async () => {
       try {
         if (!confirmedStrategyId) {
-          const confirmResponse = await fetch('/platform/strategy-lab/confirm', {
+          const { response: confirmResponse, payload: confirmPayload } = await fetchJsonWithFallback('/platform/strategy-lab/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -935,7 +1375,6 @@
               templateText: latestTemplateText || strategyText.value,
               }),
           });
-          const confirmPayload = await confirmResponse.json();
           if (!confirmResponse.ok) {
             throw new Error(confirmPayload.error || 'Please confirm strategy before queueing backtest');
           }
@@ -946,7 +1385,7 @@
         }
 
         const riskPct = Number(riskInput.value || 0.5);
-        const response = await fetch('/platform/strategy-lab/backtest-request', {
+        const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/backtest-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -956,7 +1395,6 @@
             risk: riskPct / 100,
           }),
         });
-        const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Backtest queue request failed');
         }
@@ -979,12 +1417,54 @@
     [marketSelect, primaryTf, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
       el.addEventListener('input', () => {
         latestStrategyConfig = null;
+        latestProof = null;
+        if (el === marketSelect) {
+          theoryMarketSelect.value = marketSelect.value;
+          syncDatasetFileOptions();
+        }
         renderPreview();
+        renderProofPanel();
       });
       el.addEventListener('change', () => {
         latestStrategyConfig = null;
+        latestProof = null;
+        if (el === marketSelect) {
+          theoryMarketSelect.value = marketSelect.value;
+          syncDatasetFileOptions();
+        }
         renderPreview();
+        renderProofPanel();
       });
+    });
+
+    datasetFileSelect.addEventListener('change', () => {
+      theoryDatasetFileSelect.value = datasetFileSelect.value;
+      latestStrategyConfig = null;
+      latestProof = null;
+      renderPreview();
+      renderProofPanel();
+    });
+
+    theoryDatasetFileSelect.addEventListener('change', () => {
+      datasetFileSelect.value = theoryDatasetFileSelect.value;
+      latestStrategyConfig = null;
+      latestProof = null;
+      renderPreview();
+      renderProofPanel();
+    });
+
+    theoryMarketSelect.addEventListener('change', () => {
+      marketSelect.value = theoryMarketSelect.value;
+      syncDatasetFileOptions();
+      latestStrategyConfig = null;
+      latestProof = null;
+      renderPreview();
+      renderProofPanel();
+    });
+
+    proofTfMode.addEventListener('change', () => {
+      latestProof = null;
+      renderProofPanel();
     });
 
     strategyText.addEventListener('input', () => {
@@ -1008,10 +1488,18 @@
 
         if (typeof parsed.market === 'string') {
           setSelectIfPresent(marketSelect, parsed.market);
+          setSelectIfPresent(theoryMarketSelect, parsed.market);
         }
 
         if (parsed.execution && typeof parsed.execution === 'object') {
           setSelectIfPresent(primaryTf, parsed.execution.primaryTimeframe);
+        }
+
+        if (parsed.metadata && typeof parsed.metadata === 'object' && typeof parsed.metadata.dataFile === 'string') {
+          syncDatasetFileOptions();
+          if (Array.from(datasetFileSelect.options).some((opt) => String(opt.value) === parsed.metadata.dataFile)) {
+            datasetFileSelect.value = parsed.metadata.dataFile;
+          }
         }
 
         if (parsed.risk && typeof parsed.risk === 'object') {
@@ -1058,7 +1546,10 @@
     });
 
     strategyText.value = exampleText;
+    activateTheoryTab('input');
+    void loadDatasetCatalog();
     renderPreview();
+    renderProofPanel();
   </script>
 </body>
 </html>
