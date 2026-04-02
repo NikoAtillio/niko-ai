@@ -1,5 +1,111 @@
 [
   {
+    "id": "strategy_1775149902564_fpwrbtwf",
+    "createdAt": "2026-04-02T17:11:42.564Z",
+    "updatedAt": "2026-04-02T17:11:42.564Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Mean Reversion",
+      "confidence": 0.74,
+      "confidenceBand": "medium",
+      "market": "XAUUSD",
+      "primaryTimeframe": "H4",
+      "timeframes": [
+        "H4"
+      ],
+      "sessions": [],
+      "indicators": [],
+      "entryStyle": "Rule confirmation",
+      "stopStyle": "Structural stop",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 1,
+        "entryBias": "buy support / sell resistance",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Mean Reversion",
+          "entryStyle": "Rule confirmation",
+          "stopStyle": "Structural stop",
+          "targetStyle": "R multiple target",
+          "sessions": [],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "No indicator dependency detected.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-02T17:11:42.564Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "primaryTimeframe": "H4",
+        "engineInterval": "4h",
+        "timeframes": [
+          "H4"
+        ],
+        "bias": "both",
+        "sessions": []
+      },
+      "risk": {
+        "riskPerTradePct": 1,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Rule confirmation",
+        "confirmation": "Rejection candle",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Support / Resistance Mean Reversion",
+        "confidence": 0.74,
+        "confidenceBand": "medium",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "No indicator dependency detected.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    }
+  },
+  {
     "id": "strategy_1775149019700_q6m1f9hv",
     "createdAt": "2026-04-02T16:56:59.700Z",
     "updatedAt": "2026-04-02T16:56:59.700Z",

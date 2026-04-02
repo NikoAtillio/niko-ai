@@ -1,5 +1,51 @@
 [
   {
+    "id": "run_1775149914632_k222u9jn",
+    "createdAt": "2026-04-02T17:11:54.632Z",
+    "summary": {
+      "source": "strategy-lab",
+      "status": "failed",
+      "strategyId": "strategy_1775149902564_fpwrbtwf",
+      "strategyName": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Mean Reversion",
+      "market": "XAUUSD",
+      "primaryTimeframe": "H4",
+      "capital": 10000,
+      "risk": 0.01,
+      "interval": "4h",
+      "lookbackDays": 30,
+      "startedAt": "2026-04-02T17:11:54.633Z",
+      "updatedAt": "2026-04-02T17:11:54.672Z",
+      "endedAt": "2026-04-02T17:11:54.671Z",
+      "exitCode": 2,
+      "metrics": {},
+      "artifacts": []
+    }
+  },
+  {
+    "id": "run_1775149905514_2agwsgzp",
+    "createdAt": "2026-04-02T17:11:45.514Z",
+    "summary": {
+      "source": "strategy-lab",
+      "status": "failed",
+      "strategyId": "strategy_1775149902564_fpwrbtwf",
+      "strategyName": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Mean Reversion",
+      "market": "XAUUSD",
+      "primaryTimeframe": "H4",
+      "capital": 10000,
+      "risk": 0.01,
+      "interval": "4h",
+      "lookbackDays": 30,
+      "startedAt": "2026-04-02T17:11:45.515Z",
+      "updatedAt": "2026-04-02T17:11:45.573Z",
+      "endedAt": "2026-04-02T17:11:45.572Z",
+      "exitCode": 2,
+      "metrics": {},
+      "artifacts": []
+    }
+  },
+  {
     "id": "run_1775149023272_ae9rbh1m",
     "createdAt": "2026-04-02T16:57:03.272Z",
     "summary": {

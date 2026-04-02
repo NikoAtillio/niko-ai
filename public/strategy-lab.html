@@ -1440,7 +1440,7 @@
         latestRecognition = payload.recognition || null;
         latestStrategyConfig = payload.strategyConfig || null;
         if (payload.recognition?.primaryTimeframe) {
-          setSelectIfPresent(primaryTf, String(payload.recognition.primaryTimeframe));
+          syncTimeframeSelects(String(payload.recognition.primaryTimeframe));
         }
         latestProof = null;
         proofIsStale = false;
@@ -1453,8 +1453,6 @@
           `Recognised ${rec.strategyType || 'a structured strategy'} on ${rec.market || marketSelect.value}. Confidence ${(Number(rec.confidence || 0) * 100).toFixed(0)}%.`,
           'success',
         );
-
-        await generateVisualProof();
       } catch (error) {
         setStatus('Recognition failed', (error && error.message) ? error.message : 'Unable to recognise strategy', 'error');
       }
