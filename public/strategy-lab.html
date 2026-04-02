@@ -546,6 +546,20 @@
             </div>
             <label class="label" for="strategyText">Describe the strategy in plain English</label>
             <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
+            <div style="margin-top:10px;">
+              <label class="label" for="theoryPrimaryTfSelect">Strategy timeframe</label>
+              <select id="theoryPrimaryTfSelect">
+                <option>H4</option>
+                <option>H1</option>
+                <option>M30</option>
+                <option>M15</option>
+                <option>M5</option>
+                <option>M1</option>
+                <option>D1</option>
+                <option>W1</option>
+                <option>MN1</option>
+              </select>
+            </div>
           </div>
 
           <div id="theoryDataPane" style="display:none;">
@@ -753,6 +767,7 @@
     const schemaPreview = document.getElementById('schemaPreview');
     const theoryMarketSelect = document.getElementById('theoryMarketSelect');
     const theoryDatasetFileSelect = document.getElementById('theoryDatasetFileSelect');
+    const theoryPrimaryTfSelect = document.getElementById('theoryPrimaryTfSelect');
     const marketSelect = document.getElementById('marketSelect');
     const datasetFileSelect = document.getElementById('datasetFileSelect');
     const primaryTf = document.getElementById('primaryTf');
@@ -881,6 +896,17 @@
       const options = Array.from(selectEl.options).map((opt) => String(opt.value));
       if (options.includes(String(value))) {
         selectEl.value = String(value);
+      }
+    }
+
+    function syncTimeframeSelects(value, source = null) {
+      const nextValue = String(value || '').toUpperCase();
+      if (!nextValue) return;
+      if (source !== primaryTf) {
+        setSelectIfPresent(primaryTf, nextValue);
+      }
+      if (source !== theoryPrimaryTfSelect) {
+        setSelectIfPresent(theoryPrimaryTfSelect, nextValue);
       }
     }
 
@@ -1384,7 +1410,7 @@
         theoryMarketSelect.value = marketSelect.value;
         syncDatasetFileOptions();
         datasetFileSelect.value = normalized.dataFile || datasetFileSelect.value;
-        primaryTf.value = normalized.primaryTimeframe || primaryTf.value;
+        syncTimeframeSelects(normalized.primaryTimeframe || primaryTf.value);
         riskInput.value = String(normalized.riskPerTradePct ?? riskInput.value);
         zoneWidth.value = String(normalized.zoneWidthPct ?? zoneWidth.value);
         touchCount.value = String(normalized.minTouches ?? touchCount.value);
@@ -1475,6 +1501,7 @@
       marketSelect.value = 'BTCUSD';
       theoryMarketSelect.value = 'BTCUSD';
       primaryTf.value = 'H4';
+      theoryPrimaryTfSelect.value = 'H4';
       riskInput.value = '0.50';
       zoneWidth.value = '0.18';
       touchCount.value = '2';
@@ -1577,7 +1604,7 @@
       }
     });
 
-    [marketSelect, primaryTf, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
+    [marketSelect, primaryTf, theoryPrimaryTfSelect, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
       el.addEventListener('input', () => {
         latestStrategyConfig = null;
         invalidateConfirmation(false);
@@ -1587,6 +1614,9 @@
         if (el === marketSelect) {
           theoryMarketSelect.value = marketSelect.value;
           syncDatasetFileOptions();
+        }
+        if (el === primaryTf || el === theoryPrimaryTfSelect) {
+          syncTimeframeSelects(el.value, el);
         }
         renderPreview();
         renderProofPanel();
@@ -1600,6 +1630,9 @@
         if (el === marketSelect) {
           theoryMarketSelect.value = marketSelect.value;
           syncDatasetFileOptions();
+        }
+        if (el === primaryTf || el === theoryPrimaryTfSelect) {
+          syncTimeframeSelects(el.value, el);
         }
         renderPreview();
         renderProofPanel();
@@ -1619,6 +1652,17 @@
 
     theoryDatasetFileSelect.addEventListener('change', () => {
       datasetFileSelect.value = theoryDatasetFileSelect.value;
+      latestStrategyConfig = null;
+      invalidateConfirmation(true);
+      if (latestProof) {
+        proofIsStale = true;
+      }
+      renderPreview();
+      renderProofPanel();
+    });
+
+    theoryPrimaryTfSelect.addEventListener('change', () => {
+      syncTimeframeSelects(theoryPrimaryTfSelect.value, theoryPrimaryTfSelect);
       latestStrategyConfig = null;
       invalidateConfirmation(true);
       if (latestProof) {
@@ -1677,7 +1721,7 @@
         }
 
         if (parsed.execution && typeof parsed.execution === 'object') {
-          setSelectIfPresent(primaryTf, parsed.execution.primaryTimeframe);
+          syncTimeframeSelects(parsed.execution.primaryTimeframe);
         }
 
         if (parsed.metadata && typeof parsed.metadata === 'object' && typeof parsed.metadata.dataFile === 'string') {
@@ -1734,6 +1778,7 @@
 
     strategyText.value = exampleText;
     activateTheoryTab('input');
+    theoryPrimaryTfSelect.value = primaryTf.value;
     void loadDatasetCatalog();
     renderPreview();
     renderProofPanel();
