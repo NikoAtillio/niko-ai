@@ -7,7 +7,8 @@
     "prebuild": "npm run clean",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts",
     "test": "jest",
-    "test:smoke": "node scripts/smoke-strategy-lab.js"
+    "test:smoke": "node scripts/smoke-strategy-lab.js",
+    "datasets:cleanup-aliases": "node scripts/cleanup-dataset-aliases.js"
   },
   "dependencies": {
     "@tensorflow/tfjs-node": "^4.22.0",

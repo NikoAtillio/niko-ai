@@ -479,6 +479,56 @@
       margin-bottom: 12px;
     }
 
+    .preloaded-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdf9;
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .data-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .data-tabs .btn {
+      height: 34px;
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .data-tabs .btn.primary {
+      background: linear-gradient(135deg, #005f73, #2a9d8f);
+      color: #ecf8f2;
+      border-color: transparent;
+    }
+
+    .preloaded-box .inline-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .preloaded-box .btn {
+      height: 38px;
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
     .drop-zone {
       border: 1px dashed #8aa79c;
       border-radius: 10px;
@@ -585,7 +635,11 @@
     </section>
 
     <section class="panel">
-      <div class="data-ingest">
+      <div class="data-tabs">
+        <button class="btn primary" id="uploadDataTabBtn" type="button">Drop Data</button>
+        <button class="btn" id="preloadedDataTabBtn" type="button">Market Data</button>
+      </div>
+      <div class="data-ingest" id="uploadDataPane">
         <label class="drop-zone" id="dataDropZone">
           <input id="dataFileInput" type="file" accept=".json,.csv,.txt,.tsv" multiple />
           <span id="dataDropText">Drop curve data here or click to select a file (.json/.csv/.txt)</span>
@@ -594,6 +648,19 @@
           <h3 id="datasetTitle">Imported market data for X for Y</h3>
           <p id="datasetSubtitle">Reviewing strategy performance by period with modelled capital progression, risk scaling, monthly withdrawals, drawdown behaviour, and recommendation consistency.</p>
         </div>
+      </div>
+      <div class="preloaded-box" id="preloadedDataPane" style="display:none;">
+        <div><strong>or pick from our preloaded market data</strong></div>
+        <div class="inline-row">
+          <div>
+            <label for="preloadedMarketSelect">Instrument</label>
+            <select id="preloadedMarketSelect">
+              <option value="">Loading instruments...</option>
+            </select>
+          </div>
+          <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
+        </div>
+        <p class="footnote" id="preloadedSummary" style="margin:0;">Loads all available years and timeframes for the selected instrument from hosted datasets.</p>
       </div>
 
       <div class="curve-toolbar">
@@ -790,8 +857,15 @@
     const dataDropZone = document.getElementById('dataDropZone');
     const dataFileInput = document.getElementById('dataFileInput');
     const dataDropText = document.getElementById('dataDropText');
+    const uploadDataTabBtn = document.getElementById('uploadDataTabBtn');
+    const preloadedDataTabBtn = document.getElementById('preloadedDataTabBtn');
+    const uploadDataPane = document.getElementById('uploadDataPane');
+    const preloadedDataPane = document.getElementById('preloadedDataPane');
     const datasetTitle = document.getElementById('datasetTitle');
     const datasetSubtitle = document.getElementById('datasetSubtitle');
+    const preloadedMarketSelect = document.getElementById('preloadedMarketSelect');
+    const loadPreloadedBtn = document.getElementById('loadPreloadedBtn');
+    const preloadedSummary = document.getElementById('preloadedSummary');
     const zoomInBtn = document.getElementById('zoomInBtn');
     const zoomOutBtn = document.getElementById('zoomOutBtn');
     const zoomResetBtn = document.getElementById('zoomResetBtn');
@@ -808,6 +882,7 @@
     const withdrawalPctInput = document.getElementById('withdrawalPctInput');
 
     let curveData = null;
+    let preloadedCatalog = [];
     const curveView = { start: 0, span: 1 };
     const periodOrder = { '2023-24': 1, '2024-25': 2, '2025-26': 3 };
     let latestResultsSummary = null;
@@ -914,6 +989,177 @@
       return m ? m[1].toUpperCase() : 'RAW';
     }
 
+    function formatYearBucket(startYear) {
+      const y = Number(startYear);
+      return `${y}-${String(y + 1).slice(-2)}`;
+    }
+
+    function bucketStartYearFromDate(date) {
+      const d = new Date(date);
+      if (!Number.isFinite(d.getTime())) return null;
+      const month = d.getUTCMonth() + 1;
+      const year = d.getUTCFullYear();
+      return month >= 4 ? year : year - 1;
+    }
+
+    function bucketLabelFromDate(date) {
+      const startYear = bucketStartYearFromDate(date);
+      return Number.isFinite(startYear) ? formatYearBucket(startYear) : 'Imported';
+    }
+
+    function normalizePeriodLabel(value) {
+      const text = String(value || '').trim();
+      if (!text) return 'Imported';
+
+      const yyyyDashYy = text.match(/^(\d{4})\s*[-_/]\s*(\d{2})$/);
+      if (yyyyDashYy) return `${yyyyDashYy[1]}-${yyyyDashYy[2]}`;
+
+      const yyyyDashYyyy = text.match(/^(\d{4})\s*[-_/]\s*(\d{4})$/);
+      if (yyyyDashYyyy) return `${yyyyDashYyyy[1]}-${String(Number(yyyyDashYyyy[2])).slice(-2)}`;
+
+      const yyDashYy = text.match(/^(\d{2})\s*[-_/]\s*(\d{2})$/);
+      if (yyDashYy) return `20${yyDashYy[1]}-${yyDashYy[2]}`;
+
+      const yyyyOnly = text.match(/^(\d{4})$/);
+      if (yyyyOnly) return formatYearBucket(Number(yyyyOnly[1]));
+
+      return text;
+    }
+
+    function inferYearBucketFromFilename(name) {
+      const base = (name || '').split('/').pop() || '';
+      const explicit = base.match(/(20\d{2})[^0-9]?(20\d{2}|\d{2})/);
+      if (explicit) {
+        const y1 = Number(explicit[1]);
+        const y2raw = String(explicit[2]);
+        const y2 = y2raw.length === 2 ? Number(`20${y2raw}`) : Number(y2raw);
+        if (Number.isFinite(y1) && Number.isFinite(y2) && y2 >= y1) {
+          return `${y1}-${String(y2).slice(-2)}`;
+        }
+      }
+
+      const yy = base.match(/(?:^|[^0-9])(\d{2})\s*[-_ ]\s*(\d{2})(?:[^0-9]|$)/);
+      if (yy) return `20${yy[1]}-${yy[2]}`;
+      return null;
+    }
+
+    function normalizeTfLabel(tf) {
+      const key = String(tf || '').toLowerCase();
+      if (key === '1m') return 'M1';
+      if (key === '5m') return 'M5';
+      if (key === '15m') return 'M15';
+      if (key === '30m') return 'M30';
+      if (key === '1h') return 'H1';
+      if (key === '4h') return 'H4';
+      if (key === '1d') return 'D1';
+      if (key === '1w') return 'W1';
+      if (key === '1mo') return 'MN1';
+      return String(tf || '').toUpperCase() || 'RAW';
+    }
+
+    function inferPeriodFromDataFile(filePath) {
+      const fromName = inferYearBucketFromFilename(filePath);
+      if (fromName) return fromName;
+      return null;
+    }
+
+    async function parseJsonResponse(response) {
+      const raw = await response.text();
+      if (!raw) return {};
+      try {
+        return JSON.parse(raw);
+      } catch {
+        const preview = raw.slice(0, 140).replace(/\s+/g, ' ').trim();
+        throw new Error(`Server returned non-JSON response: ${preview}`);
+      }
+    }
+
+    async function loadPreloadedCatalog() {
+      try {
+        const response = await fetch('/platform/datasets');
+        const payload = await parseJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(payload.error || 'Dataset catalog unavailable');
+        }
+
+        preloadedCatalog = Array.isArray(payload.markets) ? payload.markets : [];
+        if (!preloadedCatalog.length) {
+          preloadedMarketSelect.innerHTML = '<option value="">No preloaded datasets found</option>';
+          loadPreloadedBtn.disabled = true;
+          preloadedSummary.textContent = 'No preloaded datasets found yet. Upload datasets in Strategy Lab first.';
+          return;
+        }
+
+        preloadedMarketSelect.innerHTML = preloadedCatalog
+          .map((market) => `<option value="${market.symbol}">${market.symbol}</option>`)
+          .join('');
+        loadPreloadedBtn.disabled = false;
+        preloadedSummary.textContent = `Loaded dataset catalog with ${preloadedCatalog.length} instruments.`;
+      } catch (error) {
+        preloadedSummary.textContent = (error && error.message) ? error.message : 'Unable to load preloaded market datasets.';
+        loadPreloadedBtn.disabled = true;
+      }
+    }
+
+    async function buildCurveDataFromPreloadedMarket(symbol) {
+      const market = preloadedCatalog.find((entry) => String(entry.symbol || '').toUpperCase() === String(symbol || '').toUpperCase());
+      if (!market || !Array.isArray(market.files) || !market.files.length) {
+        throw new Error(`No hosted files found for ${symbol}.`);
+      }
+
+      const out = { startCapital: 10000, market: market.symbol, periods: {} };
+      let loadedSeries = 0;
+
+      for (const file of market.files) {
+        const filePath = String(file.filePath || '');
+        if (!filePath) continue;
+
+        const timeframe = normalizeTfLabel(file.timeframe);
+        const periodFromFile = inferPeriodFromDataFile(filePath);
+        const response = await fetch(`/platform/candles?symbol=${encodeURIComponent(market.symbol)}&timeframe=${encodeURIComponent(String(file.timeframe || '1m'))}&dataFile=${encodeURIComponent(filePath)}&maxPoints=50000`);
+        const payload = await parseJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(payload.error || `Failed loading ${filePath}`);
+        }
+
+        const candles = Array.isArray(payload.candles) ? payload.candles : [];
+        if (!candles.length) continue;
+
+        const grouped = new Map();
+        for (const c of candles) {
+          const dt = new Date(Number(c.ts || 0));
+          if (!Number.isFinite(dt.getTime())) continue;
+          const period = periodFromFile || bucketLabelFromDate(dt);
+          if (!grouped.has(period)) {
+            grouped.set(period, []);
+          }
+          grouped.get(period).push({
+            date: dt.toISOString(),
+            capital: Number(c.close || 0),
+          });
+        }
+
+        for (const [period, pointsRaw] of grouped.entries()) {
+          const points = pointsRaw.map((p, idx) => ({ trade: idx + 1, date: p.date, capital: p.capital }));
+          out.periods[period] = out.periods[period] || [];
+          out.periods[period].push({
+            version: 'preloaded',
+            scenario: timeframe,
+            label: `${market.symbol} ${timeframe}`,
+            trades: points.length,
+            points,
+          });
+          loadedSeries += 1;
+        }
+      }
+
+      if (!loadedSeries) {
+        throw new Error(`No candle series could be built for ${symbol}.`);
+      }
+
+      return out;
+    }
+
     function parseMtPriceCsv(text, fileName = '') {
       const cleaned = text.replace(/^\uFEFF/, '');
       const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -935,20 +1181,10 @@
       const out = {
         startCapital: 10000,
         market,
-        periods: {
-          Imported: [
-            {
-              version: 'raw',
-              scenario: timeframe,
-              label: `${market} ${timeframe} price curve`,
-              trades: 0,
-              points: [],
-            },
-          ],
-        },
+        periods: {},
       };
 
-      const series = out.periods.Imported[0];
+      const seriesByBucket = new Map();
       let trade = 1;
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
@@ -959,13 +1195,28 @@
         if (!d || !t || Number.isNaN(c)) continue;
 
         const isoDate = d.replace(/\./g, '-');
-        series.points.push({ trade: trade++, date: `${isoDate}T${t}`, capital: c });
+        const isoDateTime = `${isoDate}T${t}`;
+        const bucket = bucketLabelFromDate(isoDateTime);
+        if (!seriesByBucket.has(bucket)) {
+          seriesByBucket.set(bucket, []);
+        }
+        seriesByBucket.get(bucket).push({ trade: trade++, date: isoDateTime, capital: c });
       }
 
-      if (!series.points.length) {
+      if (!seriesByBucket.size) {
         throw new Error('Price CSV parsed but no valid rows were found.');
       }
-      series.trades = series.points.length;
+
+      for (const [bucket, points] of seriesByBucket.entries()) {
+        out.periods[bucket] = out.periods[bucket] || [];
+        out.periods[bucket].push({
+          version: 'raw',
+          scenario: timeframe,
+          label: `${market} ${timeframe} price curve`,
+          trades: points.length,
+          points,
+        });
+      }
 
       return out;
     }
@@ -1029,7 +1280,7 @@
       let parsedRows = 0;
       for (let i = 1; i < lines.length; i++) {
         const cols = parseDelimitedLine(lines[i], delimiter);
-        const period = cols[iPeriod];
+        const period = normalizePeriodLabel(cols[iPeriod]);
         if (!period) continue;
         const iVersion = findIdx('version');
         const iScenario = findIdx('scenario');
@@ -1082,6 +1333,14 @@
       dataDropZone.style.borderColor = isError ? '#d1495b' : '#8aa79c';
       dataDropZone.style.background = isError ? '#fff2f4' : '#f6fbf7';
       dataDropZone.style.color = isError ? '#8b1f2d' : '#355346';
+    }
+
+    function activateDataTab(tab) {
+      const isPreloaded = tab === 'preloaded';
+      uploadDataPane.style.display = isPreloaded ? 'none' : 'grid';
+      preloadedDataPane.style.display = isPreloaded ? 'grid' : 'none';
+      uploadDataTabBtn.classList.toggle('primary', !isPreloaded);
+      preloadedDataTabBtn.classList.toggle('primary', isPreloaded);
     }
 
     function pdfEscape(text) {
@@ -2125,6 +2384,34 @@
       }
     }
 
+    async function loadSelectedPreloadedMarket() {
+      const symbol = preloadedMarketSelect.value;
+      if (!symbol) {
+        setDataDropStatus('Select a preloaded instrument first.', true);
+        return;
+      }
+
+      try {
+        setDataDropStatus(`Loading preloaded market data for ${symbol}...`);
+        preloadedSummary.textContent = `Building comparison curves from all uploaded years/timeframes for ${symbol}...`;
+        const built = await buildCurveDataFromPreloadedMarket(symbol);
+        curveData = built;
+        updateDatasetMeta(curveData);
+        resetCurveView();
+        const keys = Object.keys(curveData.periods || {});
+        curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All loaded periods' : k}</option>`).join('');
+        curveYearSelect.value = 'ALL';
+        render();
+        renderCurve(curveYearSelect.value);
+        setDataDropStatus(`Loaded preloaded market data for ${symbol}.`);
+        preloadedSummary.textContent = `${symbol} loaded with ${keys.length} period group(s).`;
+      } catch (error) {
+        const message = (error && error.message) ? error.message : 'Unable to load preloaded market data.';
+        preloadedSummary.textContent = message;
+        setDataDropStatus(message, true);
+      }
+    }
+
     function mergeCurveDataSets(dataSets) {
       const merged = { startCapital: 10000, periods: {}, market: 'Imported market' };
       const markets = new Set();
@@ -2320,6 +2607,11 @@
     window.addEventListener('drop', preventBrowserDropOutsideZone, true);
 
     dataDropZone.addEventListener('dragstart', ev => ev.preventDefault());
+    uploadDataTabBtn.addEventListener('click', () => activateDataTab('upload'));
+    preloadedDataTabBtn.addEventListener('click', () => activateDataTab('preloaded'));
+    loadPreloadedBtn.addEventListener('click', () => {
+      void loadSelectedPreloadedMarket();
+    });
 
     startCapitalInput.addEventListener('input', () => {
       render();
@@ -2335,6 +2627,8 @@
     });
 
     render();
+    activateDataTab('upload');
+    void loadPreloadedCatalog();
     initCurves();
 
     pageSelect.addEventListener('change', () => {

@@ -8,9 +8,13 @@ import { ChartAIAnalyzer } from './services/ChartAIAnalyzer';
 const app = express();
 
 const upload = multer({ dest: 'uploads/' });
+const datasetUpload = multer({ dest: path.join('uploads', '_incoming') });
 const chartAnalyzer = new ChartAIAnalyzer();
 
 const WORKSPACE_ROOT = process.cwd();
+const UPLOADS_DIR = path.join(WORKSPACE_ROOT, 'uploads');
+const DATASET_STORAGE_DIR = path.join(UPLOADS_DIR, 'datasets');
+const DATASET_ALIAS_FILE = path.join(WORKSPACE_ROOT, 'config', 'dataset-symbol-aliases.json');
 const ARTIFACT_DIR = path.join(WORKSPACE_ROOT, 'backtest_artifacts');
 const RUN_HISTORY_DIR = path.join(WORKSPACE_ROOT, 'saved_runs');
 const RUN_HISTORY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_runs.json');
@@ -18,7 +22,7 @@ const STRATEGY_LIBRARY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_library.json'
 const RUN_HISTORY_LIMIT = 100;
 const STRATEGY_LIBRARY_LIMIT = 250;
 const ADMIN_SCAN_DIRS = [
-	path.join(WORKSPACE_ROOT, 'uploads'),
+	UPLOADS_DIR,
 	ARTIFACT_DIR,
 	RUN_HISTORY_DIR,
 ];
@@ -27,6 +31,44 @@ const DEFAULT_DATA_FILES: Record<string, string> = {
 	XAUUSD: '/Users/niko/Downloads/XAUUSD_M1_202404010105_202603302033.csv',
 	NAS100: '/Users/niko/Downloads/NAS100_M1_202404010105_202603302033.csv',
 };
+
+const DEFAULT_DATASET_SYMBOL_ALIASES: Record<string, string> = {
+	BTC: 'BTCUSD',
+	XAU: 'XAUUSD',
+	US1002324: 'US100',
+	US1002425: 'US100',
+	US1002526: 'US100',
+};
+
+function loadDatasetSymbolAliases(): Record<string, string> {
+	try {
+		if (!fileExists(DATASET_ALIAS_FILE)) {
+			return { ...DEFAULT_DATASET_SYMBOL_ALIASES };
+		}
+
+		const raw = fs.readFileSync(DATASET_ALIAS_FILE, 'utf8');
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			return { ...DEFAULT_DATASET_SYMBOL_ALIASES };
+		}
+
+		const out: Record<string, string> = {};
+		for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+			const alias = normalizeSymbolToken(String(key || ''));
+			const canonical = normalizeSymbolToken(String(value || ''));
+			if (!alias || !canonical || alias === canonical) {
+				continue;
+			}
+			out[alias] = canonical;
+		}
+
+		return Object.keys(out).length ? out : { ...DEFAULT_DATASET_SYMBOL_ALIASES };
+	} catch {
+		return { ...DEFAULT_DATASET_SYMBOL_ALIASES };
+	}
+}
+
+const DATASET_SYMBOL_ALIASES = loadDatasetSymbolAliases();
 
 const DEFAULT_TRADES_FILE = path.join(WORKSPACE_ROOT, 'mt5_xau_copilot_baseline', 'phantom_backtest_trades.csv');
 const DEFAULT_REPORT_FILE = path.join(WORKSPACE_ROOT, 'mt5_xau_copilot_baseline', 'phantom_backtest_report.md');
@@ -103,6 +145,7 @@ interface StrategyRecognitionInput {
 	zoneWidthPct: number;
 	minTouches: number;
 	confirmation: string;
+	dataFile?: string;
 }
 
 interface StrategyRecognitionResult {
@@ -158,8 +201,22 @@ interface StrategyExecutionConfig {
 		confidenceBand: 'low' | 'medium' | 'high';
 		parserVersion: string;
 		templateName: string;
+		dataFile?: string;
 	};
 	notes: string[];
+}
+
+interface DatasetFileRef {
+	timeframe: string;
+	filePath: string;
+	size: number;
+}
+
+interface MarketDataset {
+	symbol: string;
+	timeframes: string[];
+	files: DatasetFileRef[];
+	defaultDataFile: string | null;
 }
 
 interface StrategyDefinitionRecord {
@@ -170,6 +227,30 @@ interface StrategyDefinitionRecord {
 	theoryText: string;
 	recognition: StrategyRecognitionResult;
 	strategyConfig: StrategyExecutionConfig;
+}
+
+interface StrategyProofExample {
+	id: string;
+	title: string;
+	rationale: string;
+	confidence: number;
+	centerTs: number;
+	centerPrice: number;
+	window: CandleRecord[];
+	overlays: Array<{
+		kind: 'hline' | 'vline' | 'box' | 'channel';
+		label: string;
+		price?: number;
+		ts?: number;
+		startTs?: number;
+		endTs?: number;
+		low?: number;
+		high?: number;
+		upperStartPrice?: number;
+		upperEndPrice?: number;
+		lowerStartPrice?: number;
+		lowerEndPrice?: number;
+	}>;
 }
 
 const MAX_LOG_LINES = 2000;
@@ -280,30 +361,66 @@ function detectBias(text: string): 'long' | 'short' | 'both' | 'neutral' {
 }
 
 function detectArchetype(text: string): string {
+	if (/\b(news trading|event[-\s]?driven|economic report|economic release|cpi|nfp|fomc|earnings)\b/.test(text)) {
+		return 'News Trading';
+	}
+	if (/\b(gap trading|price gap|opening gap|gap fill|gap continuation|gap reversal)\b/.test(text)) {
+		return 'Gap Trading';
+	}
+	if (/\b(trend trading)\b/.test(text)) {
+		return 'Trend Trading';
+	}
+	if (/\b(range trading)\b/.test(text)) {
+		return 'Range Trading';
+	}
+	if (/\b(breakout trading)\b/.test(text)) {
+		return 'Breakout Trading';
+	}
+	if (/\b(scalping|scalp trading)\b/.test(text)) {
+		return 'Scalping';
+	}
+	if (/\b(swing trading)\b/.test(text)) {
+		return 'Swing Trading';
+	}
+	if (/\b(position trading)\b/.test(text)) {
+		return 'Position Trading';
+	}
+	if (/\b(position trading|long[-\s]?term|multi[-\s]?month|multi[-\s]?year|hold for months|hold for years)\b/.test(text)) {
+		return 'Position Trading';
+	}
+	if (/\b(swing trading|price swings?|multi[-\s]?day|multi[-\s]?week|days or weeks|correction within trend)\b/.test(text)) {
+		return 'Swing Trading';
+	}
+	if (/\b(scalp|scalping|very short[-\s]?term|small frequent profits?)\b/.test(text)) {
+		return 'Scalping';
+	}
 	if (/\b(support and resistance|support\/resistance|s\/r|zone|retest|rejection)\b/.test(text)) {
 		return /\b(breakout|break out|break above|break below)\b/.test(text)
 			? 'Support / Resistance Breakout'
 			: 'Support / Resistance Mean Reversion';
 	}
+	if (/\b(range trading|consolidat(?:e|ing|ion)|sideways market|market range|channel|range[-\s]?bound)\b/.test(text)) {
+		return 'Range Trading';
+	}
+	if (/\b(breakout trading|breakout|break out|break above|break below|new trend starts?)\b/.test(text)) {
+		return 'Breakout Trading';
+	}
+	if (/\b(trend trading|trend follow(?:ing)?|momentum|continuation|pullback|higher high|higher low|lower high|lower low|moving averages?)\b/.test(text)) {
+		return 'Trend Trading';
+	}
 	if (/\b(mean reversion|revert|overbought|oversold|bounce back|fade)\b/.test(text)) {
 		return 'Mean Reversion';
-	}
-	if (/\b(trend follow|trend following|momentum|continuation|pullback|higher high|higher low|lower high|lower low)\b/.test(text)) {
-		return 'Trend Following';
-	}
-	if (/\b(breakout|break above|break below|breakout retest)\b/.test(text)) {
-		return 'Breakout';
-	}
-	if (/\b(scalp|scalping)\b/.test(text)) {
-		return 'Scalping';
-	}
-	if (/\b(range|sideways|channel|boundaries)\b/.test(text)) {
-		return 'Range Trading';
 	}
 	return 'Rule-Based Strategy';
 }
 
 function detectEntryStyle(text: string): string {
+	if (/\b(news release|event trigger|post[-\s]?news)\b/.test(text)) {
+		return 'Event trigger';
+	}
+	if (/\b(gap fill|gap continuation|open[-\s]?drive)\b/.test(text)) {
+		return 'Gap pattern entry';
+	}
 	if (/\b(rejection candle|pin bar|wick rejection|rejection close)\b/.test(text)) {
 		return 'Rejection candle';
 	}
@@ -401,6 +518,43 @@ function detectTimeframes(text: string, primaryTimeframe: string): string[] {
 	return Array.from(timeframes);
 }
 
+function inferPrimaryTimeframeFromText(text: string, fallback: string): string {
+	const normalized = String(text || '').toUpperCase();
+	const matches = [...normalized.matchAll(/\b(M1|M5|M15|M30|H1|H4|D1|W1|MN1|1M|5M|15M|30M|1H|4H|1D|1W|1MO|DAILY|WEEKLY|MONTHLY)\b/g)];
+	if (!matches.length) {
+		return fallback;
+	}
+
+	const normalize = (tf: string): string => {
+		if (tf === '1M') return 'M1';
+		if (tf === '5M') return 'M5';
+		if (tf === '15M') return 'M15';
+		if (tf === '30M') return 'M30';
+		if (tf === '1H') return 'H1';
+		if (tf === '4H') return 'H4';
+		if (tf === '1D' || tf === 'DAILY') return 'D1';
+		if (tf === '1W' || tf === 'WEEKLY') return 'W1';
+		if (tf === '1MO' || tf === 'MONTHLY') return 'MN1';
+		return tf;
+	};
+
+	const preferredOrder: Record<string, number> = {
+		MN1: 1,
+		W1: 2,
+		D1: 3,
+		H4: 4,
+		H1: 5,
+		M30: 6,
+		M15: 7,
+		M5: 8,
+		M1: 9,
+	};
+
+	const normalizedMatches = matches.map((m) => normalize(m[1] || ''));
+	normalizedMatches.sort((a, b) => (preferredOrder[a] || 99) - (preferredOrder[b] || 99));
+	return normalizedMatches[0] || fallback;
+}
+
 function detectMinTouches(text: string, fallback: number): number {
 	const matches = [...text.matchAll(/(?:min(?:imum)?\s+)?(?:touch(?:es)?|tests?)\s*(?:of)?\s*(\d+)/gi)];
 	if (matches.length) {
@@ -437,6 +591,9 @@ function detectConfidence(metrics: {
 	if (metrics.strategyType !== 'Rule-Based Strategy') {
 		score += 0.14;
 		notes.push(`Detected archetype: ${metrics.strategyType}.`);
+	}
+	if (/\b(trend trading|range trading|breakout trading|scalping|swing trading|position trading|news trading|gap trading)\b/.test(metrics.text)) {
+		score += 0.05;
 	}
 	if (metrics.entryStyle !== 'Rule confirmation') score += 0.08;
 	if (metrics.stopStyle !== 'Structural stop') score += 0.06;
@@ -475,15 +632,19 @@ function normalizeStrategyInput(input: StrategyRecognitionInput & { templateText
 	const templateTheory = templateObject
 		? String(templateObject.theoryText || templateObject.strategyText || templateObject.description || '').trim()
 		: '';
+	const theoryText = templateTheory || input.theoryText;
+	const fallbackPrimary = String(templateObject?.primaryTimeframe || templateObject?.timeframe || input.primaryTimeframe || 'H4').toUpperCase();
+	const inferredPrimary = inferPrimaryTimeframeFromText(theoryText, fallbackPrimary);
 	return {
-		theoryText: templateTheory || input.theoryText,
+		theoryText,
 		templateName: input.templateName,
 		market: String(templateObject?.market || input.market || 'BTCUSD').toUpperCase(),
-		primaryTimeframe: String(templateObject?.primaryTimeframe || templateObject?.timeframe || input.primaryTimeframe || 'H4').toUpperCase(),
+		primaryTimeframe: inferredPrimary,
 		riskPerTradePct: toNumber(templateObject?.riskPerTradePct ?? templateObject?.riskPct ?? input.riskPerTradePct, input.riskPerTradePct),
 		zoneWidthPct: toNumber(templateObject?.zoneWidthPct ?? input.zoneWidthPct, input.zoneWidthPct),
 		minTouches: Math.max(1, parsePositiveInt(templateObject?.minTouches ?? input.minTouches, input.minTouches)),
 		confirmation: String(templateObject?.confirmation || input.confirmation || 'Rejection candle'),
+		dataFile: String(templateObject?.dataFile || input.dataFile || ''),
 	};
 }
 
@@ -595,6 +756,194 @@ function normalizeTheoryText(input: unknown): string {
 	return input.trim();
 }
 
+function detectDatasetTimeframe(input: string): string | null {
+	const text = String(input || '').toUpperCase();
+	const hasToken = (token: string): boolean => {
+		const rx = new RegExp(`(^|[^A-Z0-9])${token}([^A-Z0-9]|$)`);
+		return rx.test(text);
+	};
+
+	if (hasToken('M1') || hasToken('1M')) return '1m';
+	if (hasToken('M5') || hasToken('5M')) return '5m';
+	if (hasToken('M15') || hasToken('15M')) return '15m';
+	if (hasToken('M30') || hasToken('30M')) return '30m';
+	if (hasToken('H1') || hasToken('1H')) return '1h';
+	if (hasToken('H4') || hasToken('4H')) return '4h';
+	if (hasToken('D1') || hasToken('1D') || hasToken('DAILY')) return '1d';
+	if (hasToken('W1') || hasToken('1W') || hasToken('WEEKLY')) return '1w';
+	if (hasToken('MN1') || hasToken('1MO') || hasToken('MONTHLY')) return '1mo';
+	return null;
+}
+
+function normalizeSymbolToken(input: string): string {
+	return input
+		.replace(/\.(CSV|TXT)$/i, '')
+		.replace(/\.(CASH|SPOT|IDX)$/i, '')
+		.replace(/[^A-Za-z0-9]/g, '')
+		.toUpperCase();
+}
+
+function canonicalizeDatasetSymbol(input: string): string {
+	let symbol = normalizeSymbolToken(input);
+	let guard = 0;
+	while (DATASET_SYMBOL_ALIASES[symbol] && guard < 10) {
+		symbol = DATASET_SYMBOL_ALIASES[symbol];
+		guard += 1;
+	}
+	return symbol;
+}
+
+function guessSymbolFromPath(filePath: string): string {
+	const base = path.basename(filePath);
+	const baseNoExt = base.replace(/\.[^.]+$/, '');
+	const tfMatch = baseNoExt.match(/^(.*?)[._-](M1|M5|M15|M30|H1|H4|D1|W1|MN1|DAILY|WEEKLY|MONTHLY)(?:[^A-Za-z0-9]|$)/i);
+	if (tfMatch && tfMatch[1]) {
+		const fromName = normalizeSymbolToken(tfMatch[1]);
+		if (fromName) {
+			return fromName;
+		}
+	}
+
+	const dirParts = normalizePath(filePath).split(path.sep).filter(Boolean);
+	for (let i = dirParts.length - 2; i >= 0; i -= 1) {
+		const token = normalizeSymbolToken(dirParts[i]);
+		if (token && !detectDatasetTimeframe(token) && token !== 'UPLOADS' && token !== 'DATASETS') {
+			return token;
+		}
+	}
+
+	return '';
+}
+
+function walkDatasetFiles(rootDir: string, depth = 0, maxDepth = 6): string[] {
+	if (depth > maxDepth || !fileExists(rootDir)) {
+		return [];
+	}
+
+	const out: string[] = [];
+	let entries: fs.Dirent[] = [];
+	try {
+		entries = fs.readdirSync(rootDir, { withFileTypes: true });
+	} catch {
+		return out;
+	}
+
+	for (const entry of entries) {
+		const fullPath = path.join(rootDir, entry.name);
+		if (entry.isDirectory()) {
+			out.push(...walkDatasetFiles(fullPath, depth + 1, maxDepth));
+			continue;
+		}
+		if (!entry.isFile()) {
+			continue;
+		}
+
+		if (!detectDatasetTimeframe(entry.name)) {
+			continue;
+		}
+		out.push(fullPath);
+	}
+
+	return out;
+}
+
+function getMarketDatasets(): MarketDataset[] {
+	const uploadsRoot = DATASET_STORAGE_DIR;
+	const discoveredFiles = walkDatasetFiles(uploadsRoot);
+	const byMarket = new Map<string, Map<string, DatasetFileRef>>();
+
+	for (const filePath of discoveredFiles) {
+		const timeframe = detectDatasetTimeframe(path.basename(filePath));
+		if (!timeframe) {
+			continue;
+		}
+
+		const symbol = canonicalizeDatasetSymbol(guessSymbolFromPath(filePath));
+		if (!symbol) {
+			continue;
+		}
+
+		let size = 0;
+		try {
+			size = fs.statSync(filePath).size;
+		} catch {
+			continue;
+		}
+
+		if (!byMarket.has(symbol)) {
+			byMarket.set(symbol, new Map<string, DatasetFileRef>());
+		}
+
+		const marketFiles = byMarket.get(symbol) as Map<string, DatasetFileRef>;
+		const current = marketFiles.get(timeframe);
+		if (!current || size >= current.size) {
+			marketFiles.set(timeframe, {
+				timeframe,
+				filePath: normalizePath(filePath),
+				size,
+			});
+		}
+	}
+
+	const timeframeOrder: Record<string, number> = {
+		'1m': 1,
+		'5m': 2,
+		'15m': 3,
+		'30m': 4,
+		'1h': 5,
+		'4h': 6,
+		'1d': 7,
+		'1w': 8,
+		'1mo': 9,
+	};
+
+	const markets: MarketDataset[] = [];
+	for (const [symbol, filesByTf] of byMarket.entries()) {
+		const files = Array.from(filesByTf.values()).sort(
+			(a, b) => (timeframeOrder[a.timeframe] || 99) - (timeframeOrder[b.timeframe] || 99),
+		);
+		const timeframes = files.map((f) => f.timeframe);
+		const defaultDataFile = files.find((f) => f.timeframe === '1m')?.filePath || files[0]?.filePath || null;
+		markets.push({
+			symbol,
+			timeframes,
+			files,
+			defaultDataFile,
+		});
+	}
+
+	markets.sort((a, b) => a.symbol.localeCompare(b.symbol));
+	return markets;
+}
+
+function resolveStrategyDataFile(symbolInput: string, requestedFileInput: string): string {
+	const symbol = canonicalizeDatasetSymbol(String(symbolInput || ''));
+	const requestedFile = String(requestedFileInput || '').trim();
+
+	if (requestedFile) {
+		const resolvedRequested = normalizePath(requestedFile);
+		if (!isPathInsideDirectory(resolvedRequested, DATASET_STORAGE_DIR)) {
+			throw new Error('dataFile must be inside hosted dataset storage');
+		}
+		if (!fileExists(resolvedRequested)) {
+			throw new Error(`Hosted dataFile not found: ${resolvedRequested}`);
+		}
+		return resolvedRequested;
+	}
+
+	const discovered = getMarketDatasets();
+	const match = discovered.find((item) => item.symbol === symbol);
+	if (match?.defaultDataFile) {
+		return match.defaultDataFile;
+	}
+
+	const fallback = DEFAULT_DATA_FILES[symbol] || DEFAULT_DATA_FILES.XAUUSD;
+	if (!fallback) {
+		throw new Error(`No dataset found for symbol ${symbol}`);
+	}
+	return normalizePath(fallback);
+}
+
 function buildRecognition(input: StrategyRecognitionInput): StrategyRecognitionResult {
 	const text = normalizeStrategyText(input.theoryText);
 	const lower = toLowerStrategyText(text);
@@ -691,6 +1040,303 @@ function mapTfToEngineInterval(tf: string): string {
 	return '1m';
 }
 
+function mapUiTfToProofTimeframe(tf: string): string {
+	const normalized = String(tf || '').toUpperCase();
+	if (normalized === 'M1' || normalized === '1M') return '1m';
+	if (normalized === 'M5' || normalized === '5M') return '5m';
+	if (normalized === 'M15' || normalized === '15M') return '15m';
+	if (normalized === 'M30' || normalized === '30M') return '15m';
+	if (normalized === 'H1' || normalized === '1H') return '1h';
+	if (normalized === 'H4' || normalized === '4H') return '4h';
+	if (normalized === 'D1' || normalized === '1D' || normalized === 'DAILY') return '4h';
+	if (normalized === 'W1' || normalized === '1W' || normalized === 'WEEKLY') return '4h';
+	if (normalized === 'MN1' || normalized === '1MO' || normalized === 'MONTHLY') return '4h';
+	return '15m';
+}
+
+function adjustProofTimeframe(baseTimeframe: string, mode: string): string {
+	const ladder = ['1m', '5m', '15m', '1h', '4h'];
+	const baseIdx = ladder.indexOf(baseTimeframe);
+	if (baseIdx < 0) {
+		return baseTimeframe;
+	}
+
+	const normalizedMode = String(mode || 'base').toLowerCase();
+	if (normalizedMode === 'lower') {
+		return ladder[Math.max(0, baseIdx - 1)];
+	}
+	if (normalizedMode === 'higher') {
+		return ladder[Math.min(ladder.length - 1, baseIdx + 1)];
+	}
+	return ladder[baseIdx];
+}
+
+function isTrendWindow(candles: CandleRecord[], start: number, end: number, direction: 'up' | 'down'): boolean {
+	if (end <= start + 3) {
+		return false;
+	}
+	let impulseBars = 0;
+	for (let i = start + 1; i <= end; i += 1) {
+		const delta = candles[i].close - candles[i - 1].close;
+		if ((direction === 'up' && delta > 0) || (direction === 'down' && delta < 0)) {
+			impulseBars += 1;
+		}
+	}
+	return impulseBars / (end - start) >= 0.64;
+}
+
+function buildProofWindow(candles: CandleRecord[], centerIndex: number, radius = 36): CandleRecord[] {
+	const left = Math.max(0, centerIndex - radius);
+	const right = Math.min(candles.length - 1, centerIndex + radius);
+	const segment = candles.slice(left, right + 1);
+	if (segment.length <= 120) {
+		return segment;
+	}
+	const stride = Math.ceil(segment.length / 120);
+	return segment.filter((_, idx) => idx % stride === 0);
+}
+
+function clampProbability(value: number): number {
+	return Math.max(0.05, Math.min(0.99, value));
+}
+
+function pushProofExample(
+	out: StrategyProofExample[],
+	candles: CandleRecord[],
+	idx: number,
+	title: string,
+	rationale: string,
+	confidence: number,
+	overlays: StrategyProofExample['overlays'] = [],
+): void {
+	if (idx < 0 || idx >= candles.length) {
+		return;
+	}
+	const c = candles[idx];
+	out.push({
+		id: `ex_${c.ts}_${out.length + 1}`,
+		title,
+		rationale,
+		confidence: clampProbability(confidence),
+		centerTs: c.ts,
+		centerPrice: c.close,
+		window: buildProofWindow(candles, idx),
+		overlays,
+	});
+}
+
+function detectStrategyProofExamples(candles: CandleRecord[], strategyType: string, maxExamples: number): StrategyProofExample[] {
+	if (candles.length < 40) {
+		return [];
+	}
+
+	const examples: StrategyProofExample[] = [];
+	const ranges = candles.map((c) => Math.max(1e-9, c.high - c.low));
+	const avgRange = ranges.reduce((acc, v) => acc + v, 0) / ranges.length;
+	const type = String(strategyType || '').toLowerCase();
+
+	if (type.includes('trend')) {
+		for (let i = 35; i < candles.length && examples.length < maxExamples; i += 8) {
+			const windowStart = Math.max(0, i - 20);
+			const windowCandles = candles.slice(windowStart, i + 1);
+			const upward = isTrendWindow(candles, windowStart, i, 'up');
+			const downward = isTrendWindow(candles, windowStart, i, 'down');
+			if (upward || downward) {
+				const winBars = windowCandles.filter((c, idx) => idx > 0 && ((upward && c.close > windowCandles[idx - 1].close) || (downward && c.close < windowCandles[idx - 1].close))).length;
+				const ratio = winBars / Math.max(1, windowCandles.length - 1);
+				const hi = Math.max(...windowCandles.map((c) => c.high));
+				const lo = Math.min(...windowCandles.map((c) => c.low));
+				const pad = (hi - lo) * 0.18;
+				pushProofExample(
+					examples,
+					candles,
+					i,
+					'Trend continuation',
+					'Sustained directional closes across the lookback window.',
+					0.58 + ratio * 0.35,
+					[
+						{
+							kind: 'channel',
+							label: 'Trend channel',
+							startTs: candles[windowStart].ts,
+							endTs: candles[i].ts,
+							upperStartPrice: hi,
+							upperEndPrice: hi + (upward ? pad : -pad),
+							lowerStartPrice: lo,
+							lowerEndPrice: lo + (upward ? pad : -pad),
+						},
+					],
+				);
+			}
+		}
+	}
+
+	if (type.includes('range')) {
+		for (let i = 28; i < candles.length && examples.length < maxExamples; i += 7) {
+			const window = candles.slice(i - 24, i + 1);
+			const hi = Math.max(...window.map((c) => c.high));
+			const lo = Math.min(...window.map((c) => c.low));
+			const width = Math.max(1e-9, hi - lo);
+			const narrow = width <= avgRange * 9;
+			const touchesHigh = window.filter((c) => c.high >= hi - width * 0.12).length;
+			const touchesLow = window.filter((c) => c.low <= lo + width * 0.12).length;
+			if (narrow && touchesHigh >= 2 && touchesLow >= 2) {
+				const confidence = 0.52 + Math.min(0.42, ((touchesHigh + touchesLow) / 10));
+				pushProofExample(
+					examples,
+					candles,
+					i,
+					'Range containment',
+					'Price repeatedly tests upper and lower boundaries without expansion.',
+					confidence,
+					[
+						{
+							kind: 'box',
+							label: 'Range box',
+							startTs: window[0].ts,
+							endTs: window[window.length - 1].ts,
+							low: lo,
+							high: hi,
+						},
+					],
+				);
+			}
+		}
+	}
+
+	if (type.includes('breakout') || type.includes('support / resistance breakout')) {
+		for (let i = 26; i < candles.length && examples.length < maxExamples; i += 5) {
+			const prev = candles.slice(i - 20, i);
+			const maxPrev = Math.max(...prev.map((c) => c.high));
+			const minPrev = Math.min(...prev.map((c) => c.low));
+			const breakoutUp = candles[i].close > maxPrev;
+			const breakoutDown = candles[i].close < minPrev;
+			if (breakoutUp || breakoutDown) {
+				const boundary = breakoutUp ? maxPrev : minPrev;
+				const impulse = Math.abs(candles[i].close - boundary) / Math.max(1e-9, avgRange);
+				pushProofExample(
+					examples,
+					candles,
+					i,
+					'Breakout trigger',
+					'Close breaches the prior consolidation boundary.',
+					0.55 + Math.min(0.38, impulse * 0.12),
+					[
+						{ kind: 'hline', label: 'Breakout boundary', price: boundary },
+						{ kind: 'vline', label: 'Break candle', ts: candles[i].ts },
+					],
+				);
+			}
+		}
+	}
+
+	if (type.includes('scalp')) {
+		for (let i = 5; i < candles.length && examples.length < maxExamples; i += 4) {
+			const c = candles[i];
+			const body = Math.abs(c.close - c.open);
+			const range = Math.max(1e-9, c.high - c.low);
+			const nextMove = Math.abs(candles[Math.min(candles.length - 1, i + 1)].close - c.close);
+			if (body / range < 0.45 && nextMove > avgRange * 0.55) {
+				pushProofExample(
+					examples,
+					candles,
+					i,
+					'Scalp micro-move',
+					'Short-duration setup with small body and fast follow-through.',
+					0.5 + Math.min(0.4, (nextMove / Math.max(1e-9, avgRange)) * 0.08),
+				);
+			}
+		}
+	}
+
+	if (type.includes('swing')) {
+		for (let i = 8; i < candles.length - 8 && examples.length < maxExamples; i += 5) {
+			const lo = candles.slice(i - 3, i + 4).every((c) => candles[i].low <= c.low);
+			const hi = candles.slice(i - 3, i + 4).every((c) => candles[i].high >= c.high);
+			if (lo || hi) {
+				pushProofExample(examples, candles, i, 'Swing pivot', 'Local pivot marks a potential multi-bar correction swing.', 0.66);
+			}
+		}
+	}
+
+	if (type.includes('position')) {
+		for (let i = 90; i < candles.length && examples.length < maxExamples; i += 20) {
+			const longUp = isTrendWindow(candles, i - 80, i, 'up');
+			const longDown = isTrendWindow(candles, i - 80, i, 'down');
+			if (longUp || longDown) {
+				pushProofExample(examples, candles, i, 'Position trend leg', 'Extended directional leg consistent with position-style holding periods.', 0.72);
+			}
+		}
+	}
+
+	if (type.includes('news')) {
+		for (let i = 1; i < candles.length && examples.length < maxExamples; i += 3) {
+			const ratio = (candles[i].high - candles[i].low) / Math.max(1e-9, avgRange);
+			if (ratio >= 2.8) {
+				pushProofExample(examples, candles, i, 'Volatility spike', 'Unusually large expansion bar consistent with event-driven volatility.', 0.56 + Math.min(0.36, ratio * 0.08));
+			}
+		}
+	}
+
+	if (type.includes('gap')) {
+		for (let i = 1; i < candles.length && examples.length < maxExamples; i += 2) {
+			const gap = Math.abs(candles[i].open - candles[i - 1].close);
+			if (gap >= avgRange * 0.8) {
+				pushProofExample(
+					examples,
+					candles,
+					i,
+					'Gap setup',
+					'Session transition opens away from prior close by a significant distance.',
+					0.54 + Math.min(0.38, (gap / Math.max(1e-9, avgRange)) * 0.1),
+					[
+						{ kind: 'vline', label: 'Gap candle', ts: candles[i].ts },
+					],
+				);
+			}
+		}
+	}
+
+	if ((type.includes('support / resistance') || type.includes('mean reversion')) && examples.length < maxExamples) {
+		const zones = buildSupportResistanceZones(candles, 3);
+		for (const zone of zones) {
+			if (examples.length >= maxExamples) {
+				break;
+			}
+			let bestIdx = -1;
+			let bestDist = Number.POSITIVE_INFINITY;
+			for (let i = 0; i < candles.length; i += 1) {
+				const dist = Math.abs(candles[i].close - zone.center);
+				if (dist < bestDist) {
+					bestDist = dist;
+					bestIdx = i;
+				}
+			}
+			if (bestIdx >= 0) {
+				pushProofExample(
+					examples,
+					candles,
+					bestIdx,
+					zone.kind === 'support' ? 'Support reaction' : 'Resistance reaction',
+					`Price action clusters around a ${zone.kind} zone with strength score ${zone.strength}.`,
+					0.5 + Math.min(0.42, zone.strength / 10),
+					[
+						{ kind: 'hline', label: `${zone.kind} center`, price: zone.center },
+						{ kind: 'box', label: `${zone.kind} zone`, startTs: candles[Math.max(0, bestIdx - 20)].ts, endTs: candles[Math.min(candles.length - 1, bestIdx + 20)].ts, low: zone.low, high: zone.high },
+					],
+				);
+			}
+		}
+	}
+
+	if (!examples.length) {
+		pushProofExample(examples, candles, candles.length - 1, 'Recent context', 'No strong pattern sample found; showing latest structure window for review.', 0.45);
+	}
+
+	examples.sort((a, b) => b.confidence - a.confidence);
+	return examples.slice(0, maxExamples);
+}
+
 function buildStrategyConfig(
 	input: StrategyRecognitionInput,
 	recognition: StrategyRecognitionResult,
@@ -736,6 +1382,7 @@ function buildStrategyConfig(
 			confidenceBand: recognition.confidenceBand || 'medium',
 			parserVersion,
 			templateName: input.templateName || recognition.name,
+			dataFile: input.dataFile || '',
 		},
 		notes: recognition.notes,
 	};
@@ -810,6 +1457,12 @@ function runsToCsv(runs: StrategyRunRecord[]): string {
 
 function normalizePath(p: string): string {
 	return path.resolve(p);
+}
+
+function isPathInsideDirectory(targetPath: string, rootPath: string): boolean {
+	const target = normalizePath(targetPath);
+	const root = normalizePath(rootPath);
+	return target === root || target.startsWith(`${root}${path.sep}`);
 }
 
 function fileExists(p: string): boolean {
@@ -1366,6 +2019,8 @@ app.get('/platform/config', (_req: Request, res: Response): void => {
 	res.json({
 		workspaceRoot: WORKSPACE_ROOT,
 		defaultDataFiles: dataFiles,
+		datasetAliasFile: DATASET_ALIAS_FILE,
+		datasetSymbolAliases: DATASET_SYMBOL_ALIASES,
 		defaultTradesFile: {
 			filePath: DEFAULT_TRADES_FILE,
 			exists: fileExists(DEFAULT_TRADES_FILE),
@@ -1374,7 +2029,17 @@ app.get('/platform/config', (_req: Request, res: Response): void => {
 			filePath: DEFAULT_REPORT_FILE,
 			exists: fileExists(DEFAULT_REPORT_FILE),
 		},
-		supportedTimeframes: ['1m', '5m', '15m', '1h', '4h'],
+		supportedTimeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1mo'],
+	});
+});
+
+app.get('/platform/datasets', (_req: Request, res: Response): void => {
+	const markets = getMarketDatasets();
+	const allTimeframes = Array.from(new Set(markets.flatMap((market) => market.timeframes)));
+	res.json({
+		count: markets.length,
+		markets,
+		allTimeframes,
 	});
 });
 
@@ -1395,6 +2060,7 @@ app.post('/platform/strategy-lab/recognize', (req: Request, res: Response): void
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
 			confirmation: String(req.body?.confirmation || 'Rejection candle'),
+			dataFile: String(req.body?.dataFile || ''),
 		});
 
 		const recognition = buildRecognition(input);
@@ -1407,6 +2073,54 @@ app.post('/platform/strategy-lab/recognize', (req: Request, res: Response): void
 		});
 	} catch (error) {
 		res.status(500).json({ error: (error as Error).message });
+	}
+});
+
+app.post('/platform/strategy-lab/proof', (req: Request, res: Response): void => {
+	try {
+		const normalizedInput = normalizeStrategyInput({
+			theoryText: String(req.body?.theoryText || ''),
+			templateName: String(req.body?.templateName || 'Structured Rule Strategy'),
+			market: String(req.body?.market || 'BTCUSD'),
+			primaryTimeframe: String(req.body?.primaryTimeframe || 'H1'),
+			riskPerTradePct: toNumber(req.body?.riskPerTradePct, 0.5),
+			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
+			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
+			confirmation: String(req.body?.confirmation || 'Rejection candle'),
+			dataFile: String(req.body?.dataFile || ''),
+			templateText: String(req.body?.templateText || ''),
+		});
+
+		const recognition = buildRecognition(normalizedInput);
+		const proofTfMode = String(req.body?.proofTfMode || 'base').toLowerCase();
+		const proofTimeframeBase = mapUiTfToProofTimeframe(normalizedInput.primaryTimeframe);
+		const proofTimeframe = adjustProofTimeframe(proofTimeframeBase, proofTfMode);
+		const selectedFile = resolveStrategyDataFile(normalizedInput.market, normalizedInput.dataFile || '');
+		const candles = getCandles(selectedFile, proofTimeframe);
+		const maxExamples = Math.max(1, Math.min(6, parsePositiveInt(req.body?.maxExamples, 3)));
+		const examples = detectStrategyProofExamples(candles, recognition.strategyType, maxExamples);
+
+		res.json({
+			ok: true,
+			recognition,
+			proof: {
+				generatedAt: new Date().toISOString(),
+				symbol: normalizedInput.market,
+				timeframe: proofTimeframe,
+				timeframeMode: proofTfMode,
+				dataFile: normalizePath(selectedFile),
+				parameters: {
+					riskPerTradePct: normalizedInput.riskPerTradePct,
+					zoneWidthPct: normalizedInput.zoneWidthPct,
+					minTouches: normalizedInput.minTouches,
+					confirmation: normalizedInput.confirmation,
+				},
+				exampleCount: examples.length,
+				examples,
+			},
+		});
+	} catch (error) {
+		res.status(400).json({ error: (error as Error).message });
 	}
 });
 
@@ -1435,6 +2149,7 @@ app.post('/platform/strategy-lab/confirm', (req: Request, res: Response): void =
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
 			confirmation: String(req.body?.confirmation || 'Rejection candle'),
+			dataFile: String(req.body?.dataFile || ''),
 		});
 
 		const recognition = buildRecognition(recognitionInput);
@@ -1638,11 +2353,7 @@ app.get('/platform/candles', (req: Request, res: Response): void => {
 		const maxPoints = parsePositiveInt(req.query.maxPoints, 5000);
 
 		const userDataFile = typeof req.query.dataFile === 'string' ? req.query.dataFile : '';
-		const selectedFile = userDataFile || DEFAULT_DATA_FILES[symbol] || DEFAULT_DATA_FILES.XAUUSD;
-		if (!selectedFile) {
-			res.status(400).json({ error: 'No data file provided and no default found for symbol.' });
-			return;
-		}
+		const selectedFile = resolveStrategyDataFile(symbol, userDataFile);
 
 		const candles = getCandles(selectedFile, timeframe);
 		const fromMs = parseDateToMs(req.query.from);
@@ -1687,11 +2398,7 @@ app.get('/platform/zones', (req: Request, res: Response): void => {
 		const maxZones = Math.max(1, Math.min(8, parsePositiveInt(req.query.maxZones, 3)));
 
 		const userDataFile = typeof req.query.dataFile === 'string' ? req.query.dataFile : '';
-		const selectedFile = userDataFile || DEFAULT_DATA_FILES[symbol] || DEFAULT_DATA_FILES.XAUUSD;
-		if (!selectedFile) {
-			res.status(400).json({ error: 'No data file provided and no default found for symbol.' });
-			return;
-		}
+		const selectedFile = resolveStrategyDataFile(symbol, userDataFile);
 
 		const candles = getCandles(selectedFile, timeframe);
 		const fromMs = parseDateToMs(req.query.from);
@@ -1826,6 +2533,8 @@ app.get('/platform/admin/overview', (_req: Request, res: Response): void => {
 		labRuns,
 		directories,
 		defaultDataFiles: DEFAULT_DATA_FILES,
+		datasetAliasFile: DATASET_ALIAS_FILE,
+		datasetSymbolAliases: DATASET_SYMBOL_ALIASES,
 		artifactsDir: ARTIFACT_DIR,
 		runCount: runs.length,
 	});
@@ -1891,6 +2600,83 @@ app.post('/analyze-chart', upload.single('chart'), async (req: Request, res: Res
 	}
 });
 
+app.post('/platform/datasets/upload', datasetUpload.single('dataset'), (req: Request, res: Response): void => {
+	try {
+		if (!req.file) {
+			res.status(400).json({ error: 'dataset file is required' });
+			return;
+		}
+
+		const symbol = normalizeSymbolToken(String(req.body?.symbol || ''));
+		const canonicalSymbol = canonicalizeDatasetSymbol(symbol);
+		const timeframe = String(req.body?.timeframe || '').toLowerCase();
+		if (!canonicalSymbol || !timeframe) {
+			fs.unlinkSync(req.file.path);
+			res.status(400).json({ error: 'symbol and timeframe are required' });
+			return;
+		}
+
+		fs.mkdirSync(DATASET_STORAGE_DIR, { recursive: true });
+		const symbolDir = path.join(DATASET_STORAGE_DIR, canonicalSymbol);
+		fs.mkdirSync(symbolDir, { recursive: true });
+
+		const originalName = path.basename(req.file.originalname || `${canonicalSymbol}_${timeframe}.csv`);
+		const safeName = originalName.replace(/[^A-Za-z0-9._\-]/g, '_');
+		const targetPath = path.join(symbolDir, safeName);
+		fs.renameSync(req.file.path, targetPath);
+
+		res.status(201).json({
+			ok: true,
+			symbol: canonicalSymbol,
+			timeframe,
+			filePath: normalizePath(targetPath),
+			datasets: getMarketDatasets(),
+		});
+	} catch (error) {
+		res.status(500).json({ error: (error as Error).message });
+	}
+});
+
+app.post('/platform/datasets/register-path', (req: Request, res: Response): void => {
+	try {
+		const sourcePath = String(req.body?.sourcePath || '').trim();
+		if (!sourcePath) {
+			res.status(400).json({ error: 'sourcePath is required' });
+			return;
+		}
+
+		const absoluteSource = normalizePath(sourcePath);
+		if (!fileExists(absoluteSource)) {
+			res.status(404).json({ error: `sourcePath not found: ${absoluteSource}` });
+			return;
+		}
+
+		let copied = 0;
+		const files = walkDatasetFiles(absoluteSource);
+		for (const file of files) {
+			const symbol = canonicalizeDatasetSymbol(guessSymbolFromPath(file));
+			const tf = detectDatasetTimeframe(path.basename(file));
+			if (!symbol || !tf) {
+				continue;
+			}
+
+			const symbolDir = path.join(DATASET_STORAGE_DIR, symbol);
+			fs.mkdirSync(symbolDir, { recursive: true });
+			const target = path.join(symbolDir, path.basename(file));
+			fs.copyFileSync(file, target);
+			copied += 1;
+		}
+
+		res.json({
+			ok: true,
+			copied,
+			datasets: getMarketDatasets(),
+		});
+	} catch (error) {
+		res.status(500).json({ error: (error as Error).message });
+	}
+});
+
 app.post('/platform/strategy-lab/import', (req: Request, res: Response): void => {
 	try {
 		const templateText = normalizeStrategyText(String(req.body?.templateText || ''));
@@ -1909,6 +2695,7 @@ app.post('/platform/strategy-lab/import', (req: Request, res: Response): void =>
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct ?? parsedTemplate?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches ?? parsedTemplate?.minTouches, 2)),
 			confirmation: String(req.body?.confirmation || parsedTemplate?.confirmation || 'Rejection candle'),
+			dataFile: String(req.body?.dataFile || parsedTemplate?.dataFile || ''),
 			templateText,
 		});
 
