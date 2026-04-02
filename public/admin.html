@@ -418,12 +418,35 @@
         <div id="fileLists"></div>
       </section>
     </div>
+
+    <section class="section" style="margin-top:12px;">
+      <h2>Latest Strategy Lab Runs</h2>
+      <p class="note">Queued, running, and recently completed runs created from the Strategy Lab workflow.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Run ID</th>
+              <th>Status</th>
+              <th>Strategy</th>
+              <th>Market</th>
+              <th>Interval</th>
+              <th>Capital</th>
+              <th>Risk</th>
+            </tr>
+          </thead>
+          <tbody id="labRunsBody"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script>
     const summaryGrid = document.getElementById('summaryGrid');
     const runsBody = document.getElementById('runsBody');
     const fileLists = document.getElementById('fileLists');
+    const labRunsBody = document.getElementById('labRunsBody');
     const refreshBtn = document.getElementById('refreshBtn');
     const pageSelect = document.getElementById('pageSelect');
     const marketFilter = document.getElementById('marketFilter');
@@ -584,6 +607,30 @@
       fileLists.innerHTML = blocks.join('');
     }
 
+    function renderLabRuns(runs) {
+      if (!Array.isArray(runs) || !runs.length) {
+        labRunsBody.innerHTML = '<tr><td colspan="8">No strategy-lab runs yet.</td></tr>';
+        return;
+      }
+
+      labRunsBody.innerHTML = runs.map(run => {
+        const summary = run.summary || {};
+        const status = run.status || summary.status || 'queued';
+        return `
+          <tr>
+            <td class="mono">${escapeHtml(new Date(run.createdAt).toLocaleString())}</td>
+            <td class="mono">${escapeHtml(run.id || '')}</td>
+            <td><span class="pill">${escapeHtml(status)}</span></td>
+            <td>${escapeHtml(summary.strategyName || summary.strategyType || '')}</td>
+            <td>${escapeHtml(summary.market || '')}</td>
+            <td>${escapeHtml(summary.interval || '')}</td>
+            <td>${escapeHtml(fmtMoney(summary.capital))}</td>
+            <td>${escapeHtml(fmtPct(Number(summary.risk) * 100))}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     async function tryLoadAdminOverview() {
       const res = await fetch('/platform/admin/overview');
       if (res.ok) {
@@ -651,6 +698,7 @@
       updateMarketFilterOptions(allRuns);
       applyFilters();
       renderFiles(data.directories || {});
+      renderLabRuns(data.labRuns || []);
     }
 
     refreshBtn.addEventListener('click', () => {
@@ -679,6 +727,7 @@
       summaryGrid.innerHTML = `<div class="card"><h3>Error</h3><div class="meta">${escapeHtml(err.message)}</div></div>`;
       runsBody.innerHTML = '<tr><td colspan="9">Unable to load run history.</td></tr>';
       fileLists.innerHTML = '<div class="card"><div class="meta">Unable to load file lists.</div></div>';
+      labRunsBody.innerHTML = '<tr><td colspan="8">Unable to load strategy-lab runs.</td></tr>';
     });
   </script>
 </body>

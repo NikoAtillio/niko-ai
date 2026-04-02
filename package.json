@@ -5,8 +5,9 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "lint": "eslint . --ext .ts",
-    "test": "jest"
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts",
+    "test": "jest",
+    "test:smoke": "node scripts/smoke-strategy-lab.js"
   },
   "dependencies": {
     "@tensorflow/tfjs-node": "^4.22.0",
