@@ -159,6 +159,33 @@
       color: #23402d;
     }
 
+    .step-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: #23402d;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      font-size: 0.8rem;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .step-title-text {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
     .label {
       display: block;
       font-size: 0.79rem;
@@ -489,7 +516,7 @@
     <section class="panel">
       <div class="grid-2">
         <div>
-          <h2 class="section-title">Strategy Theory Input</h2>
+          <h2 class="section-title step-heading"><span class="step-badge">1</span><span class="step-title-text">Strategy Theory Input</span></h2>
           <div class="small-note" style="margin-bottom:10px;">Define strategy and market data together below. These inputs are combined for recognition, proof, and backtest preparation.</div>
 
           <div id="theoryInputPane">
@@ -548,7 +575,7 @@
           </div>
         </div>
         <div>
-          <h2 class="section-title">Recognition Status</h2>
+          <h2 class="section-title">Current Status</h2>
           <div class="muted-box">
             <div class="status" id="statusPill">Ready for recognition</div>
             <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
@@ -562,22 +589,9 @@
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Strategy Recognition Preview</h2>
-      <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
-        <select id="proofTfMode" style="max-width: 220px;">
-          <option value="lower">Proof timeframe: Lower than execution</option>
-          <option value="base" selected>Proof timeframe: Same as execution</option>
-          <option value="higher">Proof timeframe: Higher than execution</option>
-        </select>
-        <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
-      </div>
-      <div class="rec-grid" id="summaryCards"></div>
-    </section>
-
-    <section class="panel">
+      <h2 class="section-title step-heading"><span class="step-badge">2</span><span class="step-title-text">Parameters</span></h2>
       <div class="grid-2">
         <div>
-          <h2 class="section-title">Suggested Parameters</h2>
           <div class="grid-3">
             <div>
               <label class="label" for="marketSelect">Market</label>
@@ -631,7 +645,6 @@
           </div>
           <div class="btn-row">
             <button class="btn primary" id="confirmBtn" type="button">Confirm Parameters</button>
-            <button class="btn" id="runBtn" type="button">Send to Backtest</button>
           </div>
         </div>
         <div>
@@ -648,13 +661,47 @@
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Visual Proof of Recognition</h2>
-      <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
-      <div id="proofGrid" class="proof-grid"></div>
+      <h2 class="section-title step-heading"><span class="step-badge">3</span><span class="step-title-text">Strategy Preview</span></h2>
+      <p class="small-note" style="margin-top:0; margin-bottom:10px;">Click <strong>Confirm Parameters</strong> to preview the structured interpretation before continuing to proof and execution.</p>
+      <div class="rec-grid" id="summaryCards"></div>
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Structured Strategy Schema</h2>
+      <h2 class="section-title step-heading"><span class="step-badge">4</span><span class="step-title-text">Strategy Recognition Preview</span></h2>
+      <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
+      <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
+        <select id="proofTfMode" style="max-width: 220px;">
+          <option value="lower">Proof timeframe: Lower than execution</option>
+          <option value="base" selected>Proof timeframe: Same as execution</option>
+          <option value="higher">Proof timeframe: Higher than execution</option>
+        </select>
+        <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
+        <button class="btn primary" id="runBtn" type="button">Send to Backtest</button>
+      </div>
+      <div id="proofGrid" class="proof-grid"></div>
+      <div style="margin-top:12px;" class="muted-box">
+        <strong class="step-heading" style="margin-bottom:6px; color:#23402d;"><span class="step-badge">5</span><span class="step-title-text">Execution</span></strong>
+        <div class="small-note" id="executionProofSummary">Send to Backtest to see live run status and metrics on this page.</div>
+        <div id="executionProofCards" class="rec-grid" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title step-heading"><span class="step-badge">6</span><span class="step-title-text">Summary</span></h2>
+      <div class="grid-2">
+        <div class="muted-box">
+          <div class="status" id="statusPill">Ready for recognition</div>
+          <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
+        </div>
+        <div class="muted-box">
+          <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
+          <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title step-heading"><span class="step-badge">7</span><span class="step-title-text">Structured Strategy Schema</span></h2>
       <div class="grid-2">
         <div class="card">
           <h3>Recognised Strategy</h3>
@@ -701,6 +748,8 @@
     const summaryCards = document.getElementById('summaryCards');
     const proofSummary = document.getElementById('proofSummary');
     const proofGrid = document.getElementById('proofGrid');
+    const executionProofSummary = document.getElementById('executionProofSummary');
+    const executionProofCards = document.getElementById('executionProofCards');
     const schemaPreview = document.getElementById('schemaPreview');
     const theoryMarketSelect = document.getElementById('theoryMarketSelect');
     const theoryDatasetFileSelect = document.getElementById('theoryDatasetFileSelect');
@@ -720,6 +769,8 @@
     let latestStrategyConfig = null;
     let latestProof = null;
     let proofIsStale = false;
+    let latestExecutionState = null;
+    let latestExecutionRunId = '';
     let datasetCatalog = [];
     let proofRequestInFlight = false;
 
@@ -858,6 +909,10 @@
         if (!response.ok) {
           throw new Error(payload.error || 'Unable to poll run status');
         }
+
+        latestExecutionState = payload.backtestState || latestExecutionState;
+        latestExecutionRunId = payload.id || activeRunId || latestExecutionRunId;
+        renderExecutionProof();
 
         const status = String(payload.status || 'queued');
         if (status === 'running') {
@@ -1181,6 +1236,36 @@
       }).join('');
     }
 
+    function renderExecutionProof() {
+      const state = latestExecutionState;
+      if (!state) {
+        executionProofSummary.textContent = 'Send to Backtest to see live run status and metrics on this page.';
+        executionProofCards.innerHTML = '<div class="muted-box small-note">When the backtest runs, this area will show status, metrics, and artifacts.</div>';
+        return;
+      }
+
+      const metrics = state.metrics || {};
+      const artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
+      const status = String(state.status || 'queued');
+      const startedAt = state.startedAt ? new Date(state.startedAt).toISOString() : 'n/a';
+      const endedAt = state.endedAt ? new Date(state.endedAt).toISOString() : 'n/a';
+
+      executionProofSummary.textContent = `Run ${latestExecutionRunId || 'n/a'} is ${status}. ${status === 'running' ? 'Metrics update live while the engine executes.' : 'Final metrics are shown below.'}`;
+      executionProofCards.innerHTML = [
+        { title: 'Run Status', value: status, meta: `Started: ${startedAt} | Ended: ${endedAt}` },
+        { title: 'Return / Capital', value: `${Number(metrics.totalReturnPct ?? 0).toFixed(2)}% / ${Number(metrics.finalCapital ?? 0).toFixed(2)}`, meta: 'Live engine output from the backtest runner.' },
+        { title: 'Trades / Win Rate', value: `${Number(metrics.totalTrades ?? 0).toFixed(0)} / ${Number(metrics.winRatePct ?? 0).toFixed(2)}%`, meta: 'Execution proof of trade generation and outcomes.' },
+        { title: 'Max Drawdown', value: `${Number(metrics.maxDrawdownPct ?? 0).toFixed(2)}%`, meta: 'Risk control outcome from the full test.' },
+        { title: 'Artifacts', value: String(artifacts.length), meta: artifacts.length ? artifacts.join(', ') : 'No artifacts reported yet.' },
+      ].map((card) => `
+        <div class="card">
+          <h3>${escapeHtml(card.title)}</h3>
+          <div class="value">${escapeHtml(card.value)}</div>
+          <div class="meta">${escapeHtml(card.meta)}</div>
+        </div>
+      `).join('');
+    }
+
     async function generateVisualProof() {
       if (proofRequestInFlight) {
         return;
@@ -1213,6 +1298,7 @@
         proofIsStale = false;
         renderPreview();
         renderProofPanel();
+        renderExecutionProof();
         setStatus('Visual proof generated', `Found ${latestProof?.exampleCount || 0} chart example(s) supporting the recognised strategy.`, 'success');
         proofSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (error) {
@@ -1369,6 +1455,7 @@
       setStatus('Starter loaded', `Loaded ${key}. Click Recognise Strategy to run recognition and Generate Visual Proof to validate chart examples.`, 'neutral');
       renderPreview();
       renderProofPanel();
+      renderExecutionProof();
     });
     proofBtn.addEventListener('click', () => {
       generateVisualProof();
@@ -1395,6 +1482,7 @@
       setStatus('Ready for recognition', 'The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.' );
       renderPreview();
       renderProofPanel();
+      renderExecutionProof();
     });
 
     confirmBtn.addEventListener('click', async () => {
@@ -1416,11 +1504,13 @@
         latestRecognition = payload.record?.recognition || latestRecognition;
         latestStrategyConfig = payload.record?.strategyConfig || payload.strategyConfig || latestStrategyConfig;
         renderPreview();
+        renderExecutionProof();
         setStatus(
           'Parameters confirmed',
           `Strategy confirmed and saved with id ${confirmedStrategyId || 'unknown'}. Ready for deterministic backtest queueing.`,
           'success',
         );
+        await generateVisualProof();
       } catch (error) {
         setStatus('Confirmation failed', (error && error.message) ? error.message : 'Unable to confirm strategy', 'error');
       }
@@ -1445,6 +1535,7 @@
           latestRecognition = confirmPayload.record?.recognition || latestRecognition;
           latestStrategyConfig = confirmPayload.record?.strategyConfig || confirmPayload.strategyConfig || latestStrategyConfig;
           renderPreview();
+          renderExecutionProof();
         }
 
         const riskPct = Number(riskInput.value || 0.5);
@@ -1463,6 +1554,15 @@
         }
 
         activeRunId = payload.queuedRun?.id || '';
+        latestExecutionRunId = activeRunId;
+        latestExecutionState = {
+          status: payload.autoStart?.started ? 'running' : 'queued',
+          startedAt: new Date().toISOString(),
+          endedAt: undefined,
+          metrics: {},
+          artifacts: [],
+        };
+        renderExecutionProof();
         startRunStatusPolling(activeRunId);
 
         setStatus(
@@ -1606,6 +1706,7 @@
         confirmedStrategyId = '';
         needsReconfirm = true;
         renderPreview();
+        renderExecutionProof();
         setStatus('Config applied', 'Schema edits were applied to the active strategy inputs. Re-confirm before queueing.', 'success');
       } catch (error) {
         setStatus('Config invalid', (error && error.message) ? error.message : 'Schema JSON is invalid.', 'error');
@@ -1636,6 +1737,7 @@
     void loadDatasetCatalog();
     renderPreview();
     renderProofPanel();
+    renderExecutionProof();
   </script>
 </body>
 </html>

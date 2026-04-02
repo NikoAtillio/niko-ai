@@ -265,6 +265,7 @@ const backtestState: BacktestState = {
 let backtestProc: ChildProcessWithoutNullStreams | null = null;
 let activeStrategyLabRunId: string | null = null;
 const sseClients = new Set<Response>();
+const volatileRunHistory = new Map<string, StrategyRunRecord>();
 
 const dataCache = new Map<string, DataCacheEntry>();
 const tradesCache = new Map<string, TradeRecord[]>();
@@ -272,20 +273,34 @@ const reportCache = new Map<string, Record<string, string>>();
 
 function loadRunHistory(): StrategyRunRecord[] {
 	try {
-		if (!fs.existsSync(RUN_HISTORY_FILE)) {
-			return [];
+		const combined = new Map<string, StrategyRunRecord>();
+
+		if (fs.existsSync(RUN_HISTORY_FILE)) {
+			const text = fs.readFileSync(RUN_HISTORY_FILE, 'utf8');
+			const parsed = JSON.parse(text);
+			if (Array.isArray(parsed)) {
+				for (const run of parsed as StrategyRunRecord[]) {
+					if (run && typeof run === 'object' && typeof run.id === 'string') {
+						combined.set(run.id, run);
+					}
+				}
+			}
 		}
-		const text = fs.readFileSync(RUN_HISTORY_FILE, 'utf8');
-		const parsed = JSON.parse(text);
-		return Array.isArray(parsed) ? parsed : [];
+
+		for (const [runId, run] of volatileRunHistory.entries()) {
+			combined.set(runId, run);
+		}
+
+		return Array.from(combined.values());
 	} catch {
-		return [];
+		return Array.from(volatileRunHistory.values());
 	}
 }
 
 function saveRunHistory(runs: StrategyRunRecord[]): void {
 	fs.mkdirSync(RUN_HISTORY_DIR, { recursive: true });
-	fs.writeFileSync(RUN_HISTORY_FILE, `${JSON.stringify(runs.slice(0, RUN_HISTORY_LIMIT), null, 2)}\n`, 'utf8');
+	const persistentRuns = runs.filter((run) => !isStrategyLabRun(run));
+	fs.writeFileSync(RUN_HISTORY_FILE, `${JSON.stringify(persistentRuns.slice(0, RUN_HISTORY_LIMIT), null, 2)}\n`, 'utf8');
 }
 
 function loadStrategyLibrary(): StrategyDefinitionRecord[] {
@@ -661,6 +676,19 @@ function isStrategyLabRun(run: StrategyRunRecord): boolean {
 }
 
 function updateRunSummary(runId: string, patch: Record<string, unknown>): boolean {
+	if (volatileRunHistory.has(runId)) {
+		const current = volatileRunHistory.get(runId) as StrategyRunRecord;
+		volatileRunHistory.set(runId, {
+			...current,
+			summary: {
+				...getRunSummaryObject(current),
+				...patch,
+				updatedAt: new Date().toISOString(),
+			},
+		});
+		return true;
+	}
+
 	const runs = loadRunHistory();
 	const idx = runs.findIndex((run) => run.id === runId);
 	if (idx === -1) {
@@ -2237,9 +2265,7 @@ app.post('/platform/strategy-lab/backtest-request', (req: Request, res: Response
 			},
 		};
 
-		const runs = loadRunHistory();
-		runs.unshift(queuedRun);
-		saveRunHistory(runs);
+		volatileRunHistory.set(queuedRun.id, queuedRun);
 
 		let autoStartResult: Record<string, unknown> = {
 			autoStart,
