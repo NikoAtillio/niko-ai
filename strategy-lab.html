@@ -490,10 +490,7 @@
       <div class="grid-2">
         <div>
           <h2 class="section-title">Strategy Theory Input</h2>
-          <div class="btn-row" style="margin-top:0; margin-bottom:10px;">
-            <button class="btn primary" id="theoryTabBtn" type="button">Strategy Input</button>
-            <button class="btn" id="marketDataTabBtn" type="button">Market Data</button>
-          </div>
+          <div class="small-note" style="margin-bottom:10px;">Define strategy and market data together below. These inputs are combined for recognition, proof, and backtest preparation.</div>
 
           <div id="theoryInputPane">
             <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
@@ -685,8 +682,6 @@
     const pageSelect = document.getElementById('pageSelect');
     const strategyTemplateInput = document.getElementById('strategyTemplateInput');
     const importTemplateBtn = document.getElementById('importTemplateBtn');
-    const theoryTabBtn = document.getElementById('theoryTabBtn');
-    const marketDataTabBtn = document.getElementById('marketDataTabBtn');
     const theoryInputPane = document.getElementById('theoryInputPane');
     const theoryDataPane = document.getElementById('theoryDataPane');
     const strategyText = document.getElementById('strategyText');
@@ -718,12 +713,15 @@
     const confirmationRule = document.getElementById('confirmationRule');
     let confirmedStrategyId = '';
     let activeRunId = '';
+    let needsReconfirm = true;
     let statusPollTimer = null;
     let latestRecognition = null;
     let latestTemplateText = '';
     let latestStrategyConfig = null;
     let latestProof = null;
+    let proofIsStale = false;
     let datasetCatalog = [];
+    let proofRequestInFlight = false;
 
     const exampleText = `Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.`;
     const starterStrategies = {
@@ -750,19 +748,48 @@
       }
     }
 
+    function getDevApiOriginCandidates() {
+      const out = [];
+      const host = String(window.location.hostname || '').toLowerCase();
+      const port = String(window.location.port || '');
+      const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+      if (isLocalHost) {
+        if (port !== '3000') {
+          out.push(`http://${host}:3000`);
+        }
+        if (host !== 'localhost') {
+          out.push('http://localhost:3000');
+        }
+        if (host !== '127.0.0.1') {
+          out.push('http://127.0.0.1:3000');
+        }
+      }
+      return out;
+    }
+
     function buildApiCandidates(path) {
       const normalized = String(path || '').replace(/^\/+/, '');
       const pathname = String(window.location.pathname || '/');
       const currentDir = pathname.endsWith('/') ? pathname : pathname.replace(/\/[^/]*$/, '/');
       const publicIdx = currentDir.indexOf('/public/');
       const appBase = publicIdx >= 0 ? currentDir.slice(0, publicIdx + 1) : '/';
+      const explicitApiBase = new URLSearchParams(window.location.search).get('apiBase') || '';
+      const sameOrigin = window.location.origin;
 
       const candidates = [
-        `/${normalized}`,
-        `${appBase}${normalized}`,
+        `${sameOrigin}/${normalized}`,
+        `${sameOrigin}${appBase}${normalized}`,
       ];
 
-      return Array.from(new Set(candidates.map((p) => p.replace(/\/+/g, '/'))));
+      if (explicitApiBase) {
+        candidates.unshift(`${explicitApiBase.replace(/\/$/, '')}/${normalized}`);
+      }
+
+      getDevApiOriginCandidates().forEach((origin) => {
+        candidates.push(`${origin.replace(/\/$/, '')}/${normalized}`);
+      });
+
+      return Array.from(new Set(candidates.map((p) => p.replace(/([^:]\/)\/+/g, '$1'))));
     }
 
     async function fetchJsonWithFallback(path, init) {
@@ -770,8 +797,8 @@
       let lastError = null;
 
       for (const candidate of candidates) {
-        const response = await fetch(candidate, init);
         try {
+          const response = await fetch(candidate, init);
           const payload = await parseJsonResponse(response);
           return { response, payload };
         } catch (error) {
@@ -792,8 +819,6 @@
       const isData = which === 'data';
       theoryInputPane.style.display = '';
       theoryDataPane.style.display = '';
-      theoryTabBtn.classList.toggle('primary', !isData);
-      marketDataTabBtn.classList.toggle('primary', isData);
 
       if (isData) {
         theoryDataPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -812,6 +837,17 @@
       if (statusPollTimer) {
         clearInterval(statusPollTimer);
         statusPollTimer = null;
+      }
+    }
+
+    function invalidateConfirmation(showHint = false) {
+      const hadConfirmed = Boolean(confirmedStrategyId);
+      confirmedStrategyId = '';
+      activeRunId = '';
+      needsReconfirm = true;
+      stopRunStatusPolling();
+      if (showHint && hadConfirmed) {
+        setStatus('Parameters updated', 'Inputs changed. Confirm Parameters again, or use Send to Backtest to auto-confirm the latest values.', 'warning');
       }
     }
 
@@ -1116,7 +1152,10 @@
         return;
       }
 
-      proofSummary.textContent = `Detected ${proof.exampleCount} chart example(s) on ${proof.symbol} ${String(proof.timeframe || '').toUpperCase()} (${String(proof.timeframeMode || 'base')}) using ${proof.parameters?.confirmation || 'rule confirmation'} and ${Number(proof.parameters?.zoneWidthPct || 0).toFixed(2)}% zone width.`;
+      const freshnessPrefix = proofIsStale
+        ? 'Showing previous proof for older parameters. Click Generate Visual Proof to refresh. '
+        : '';
+      proofSummary.textContent = `${freshnessPrefix}Detected ${proof.exampleCount} chart example(s) on ${proof.symbol} ${String(proof.timeframe || '').toUpperCase()} (${String(proof.timeframeMode || 'base')}) using ${proof.parameters?.confirmation || 'rule confirmation'} and ${Number(proof.parameters?.zoneWidthPct || 0).toFixed(2)}% zone width.`;
 
       proofGrid.innerHTML = proof.examples.map((ex, idx) => {
         const dt = new Date(Number(ex.centerTs || 0));
@@ -1143,6 +1182,16 @@
     }
 
     async function generateVisualProof() {
+      if (proofRequestInFlight) {
+        return;
+      }
+
+      proofRequestInFlight = true;
+      const originalProofBtnText = proofBtn.textContent;
+      proofBtn.disabled = true;
+      proofBtn.textContent = 'Generating proof...';
+      setStatus('Generating visual proof', 'Scanning market data for chart examples that match your strategy rules.', 'warning');
+
       try {
         const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/proof', {
           method: 'POST',
@@ -1161,13 +1210,19 @@
 
         latestRecognition = payload.recognition || latestRecognition;
         latestProof = payload.proof || null;
+        proofIsStale = false;
         renderPreview();
         renderProofPanel();
         setStatus('Visual proof generated', `Found ${latestProof?.exampleCount || 0} chart example(s) supporting the recognised strategy.`, 'success');
+        proofSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (error) {
-        latestProof = null;
         renderProofPanel();
         setStatus('Proof generation failed', (error && error.message) ? error.message : 'Unable to generate proof', 'error');
+        proofSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } finally {
+        proofRequestInFlight = false;
+        proofBtn.disabled = false;
+        proofBtn.textContent = originalProofBtnText || 'Generate Visual Proof';
       }
     }
 
@@ -1236,6 +1291,7 @@
         latestRecognition = payload.recognition || null;
         latestStrategyConfig = payload.strategyConfig || null;
         latestTemplateText = templateText;
+        proofIsStale = false;
         const normalized = payload.normalized || {};
         strategyText.value = normalized.theoryText || templateText;
         marketSelect.value = normalized.market || marketSelect.value;
@@ -1249,6 +1305,7 @@
         confirmationRule.value = normalized.confirmation || confirmationRule.value;
         confirmedStrategyId = '';
         activeRunId = '';
+        needsReconfirm = true;
         stopRunStatusPolling();
         renderPreview();
         setStatus('Template imported', `Loaded ${file.name} and normalized it into a structured strategy draft.`, 'success');
@@ -1274,7 +1331,8 @@
           setSelectIfPresent(primaryTf, String(payload.recognition.primaryTimeframe));
         }
         latestProof = null;
-        confirmedStrategyId = '';
+        proofIsStale = false;
+        invalidateConfirmation(false);
         renderPreview();
         renderProofPanel();
         const rec = payload.recognition || {};
@@ -1296,8 +1354,6 @@
     importTemplateBtn.addEventListener('click', () => {
       importStrategyTemplate();
     });
-    theoryTabBtn.addEventListener('click', () => activateTheoryTab('input'));
-    marketDataTabBtn.addEventListener('click', () => activateTheoryTab('data'));
     applyStarterBtn.addEventListener('click', () => {
       const key = starterStrategySelect.value;
       if (!key || !starterStrategies[key]) {
@@ -1308,7 +1364,9 @@
       latestTemplateText = '';
       latestStrategyConfig = null;
       latestProof = null;
-      setStatus('Starter loaded', `Loaded ${key}. You can refine it before recognition.`, 'neutral');
+      proofIsStale = false;
+      invalidateConfirmation(false);
+      setStatus('Starter loaded', `Loaded ${key}. Click Recognise Strategy to run recognition and Generate Visual Proof to validate chart examples.`, 'neutral');
       renderPreview();
       renderProofPanel();
     });
@@ -1322,6 +1380,9 @@
       latestTemplateText = '';
       latestStrategyConfig = null;
       latestProof = null;
+      proofIsStale = false;
+      confirmedStrategyId = '';
+      needsReconfirm = true;
       strategyTemplateInput.value = '';
       strategyText.value = exampleText;
       marketSelect.value = 'BTCUSD';
@@ -1351,6 +1412,7 @@
         }
 
         confirmedStrategyId = payload.record?.id || '';
+        needsReconfirm = false;
         latestRecognition = payload.record?.recognition || latestRecognition;
         latestStrategyConfig = payload.record?.strategyConfig || payload.strategyConfig || latestStrategyConfig;
         renderPreview();
@@ -1366,7 +1428,7 @@
 
     runBtn.addEventListener('click', async () => {
       try {
-        if (!confirmedStrategyId) {
+        if (!confirmedStrategyId || needsReconfirm) {
           const { response: confirmResponse, payload: confirmPayload } = await fetchJsonWithFallback('/platform/strategy-lab/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1379,6 +1441,7 @@
             throw new Error(confirmPayload.error || 'Please confirm strategy before queueing backtest');
           }
           confirmedStrategyId = confirmPayload.record?.id || '';
+          needsReconfirm = false;
           latestRecognition = confirmPayload.record?.recognition || latestRecognition;
           latestStrategyConfig = confirmPayload.record?.strategyConfig || confirmPayload.strategyConfig || latestStrategyConfig;
           renderPreview();
@@ -1417,7 +1480,10 @@
     [marketSelect, primaryTf, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
       el.addEventListener('input', () => {
         latestStrategyConfig = null;
-        latestProof = null;
+        invalidateConfirmation(false);
+        if (latestProof) {
+          proofIsStale = true;
+        }
         if (el === marketSelect) {
           theoryMarketSelect.value = marketSelect.value;
           syncDatasetFileOptions();
@@ -1427,7 +1493,10 @@
       });
       el.addEventListener('change', () => {
         latestStrategyConfig = null;
-        latestProof = null;
+        invalidateConfirmation(true);
+        if (latestProof) {
+          proofIsStale = true;
+        }
         if (el === marketSelect) {
           theoryMarketSelect.value = marketSelect.value;
           syncDatasetFileOptions();
@@ -1440,7 +1509,10 @@
     datasetFileSelect.addEventListener('change', () => {
       theoryDatasetFileSelect.value = datasetFileSelect.value;
       latestStrategyConfig = null;
-      latestProof = null;
+      invalidateConfirmation(true);
+      if (latestProof) {
+        proofIsStale = true;
+      }
       renderPreview();
       renderProofPanel();
     });
@@ -1448,7 +1520,10 @@
     theoryDatasetFileSelect.addEventListener('change', () => {
       datasetFileSelect.value = theoryDatasetFileSelect.value;
       latestStrategyConfig = null;
-      latestProof = null;
+      invalidateConfirmation(true);
+      if (latestProof) {
+        proofIsStale = true;
+      }
       renderPreview();
       renderProofPanel();
     });
@@ -1457,18 +1532,28 @@
       marketSelect.value = theoryMarketSelect.value;
       syncDatasetFileOptions();
       latestStrategyConfig = null;
-      latestProof = null;
+      invalidateConfirmation(true);
+      if (latestProof) {
+        proofIsStale = true;
+      }
       renderPreview();
       renderProofPanel();
     });
 
     proofTfMode.addEventListener('change', () => {
-      latestProof = null;
+      if (latestProof) {
+        proofIsStale = true;
+      }
       renderProofPanel();
     });
 
     strategyText.addEventListener('input', () => {
       latestStrategyConfig = null;
+      invalidateConfirmation(false);
+      if (latestProof) {
+        proofIsStale = true;
+      }
+      renderProofPanel();
     });
 
     strategyTemplateInput.addEventListener('change', () => {
@@ -1519,6 +1604,7 @@
         }
 
         confirmedStrategyId = '';
+        needsReconfirm = true;
         renderPreview();
         setStatus('Config applied', 'Schema edits were applied to the active strategy inputs. Re-confirm before queueing.', 'success');
       } catch (error) {
