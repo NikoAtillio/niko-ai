@@ -726,22 +726,17 @@
       <h2 class="section-title step-heading"><span class="step-badge">7</span><span class="step-title-text">Structured Strategy Schema</span></h2>
       <div class="grid-2">
         <div class="card">
-          <h3>Recognised Strategy</h3>
-          <div class="value">Support / Resistance Mean Reversion</div>
-          <div class="meta">This is a structured preview of how the lab interprets the strategy theory before execution.</div>
+          <h3>What this does</h3>
+          <div class="meta">The structured schema is the machine-readable version of your strategy. It combines the recognised theory, market, timeframes, risk, and execution rules into a payload that the engine can backtest and report on deterministically.</div>
+          <div class="meta" style="margin-top:10px;">Editing the schema directly is more useful after login or purchase, when you want to fine-tune the code without changing the original strategy notes.</div>
         </div>
         <div class="card">
-          <h3>Backtest Payload</h3>
+          <h3>Unlocked editor</h3>
           <div class="schema-actions">
-            <button class="btn" id="applyConfigBtn" type="button">Apply Config Edits</button>
-            <button class="btn" id="downloadConfigBtn" type="button">Download Config JSON</button>
+            <button class="btn primary" id="useAlgorithmBtn" type="button">Unlock schema editor</button>
+            <a class="btn" href="payment.html">Go to payment</a>
           </div>
-          <textarea class="schema-editor mono" id="schemaPreview" spellcheck="false">{
-  "name": "Support / Resistance Mean Reversion",
-  "market": "BTCUSD",
-  "timeframes": ["H4", "H1", "M15"],
-  "rules": { ... }
-}</textarea>
+          <div class="meta" style="margin-top:10px;">After checkout, the dedicated editor page lets the user modify the generated JSON and download a clean execution config.</div>
         </div>
       </div>
     </section>
@@ -760,8 +755,6 @@
     const resetBtn = document.getElementById('resetBtn');
     const confirmBtn = document.getElementById('confirmBtn');
     const runBtn = document.getElementById('runBtn');
-    const applyConfigBtn = document.getElementById('applyConfigBtn');
-    const downloadConfigBtn = document.getElementById('downloadConfigBtn');
     const proofBtn = document.getElementById('proofBtn');
     const proofTfMode = document.getElementById('proofTfMode');
     const useAlgorithmBtn = document.getElementById('useAlgorithmBtn');
@@ -773,7 +766,6 @@
     const proofGrid = document.getElementById('proofGrid');
     const executionProofSummary = document.getElementById('executionProofSummary');
     const executionProofCards = document.getElementById('executionProofCards');
-    const schemaPreview = document.getElementById('schemaPreview');
     const theoryMarketSelect = document.getElementById('theoryMarketSelect');
     const theoryDatasetFileSelect = document.getElementById('theoryDatasetFileSelect');
     const theoryPrimaryTfSelect = document.getElementById('theoryPrimaryTfSelect');
@@ -1424,7 +1416,6 @@
       `).join('');
 
       const previewConfig = latestStrategyConfig || buildPreviewStrategyConfig();
-      schemaPreview.value = JSON.stringify(previewConfig, null, 2);
 
       confirmationText.textContent = `We detected ${recognition?.strategyType || 'a structured strategy'} on ${market} using ${tf} as the primary execution timeframe. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
     }
@@ -1754,72 +1745,6 @@
       if (strategyTemplateInput.files && strategyTemplateInput.files[0]) {
         setStatus('Template selected', strategyTemplateInput.files[0].name, 'neutral');
       }
-    });
-
-    applyConfigBtn.addEventListener('click', () => {
-      try {
-        const parsed = JSON.parse(schemaPreview.value);
-        if (!parsed || typeof parsed !== 'object') {
-          throw new Error('Config must be a JSON object');
-        }
-
-        latestStrategyConfig = parsed;
-
-        if (typeof parsed.market === 'string') {
-          setSelectIfPresent(marketSelect, parsed.market);
-          setSelectIfPresent(theoryMarketSelect, parsed.market);
-        }
-
-        if (parsed.execution && typeof parsed.execution === 'object') {
-          syncTimeframeSelects(parsed.execution.primaryTimeframe);
-        }
-
-        if (parsed.metadata && typeof parsed.metadata === 'object' && typeof parsed.metadata.dataFile === 'string') {
-          syncDatasetFileOptions();
-          if (Array.from(datasetFileSelect.options).some((opt) => String(opt.value) === parsed.metadata.dataFile)) {
-            datasetFileSelect.value = parsed.metadata.dataFile;
-          }
-        }
-
-        if (parsed.risk && typeof parsed.risk === 'object') {
-          if (Number.isFinite(Number(parsed.risk.riskPerTradePct))) {
-            riskInput.value = String(parsed.risk.riskPerTradePct);
-          }
-          if (Number.isFinite(Number(parsed.risk.zoneWidthPct))) {
-            zoneWidth.value = String(parsed.risk.zoneWidthPct);
-          }
-          if (Number.isFinite(Number(parsed.risk.minTouches))) {
-            touchCount.value = String(parsed.risk.minTouches);
-          }
-        }
-
-        if (parsed.entry && typeof parsed.entry === 'object' && typeof parsed.entry.confirmation === 'string') {
-          setSelectIfPresent(confirmationRule, parsed.entry.confirmation);
-        }
-
-        confirmedStrategyId = '';
-        needsReconfirm = true;
-        renderPreview();
-        renderExecutionProof();
-        setStatus('Config applied', 'Schema edits were applied to the active strategy inputs. Re-confirm before queueing.', 'success');
-      } catch (error) {
-        setStatus('Config invalid', (error && error.message) ? error.message : 'Schema JSON is invalid.', 'error');
-      }
-    });
-
-    downloadConfigBtn.addEventListener('click', () => {
-      const config = latestStrategyConfig || buildPreviewStrategyConfig();
-      const blob = new Blob([`${JSON.stringify(config, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      const safeName = String(config.name || 'strategy').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      anchor.href = url;
-      anchor.download = `${safeName || 'strategy'}-config.json`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      setStatus('Config exported', 'Downloaded strategy config JSON for execution and versioning.', 'success');
     });
 
     pageSelect.addEventListener('change', () => {

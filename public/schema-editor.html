@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schema Editor</title>
+  <style>
+    :root {
+      --bg: #eef2ef;
+      --panel: #ffffff;
+      --ink: #172018;
+      --muted: #5b675f;
+      --line: #d6ded8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+      --soft: #f6faf7;
+      --warn: #8b5e00;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef2ef 55%, #e7ece8 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 24px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 58%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 { margin: 0; font-size: 2rem; }
+    .hero p { margin: 8px 0 0; max-width: 900px; line-height: 1.5; opacity: 0.96; }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #23402d;
+    }
+
+    .step-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: #23402d;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .step-title-text { font-size: 1rem; font-weight: 800; }
+
+    .label {
+      display: block;
+      font-size: 0.79rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdfb;
+      color: var(--ink);
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 440px;
+      resize: vertical;
+      font-family: "SFMono-Regular", "SF Mono", Consolas, monospace;
+      line-height: 1.45;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .muted-box {
+      border: 1px dashed #cfd9d3;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfefb;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(14, 25, 18, 0.04);
+      padding: 14px;
+    }
+
+    .value {
+      font-size: 1.04rem;
+      font-weight: 800;
+      margin: 6px 0;
+      color: #193122;
+    }
+
+    .meta {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      background: #eef6f3;
+      color: #295241;
+      border: 1px solid #cfe6db;
+    }
+
+    .status {
+      border: 1px solid #cfd9d3;
+      border-radius: 12px;
+      background: #f8fbf7;
+      padding: 10px 12px;
+      color: #295241;
+      line-height: 1.45;
+    }
+
+    .status.error {
+      background: #fff5f3;
+      color: #9b2818;
+      border-color: #f1c0b9;
+    }
+
+    .status.success {
+      background: #effaf2;
+      color: #15603d;
+      border-color: #c9e9d7;
+    }
+
+    @media (max-width: 960px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      textarea { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Structured Strategy Schema Editor</h1>
+      <p>Edit the machine-readable strategy payload after login or purchase. This page is where the generated rules, execution parameters, and reporting metadata can be refined before export.</p>
+    </section>
+
+    <section class="panel">
+      <div class="grid-2">
+        <div>
+          <h2 class="section-title step-heading"><span class="step-badge">A</span><span class="step-title-text">Editable JSON</span></h2>
+          <label class="label" for="schemaEditor">Strategy schema</label>
+          <textarea id="schemaEditor" spellcheck="false"></textarea>
+          <div class="btn-row">
+            <button class="btn primary" id="applyBtn" type="button">Apply changes</button>
+            <button class="btn" id="downloadBtn" type="button">Download JSON</button>
+            <button class="btn ghost" id="resetBtn" type="button">Reset example</button>
+            <a class="btn ghost" href="payment.html">Back to payment</a>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="section-title">Access & summary</h2>
+          <div class="muted-box" id="accessNotice">
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Paid access</strong>
+            <div class="meta">This editor is intended for users who have logged in and completed checkout. The purchase flow marks the session as unlocked for editing.</div>
+          </div>
+
+          <div style="margin-top:12px;" class="card">
+            <div class="pill">Current schema</div>
+            <div class="value" id="schemaName">Support / Resistance Mean Reversion</div>
+            <div class="meta" id="schemaMeta">Market: BTCUSD · Timeframes: H4, H1, M15 · Risk: 0.50%</div>
+          </div>
+
+          <div style="margin-top:12px;" class="card">
+            <h3 style="margin:0 0 8px; color:#23402d;">What to edit</h3>
+            <div class="meta">Change market, timeframes, risk sizing, zone width, touch requirements, entries, stops, and exits. The result should remain structured JSON so it can be consumed by the lab and backtest engine.</div>
+          </div>
+
+          <div style="margin-top:12px;" class="status" id="editorStatus">Ready to edit schema.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const schemaEditor = document.getElementById('schemaEditor');
+    const applyBtn = document.getElementById('applyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const editorStatus = document.getElementById('editorStatus');
+    const schemaName = document.getElementById('schemaName');
+    const schemaMeta = document.getElementById('schemaMeta');
+    const accessNotice = document.getElementById('accessNotice');
+
+    const exampleConfig = {
+      name: 'Support / Resistance Mean Reversion',
+      market: 'BTCUSD',
+      timeframes: ['H4', 'H1', 'M15'],
+      execution: { primaryTimeframe: 'H4', confirmationTimeframe: 'H1', entryTimeframe: 'M15' },
+      risk: { riskPerTradePct: 0.5, zoneWidthPct: 0.18, minTouches: 2 },
+      entry: { confirmation: 'Rejection candle' },
+      exit: { targetStyle: 'Mean reversion to mid-zone', stopStyle: 'ATR-based invalidation' },
+      metadata: { dataFile: 'btc-usd-h4.json', accessTier: 'paid-editor' },
+      rules: {
+        supportZone: 'Re-test prior swing low',
+        resistanceZone: 'Re-test prior swing high',
+        allowedSessions: ['London', 'New York'],
+      },
+    };
+
+    function loadSchema() {
+      schemaEditor.value = `${JSON.stringify(exampleConfig, null, 2)}\n`;
+      renderSummary(exampleConfig);
+    }
+
+    function renderSummary(config) {
+      schemaName.textContent = config.name || 'Untitled strategy';
+      const timeframeText = Array.isArray(config.timeframes) ? config.timeframes.join(', ') : 'Unknown';
+      const riskText = config.risk && Number.isFinite(Number(config.risk.riskPerTradePct))
+        ? `${Number(config.risk.riskPerTradePct).toFixed(2)}%`
+        : 'Unknown';
+      schemaMeta.textContent = `Market: ${config.market || 'Unknown'} · Timeframes: ${timeframeText} · Risk: ${riskText}`;
+    }
+
+    function setStatus(kind, message) {
+      editorStatus.className = kind ? `status ${kind}` : 'status';
+      editorStatus.textContent = message;
+    }
+
+    function isPaidAccess() {
+      return localStorage.getItem('strategyLabAccess') === 'paid';
+    }
+
+    if (!isPaidAccess()) {
+      accessNotice.innerHTML = '<strong style="display:block; margin-bottom:6px; color:#8b5e00;">Access not yet unlocked</strong><div class="meta">You can preview the editor here, but the intended flow is to complete checkout in the payment page first.</div>';
+    }
+
+    applyBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(schemaEditor.value);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('Schema must be a JSON object');
+        }
+        renderSummary(parsed);
+        setStatus('success', 'Schema validated and applied in the editor preview.');
+      } catch (error) {
+        setStatus('error', error && error.message ? error.message : 'Invalid schema JSON.');
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(schemaEditor.value);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('Schema must be a JSON object');
+        }
+        const blob = new Blob([`${JSON.stringify(parsed, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        const safeName = String(parsed.name || 'strategy').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        anchor.href = url;
+        anchor.download = `${safeName || 'strategy'}-schema.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        setStatus('success', 'Downloaded the editable strategy schema JSON.');
+      } catch (error) {
+        setStatus('error', error && error.message ? error.message : 'Unable to download schema JSON.');
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      loadSchema();
+      setStatus('', 'Reset to the example strategy schema.');
+    });
+
+    loadSchema();
+  </script>
+</body>
+</html>

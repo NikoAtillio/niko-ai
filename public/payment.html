@@ -369,19 +369,26 @@
     guestTab.addEventListener('click', () => activatePane('guest'));
 
     signinBtn.addEventListener('click', () => {
+      localStorage.setItem('strategyLabAccess', 'paid');
       setStatus('Sign in requested', 'This demo page does not yet authenticate, but it is wired for a real account flow.');
     });
 
     createBtn.addEventListener('click', () => {
+      localStorage.setItem('strategyLabAccess', 'paid');
       setStatus('Create profile requested', 'Profile creation is prepared. Hook this to your auth backend when ready.');
     });
 
     paymentBtn.addEventListener('click', () => {
       const guestMode = !guestPane.classList.contains('hidden');
+      localStorage.setItem('strategyLabAccess', 'paid');
+      localStorage.setItem('strategyLabAccessSource', guestMode ? 'guest' : (signinPane.classList.contains('hidden') ? 'create' : 'signin'));
       const message = guestMode
         ? 'Guest checkout captured. Connect this form to your payment processor.'
         : 'Purchase initiated. Connect this form to your payment processor.';
-      setStatus('Checkout ready', message);
+      setStatus('Checkout ready', `${message} Open the schema editor to refine the generated JSON.`);
+      setTimeout(() => {
+        window.location.href = 'schema-editor.html';
+      }, 650);
     });
   </script>
 </body>
