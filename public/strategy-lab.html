@@ -503,6 +503,7 @@
           <option value="index.html">Strategy Research Terminal</option>
           <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
           <option value="strategy-lab.html" selected>Strategy Lab</option>
+          <option value="payment.html">Payment</option>
           <option value="admin.html">Admin Panel</option>
         </select>
       </div>
@@ -513,7 +514,7 @@
       <p>Translate strategy theory into deterministic rules, preview recognition across multiple timeframes, confirm the parameters, then pass the strategy to the backtest engine.</p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="inputSection">
       <div class="grid-2">
         <div>
           <h2 class="section-title step-heading"><span class="step-badge">1</span><span class="step-title-text">Strategy Theory Input</span></h2>
@@ -602,7 +603,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="parametersSection">
       <h2 class="section-title step-heading"><span class="step-badge">2</span><span class="step-title-text">Parameters</span></h2>
       <div class="grid-2">
         <div>
@@ -674,47 +675,54 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="previewSection">
       <h2 class="section-title step-heading"><span class="step-badge">3</span><span class="step-title-text">Strategy Preview</span></h2>
       <p class="small-note" style="margin-top:0; margin-bottom:10px;">Click <strong>Confirm Parameters</strong> to preview the structured interpretation before continuing to proof and execution.</p>
       <div class="rec-grid" id="summaryCards"></div>
+
+      <div style="margin-top:16px;">
+        <h3 class="section-title step-heading" style="margin-top:0;"><span class="step-badge">4</span><span class="step-title-text">Strategy Recognition Preview</span></h3>
+        <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
+        <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
+          <select id="proofTfMode" style="max-width: 220px;">
+            <option value="lower">Proof timeframe: Lower than execution</option>
+            <option value="base" selected>Proof timeframe: Same as execution</option>
+            <option value="higher">Proof timeframe: Higher than execution</option>
+          </select>
+          <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
+          <button class="btn primary" id="runBtn" type="button">Send to Backtest</button>
+        </div>
+        <div id="proofGrid" class="proof-grid"></div>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2 class="section-title step-heading"><span class="step-badge">4</span><span class="step-title-text">Strategy Recognition Preview</span></h2>
-      <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
-      <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
-        <select id="proofTfMode" style="max-width: 220px;">
-          <option value="lower">Proof timeframe: Lower than execution</option>
-          <option value="base" selected>Proof timeframe: Same as execution</option>
-          <option value="higher">Proof timeframe: Higher than execution</option>
-        </select>
-        <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
-        <button class="btn primary" id="runBtn" type="button">Send to Backtest</button>
-      </div>
-      <div id="proofGrid" class="proof-grid"></div>
-      <div style="margin-top:12px;" class="muted-box">
-        <strong class="step-heading" style="margin-bottom:6px; color:#23402d;"><span class="step-badge">5</span><span class="step-title-text">Execution</span></strong>
+    <section class="panel" id="executionSection">
+      <h2 class="section-title step-heading"><span class="step-badge">5</span><span class="step-title-text">Execution</span></h2>
+      <div class="muted-box">
+        <strong style="display:block; margin-bottom:6px; color:#23402d;">Live Execution</strong>
         <div class="small-note" id="executionProofSummary">Send to Backtest to see live run status and metrics on this page.</div>
         <div id="executionProofCards" class="rec-grid" style="margin-top:10px;"></div>
       </div>
-    </section>
 
-    <section class="panel">
-      <h2 class="section-title step-heading"><span class="step-badge">6</span><span class="step-title-text">Summary</span></h2>
-      <div class="grid-2">
-        <div class="muted-box">
-          <div class="status" id="statusPill">Ready for recognition</div>
-          <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
-        </div>
-        <div class="muted-box">
-          <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
-          <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
+      <div style="margin-top:16px;" class="muted-box">
+        <h3 class="section-title step-heading" style="margin-top:0;"><span class="step-badge">6</span><span class="step-title-text">Summary</span></h3>
+        <div class="grid-2">
+          <div>
+            <div class="status" id="statusPill">Ready for recognition</div>
+            <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
+          </div>
+          <div>
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
+            <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
+            <div class="btn-row" style="margin-top:12px;">
+              <button class="btn primary" id="useAlgorithmBtn" type="button">Use algorithm</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="schemaSection">
       <h2 class="section-title step-heading"><span class="step-badge">7</span><span class="step-title-text">Structured Strategy Schema</span></h2>
       <div class="grid-2">
         <div class="card">
@@ -756,6 +764,7 @@
     const downloadConfigBtn = document.getElementById('downloadConfigBtn');
     const proofBtn = document.getElementById('proofBtn');
     const proofTfMode = document.getElementById('proofTfMode');
+    const useAlgorithmBtn = document.getElementById('useAlgorithmBtn');
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const confirmationText = document.getElementById('confirmationText');
@@ -907,6 +916,13 @@
       }
       if (source !== theoryPrimaryTfSelect) {
         setSelectIfPresent(theoryPrimaryTfSelect, nextValue);
+      }
+    }
+
+    function scrollToSection(sectionId) {
+      const element = document.getElementById(sectionId);
+      if (element && typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
 
@@ -1113,18 +1129,12 @@
       }
 
       const width = 560;
-      const height = 200;
-      const padX = 28;
+      const height = 220;
+      const padX = 46;
       const padY = 18;
       const minPrice = Math.min(...windowCandles.map(c => Number(c.low || c.close || 0)));
       const maxPrice = Math.max(...windowCandles.map(c => Number(c.high || c.close || 0)));
       const span = Math.max(1e-9, maxPrice - minPrice);
-
-      const points = windowCandles.map((c, idx) => {
-        const x = padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
-        const y = height - padY - ((Number(c.close || 0) - minPrice) / span) * (height - padY * 2);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      }).join(' ');
 
       let centerIndex = 0;
       let bestDist = Number.POSITIVE_INFINITY;
@@ -1137,7 +1147,9 @@
       });
 
       const markerX = padX + (centerIndex / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
-      const markerY = height - padY - ((Number(windowCandles[centerIndex].close || 0) - minPrice) / span) * (height - padY * 2);
+      const centerCandle = windowCandles[centerIndex];
+      const markerY = height - padY - ((Number(centerCandle.close || 0) - minPrice) / span) * (height - padY * 2);
+      const candleWidth = Math.max(3, Math.min(16, Math.floor((width - padX * 2) / Math.max(8, windowCandles.length))));
 
       const findNearestIndexByTs = (ts) => {
         let best = 0;
@@ -1160,6 +1172,11 @@
       const yFromPrice = (price) => {
         return height - padY - ((Number(price || 0) - minPrice) / span) * (height - padY * 2);
       };
+
+      const yTicks = Array.from({ length: 5 }, (_, idx) => minPrice + (span * idx / 4)).reverse();
+      const xLabels = [0, Math.floor((windowCandles.length - 1) / 2), windowCandles.length - 1]
+        .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
+        .map((idx) => ({ idx, label: new Date(windowCandles[idx].ts).toISOString().slice(5, 16).replace('T', ' ') }));
 
       const overlayMarkup = (Array.isArray(overlays) ? overlays : []).map((ov) => {
         if (!ov || !ov.kind) {
@@ -1212,15 +1229,39 @@
         return '';
       }).join('');
 
+      const candleMarkup = windowCandles.map((c, idx) => {
+        const x = padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
+        const openY = yFromPrice(c.open);
+        const closeY = yFromPrice(c.close);
+        const highY = yFromPrice(c.high);
+        const lowY = yFromPrice(c.low);
+        const bullish = Number(c.close || 0) >= Number(c.open || 0);
+        const bodyTop = Math.min(openY, closeY);
+        const bodyHeight = Math.max(1, Math.abs(closeY - openY));
+        const bodyWidth = idx === centerIndex ? candleWidth + 2 : candleWidth;
+        const bodyX = x - bodyWidth / 2;
+        const color = bullish ? '#2f855a' : '#c2410c';
+        const fill = bullish ? 'rgba(47,133,90,0.28)' : 'rgba(194,65,12,0.28)';
+        return `
+          <line x1="${x}" y1="${highY}" x2="${x}" y2="${lowY}" stroke="${color}" stroke-width="1.2"></line>
+          <rect x="${bodyX.toFixed(2)}" y="${bodyTop.toFixed(2)}" width="${bodyWidth.toFixed(2)}" height="${bodyHeight.toFixed(2)}" fill="${fill}" stroke="${color}" stroke-width="1"></rect>
+        `;
+      }).join('');
+
       return `
         <svg class="proof-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Strategy proof chart window">
           <rect x="0" y="0" width="${width}" height="${height}" fill="#f8fbf9"></rect>
-          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#d6ded8" />
+          ${yTicks.map((tick) => {
+            const y = yFromPrice(tick);
+            return `<g><line x1="${padX}" y1="${y}" x2="${width - 14}" y2="${y}" stroke="#e1e7e2" stroke-width="1" stroke-dasharray="3 4"></line><text x="10" y="${y + 3}" font-size="9" fill="#5b675f">${tick.toFixed(2)}</text></g>`;
+          }).join('')}
+          <line x1="${padX}" y1="${height - padY}" x2="${width - 14}" y2="${height - padY}" stroke="#d6ded8" />
           <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#d6ded8" />
+          ${candleMarkup}
           ${overlayMarkup}
-          <polyline points="${points}" fill="none" stroke="#0b7285" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
           <line x1="${markerX}" y1="${padY}" x2="${markerX}" y2="${height - padY}" stroke="#2f855a" stroke-width="1.4" stroke-dasharray="4 4"></line>
           <circle cx="${markerX}" cy="${markerY}" r="4.2" fill="#2f855a"></circle>
+          ${xLabels.map((label) => `<text x="${padX + (label.idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2)}" y="${height - 4}" text-anchor="middle" font-size="9" fill="#5b675f">${label.label}</text>`).join('')}
         </svg>
       `;
     }
@@ -1241,6 +1282,10 @@
       proofGrid.innerHTML = proof.examples.map((ex, idx) => {
         const dt = new Date(Number(ex.centerTs || 0));
         const stamp = Number.isFinite(dt.getTime()) ? dt.toISOString() : 'n/a';
+        const centerIndex = Math.max(0, Math.min((ex.window || []).length - 1, Math.floor((ex.window || []).length / 2)));
+        const centerCandle = (ex.window || [])[centerIndex] || {};
+        const windowStart = (ex.window || [])[0]?.ts ? new Date(Number((ex.window || [])[0].ts)).toISOString() : 'n/a';
+        const windowEnd = (ex.window || []).length ? new Date(Number((ex.window || [])[ex.window.length - 1].ts)).toISOString() : 'n/a';
         return `
           <article class="proof-card">
             <header>
@@ -1252,7 +1297,9 @@
             </header>
             <div class="body">
               ${renderProofChartSvg(ex.window || [], ex.centerTs, ex.overlays || [])}
+              <div class="zone-row"><span>Data window</span><span class="pill">${escapeHtml(String(ex.window?.length || 0))} candles | ${escapeHtml(windowStart)} → ${escapeHtml(windowEnd)}</span></div>
               <div class="zone-row"><span>Recognition timestamp</span><span class="pill">${escapeHtml(stamp)}</span></div>
+              <div class="zone-row"><span>Center OHLC</span><span class="pill">O ${escapeHtml(Number(centerCandle.open || 0).toFixed(4))} H ${escapeHtml(Number(centerCandle.high || 0).toFixed(4))} L ${escapeHtml(Number(centerCandle.low || 0).toFixed(4))} C ${escapeHtml(Number(centerCandle.close || ex.centerPrice || 0).toFixed(4))}</span></div>
               <div class="zone-row"><span>Center price</span><span class="pill">${escapeHtml(Number(ex.centerPrice || 0).toFixed(4))}</span></div>
               <div class="zone-row"><span>Example confidence</span><span class="pill">${escapeHtml((Number(ex.confidence || 0) * 100).toFixed(0))}%</span></div>
               <div class="small-note">${escapeHtml(ex.rationale || 'Detected by strategy proof scanner.')}</div>
@@ -1453,6 +1500,7 @@
           `Recognised ${rec.strategyType || 'a structured strategy'} on ${rec.market || marketSelect.value}. Confidence ${(Number(rec.confidence || 0) * 100).toFixed(0)}%.`,
           'success',
         );
+        scrollToSection('parametersSection');
       } catch (error) {
         setStatus('Recognition failed', (error && error.message) ? error.message : 'Unable to recognise strategy', 'error');
       }
@@ -1483,6 +1531,9 @@
     });
     proofBtn.addEventListener('click', () => {
       generateVisualProof();
+    });
+    useAlgorithmBtn.addEventListener('click', () => {
+      window.location.href = 'payment.html';
     });
     resetBtn.addEventListener('click', () => {
       stopRunStatusPolling();
@@ -1535,7 +1586,7 @@
           `Strategy confirmed and saved with id ${confirmedStrategyId || 'unknown'}. Ready for deterministic backtest queueing.`,
           'success',
         );
-        await generateVisualProof();
+          scrollToSection('previewSection');
       } catch (error) {
         setStatus('Confirmation failed', (error && error.message) ? error.message : 'Unable to confirm strategy', 'error');
       }
@@ -1597,6 +1648,7 @@
             : `Queued run ${activeRunId}. ${payload.autoStart?.error || ''}`,
           payload.autoStart?.started ? 'success' : 'warning',
         );
+        scrollToSection('executionSection');
       } catch (error) {
         setStatus('Queue failed', (error && error.message) ? error.message : 'Unable to queue backtest request', 'error');
       }

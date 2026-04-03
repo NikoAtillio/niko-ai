@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment</title>
+  <style>
+    :root {
+      --bg: #eef2ef;
+      --panel: #ffffff;
+      --ink: #172018;
+      --muted: #5b675f;
+      --line: #d6ded8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+      --soft: #f6faf7;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef2ef 55%, #e7ece8 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 24px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 58%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 { margin: 0; font-size: 2rem; }
+    .hero p { margin: 8px 0 0; max-width: 900px; line-height: 1.5; opacity: 0.96; }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #23402d;
+    }
+
+    .step-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: #23402d;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .step-title-text { font-size: 1rem; font-weight: 800; }
+
+    .label {
+      display: block;
+      font-size: 0.79rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdfb;
+      color: var(--ink);
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    textarea { min-height: 110px; resize: vertical; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .muted-box {
+      border: 1px dashed #cfd9d3;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfefb;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      background: #eef6f3;
+      color: #295241;
+      border: 1px solid #cfe6db;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0 16px;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      background: #f7faf7;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Payment and Access</h1>
+      <p>Choose how you want to continue. Sign in to a profile, create one, or buy as a guest with email, contact details, and payment.</p>
+    </section>
+
+    <section class="panel">
+      <div class="grid-2">
+        <div>
+          <h2 class="section-title step-heading"><span class="step-badge">6</span><span class="step-title-text">Checkout</span></h2>
+          <div class="tabs" role="tablist" aria-label="payment access options">
+            <button class="tab active" id="signinTab" type="button">Sign in</button>
+            <button class="tab" id="createTab" type="button">Create profile</button>
+            <button class="tab" id="guestTab" type="button">Buy as guest</button>
+          </div>
+
+          <div id="signinPane">
+            <div class="grid-2">
+              <div>
+                <label class="label" for="signinEmail">Email</label>
+                <input id="signinEmail" type="email" placeholder="you@example.com" />
+              </div>
+              <div>
+                <label class="label" for="signinPassword">Password</label>
+                <input id="signinPassword" type="password" placeholder="••••••••" />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="signinBtn" type="button">Sign in and continue</button>
+              <a class="btn ghost" href="strategy-lab.html">Back to Strategy Lab</a>
+            </div>
+          </div>
+
+          <div id="createPane" class="hidden">
+            <div class="grid-2">
+              <div>
+                <label class="label" for="createName">Full name</label>
+                <input id="createName" type="text" placeholder="Your name" />
+              </div>
+              <div>
+                <label class="label" for="createEmail">Email</label>
+                <input id="createEmail" type="email" placeholder="you@example.com" />
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:12px;">
+              <div>
+                <label class="label" for="createPassword">Password</label>
+                <input id="createPassword" type="password" placeholder="Create a password" />
+              </div>
+              <div>
+                <label class="label" for="createContact">Phone / contact</label>
+                <input id="createContact" type="text" placeholder="Contact number" />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="createBtn" type="button">Create profile</button>
+              <a class="btn ghost" href="strategy-lab.html">Back to Strategy Lab</a>
+            </div>
+          </div>
+
+          <div id="guestPane" class="hidden">
+            <div class="grid-2">
+              <div>
+                <label class="label" for="guestEmail">Email</label>
+                <input id="guestEmail" type="email" placeholder="guest@example.com" />
+              </div>
+              <div>
+                <label class="label" for="guestContact">Contact details</label>
+                <input id="guestContact" type="text" placeholder="Phone or messaging contact" />
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <label class="label" for="guestNotes">Purchase notes</label>
+              <textarea id="guestNotes" placeholder="Tell us which algorithm package you want to buy as a guest."></textarea>
+            </div>
+            <div style="margin-top:12px;" class="muted-box">
+              <strong style="display:block; margin-bottom:10px; color:#23402d;">Payment details</strong>
+              <div class="grid-2">
+                <div>
+                  <label class="label" for="cardNumber">Card number</label>
+                  <input id="cardNumber" type="text" inputmode="numeric" placeholder="4242 4242 4242 4242" />
+                </div>
+                <div>
+                  <label class="label" for="cardName">Name on card</label>
+                  <input id="cardName" type="text" placeholder="Cardholder name" />
+                </div>
+              </div>
+              <div class="grid-3" style="margin-top:12px;">
+                <div>
+                  <label class="label" for="cardExpiry">Expiry</label>
+                  <input id="cardExpiry" type="text" placeholder="MM/YY" />
+                </div>
+                <div>
+                  <label class="label" for="cardCvc">CVC</label>
+                  <input id="cardCvc" type="text" inputmode="numeric" placeholder="123" />
+                </div>
+                <div>
+                  <label class="label" for="billingPostcode">Postcode</label>
+                  <input id="billingPostcode" type="text" placeholder="SW1A 1AA" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="section-title">Order Summary</h2>
+          <div class="muted-box">
+            <div class="pill">Algorithm access</div>
+            <h3 style="margin:10px 0 4px;">Strategy Lab execution package</h3>
+            <p style="margin:0; color:var(--muted); line-height:1.5;">Unlock the selected algorithm, backtest access, and post-run reporting. Guest checkout is supported with the required contact details.</p>
+          </div>
+
+          <div style="margin-top:12px;" class="muted-box">
+            <div class="grid-3">
+              <div>
+                <label class="label" for="planSelect">Plan</label>
+                <select id="planSelect">
+                  <option>Algorithm access - monthly</option>
+                  <option>Algorithm access - annual</option>
+                  <option>One-time backtest bundle</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="billingCountry">Country</label>
+                <input id="billingCountry" type="text" placeholder="United Kingdom" />
+              </div>
+              <div>
+                <label class="label" for="billingCurrency">Currency</label>
+                <select id="billingCurrency">
+                  <option>GBP</option>
+                  <option>USD</option>
+                  <option>EUR</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:12px;" class="small-note">
+              By continuing you agree to the terms for algorithm access and backtest usage.
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="paymentBtn" type="button">Complete purchase</button>
+              <a class="btn" href="strategy-lab.html">Return to Strategy Lab</a>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;" class="muted-box" id="paymentStatus">
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Ready</strong>
+            <div class="small-note">Choose a sign-in, profile creation, or guest path to continue.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const signinTab = document.getElementById('signinTab');
+    const createTab = document.getElementById('createTab');
+    const guestTab = document.getElementById('guestTab');
+    const signinPane = document.getElementById('signinPane');
+    const createPane = document.getElementById('createPane');
+    const guestPane = document.getElementById('guestPane');
+    const paymentStatus = document.getElementById('paymentStatus');
+    const paymentBtn = document.getElementById('paymentBtn');
+    const signinBtn = document.getElementById('signinBtn');
+    const createBtn = document.getElementById('createBtn');
+
+    function setStatus(title, text) {
+      paymentStatus.innerHTML = `<strong style="display:block; margin-bottom:6px; color:#23402d;">${title}</strong><div class="small-note">${text}</div>`;
+    }
+
+    function activatePane(which) {
+      signinPane.classList.toggle('hidden', which !== 'signin');
+      createPane.classList.toggle('hidden', which !== 'create');
+      guestPane.classList.toggle('hidden', which !== 'guest');
+      signinTab.classList.toggle('active', which === 'signin');
+      createTab.classList.toggle('active', which === 'create');
+      guestTab.classList.toggle('active', which === 'guest');
+    }
+
+    signinTab.addEventListener('click', () => activatePane('signin'));
+    createTab.addEventListener('click', () => activatePane('create'));
+    guestTab.addEventListener('click', () => activatePane('guest'));
+
+    signinBtn.addEventListener('click', () => {
+      setStatus('Sign in requested', 'This demo page does not yet authenticate, but it is wired for a real account flow.');
+    });
+
+    createBtn.addEventListener('click', () => {
+      setStatus('Create profile requested', 'Profile creation is prepared. Hook this to your auth backend when ready.');
+    });
+
+    paymentBtn.addEventListener('click', () => {
+      const guestMode = !guestPane.classList.contains('hidden');
+      const message = guestMode
+        ? 'Guest checkout captured. Connect this form to your payment processor.'
+        : 'Purchase initiated. Connect this form to your payment processor.';
+      setStatus('Checkout ready', message);
+    });
+  </script>
+</body>
+</html>

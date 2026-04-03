@@ -1341,13 +1341,16 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 				}
 			}
 			if (bestIdx >= 0) {
+				const proximity = 1 - Math.min(1, bestDist / Math.max(1e-9, width * 4));
+				const strengthScore = Math.min(0.30, zone.strength / 25);
+				const confidence = 0.48 + strengthScore + proximity * 0.20;
 				pushProofExample(
 					examples,
 					candles,
 					bestIdx,
 					zone.kind === 'support' ? 'Support reaction' : 'Resistance reaction',
 					`Price action clusters around a ${zone.kind} zone with strength score ${zone.strength}.`,
-					0.5 + Math.min(0.42, zone.strength / 10),
+					confidence,
 					[
 						{ kind: 'hline', label: `${zone.kind} center`, price: zone.center },
 						{ kind: 'box', label: `${zone.kind} zone`, startTs: candles[Math.max(0, bestIdx - 20)].ts, endTs: candles[Math.min(candles.length - 1, bestIdx + 20)].ts, low: zone.low, high: zone.high },
