@@ -357,11 +357,12 @@
       border-radius: 10px;
       background: #fbfdf9;
       padding: 10px;
+      min-height: 600px;
     }
 
     #curveSvg {
       width: 100%;
-      height: 420px;
+      height: 100%;
       display: block;
       background: linear-gradient(180deg, #0f1720, #182430);
       border-radius: 8px;
@@ -717,7 +718,7 @@
       </div>
 
       <div class="curve-box">
-        <svg id="curveSvg" viewBox="0 0 1400 430" preserveAspectRatio="xMidYMid meet"></svg>
+        <svg id="curveSvg" viewBox="0 0 1400 520" preserveAspectRatio="none"></svg>
         <div class="curve-tooltip" id="curveTooltip"></div>
         <div class="curve-legend" id="curveLegend"></div>
         <div class="curve-note" id="curveNote">Loading capital curve data...</div>
@@ -812,10 +813,10 @@
           <thead>
             <tr>
               <th>Strategy</th>
-              <th>Year</th>
+              <th>Period</th>
               <th>Return %</th>
-              <th>End Year Capital (£)</th>
-              <th>End Year Profit (£)</th>
+              <th>End Period Capital (£)</th>
+              <th>End Period Profit (£)</th>
               <th>Max DD %</th>
               <th>Max DD (£)</th>
               <th>Win %</th>
@@ -1078,6 +1079,27 @@
       return `${startText} to ${endText}`;
     }
 
+    function niceNumber(value, roundUp = false) {
+      if (!Number.isFinite(value) || value <= 0) return 1;
+      const exponent = Math.floor(Math.log10(value));
+      const fraction = value / (10 ** exponent);
+      let niceFraction;
+      if (roundUp) {
+        if (fraction <= 1) niceFraction = 1;
+        else if (fraction <= 2) niceFraction = 2;
+        else if (fraction <= 2.5) niceFraction = 2.5;
+        else if (fraction <= 5) niceFraction = 5;
+        else niceFraction = 10;
+      } else {
+        if (fraction < 1.5) niceFraction = 1;
+        else if (fraction < 2.25) niceFraction = 2;
+        else if (fraction < 3.75) niceFraction = 2.5;
+        else if (fraction < 7.5) niceFraction = 5;
+        else niceFraction = 10;
+      }
+      return niceFraction * (10 ** exponent);
+    }
+
     function inferMarketFromFilename(name) {
       const base = (name || '').split('/').pop() || '';
       const knownTokens = [
@@ -1253,8 +1275,8 @@
 
       const candles = marketChartState.candles;
       const w = 1400;
-      const h = 430;
-      const m = { top: 18, right: 22, bottom: 62, left: 72 };
+      const h = 520;
+      const m = { top: 12, right: 16, bottom: 44, left: 66 };
       const pw = w - m.left - m.right;
       const ph = h - m.top - m.bottom;
 
@@ -2844,8 +2866,8 @@
       }
 
       const w = 1400;
-      const h = 430;
-      const m = { top: 18, right: 22, bottom: 62, left: 72 };
+      const h = 520;
+      const m = { top: 18, right: 22, bottom: 32, left: 72 };
       const pw = w - m.left - m.right;
       const ph = h - m.top - m.bottom;
 
@@ -2917,10 +2939,8 @@
         const upperBuffered = Math.max(lowerBuffered + 1, visYMax * 1.05);
         const span = upperBuffered - lowerBuffered;
 
-        if (span <= 15000) absStep = 500;
-        else if (span <= 30000) absStep = 1000;
-        else if (span <= 60000) absStep = 2000;
-        else absStep = 5000;
+        const targetTickCount = 9;
+        absStep = niceNumber(span / targetTickCount, true);
 
         y0 = Math.floor(lowerBuffered / absStep) * absStep;
         y1 = Math.ceil(upperBuffered / absStep) * absStep;
@@ -2938,7 +2958,15 @@
 
       const grid = [];
       const yTicks = curveMode.value === 'absolute'
-        ? Array.from({ length: Math.floor((y1 - y0) / absStep) + 1 }, (_, i) => y0 + (i * absStep))
+        ? (() => {
+            const maxTicks = 11;
+            const span = y1 - y0;
+            let step = absStep;
+            while ((span / step) + 1 > maxTicks) {
+              step = niceNumber(step * 1.6, true);
+            }
+            return Array.from({ length: Math.floor(span / step) + 1 }, (_, i) => y0 + (i * step));
+          })()
         : Array.from({ length: 7 }, (_, i) => y0 + (i / 6) * (y1 - y0));
 
       for (const val of yTicks) {
@@ -2957,16 +2985,20 @@
         ((vx1.getUTCFullYear() - vx0.getUTCFullYear()) * 12) +
         (vx1.getUTCMonth() - vx0.getUTCMonth()) + 1,
       );
-      const targetLabelCount = Math.max(6, Math.floor(pw / 95));
+      const targetLabelCount = Math.max(6, Math.floor(pw / 130));
       const monthLabelStep = Math.max(1, Math.ceil(totalMonths / targetLabelCount));
       let monthIndex = 0;
+      let lastMonthLabelX = Number.NEGATIVE_INFINITY;
       while (cur <= vx1) {
         const mx = sx(cur);
         const monthName = cur.toLocaleString('en-GB', { month: 'short' });
         grid.push(`<line x1="${mx}" y1="${m.top}" x2="${mx}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.10)" />`);
         if (monthIndex % monthLabelStep === 0) {
           const monthLabelX = Math.max(m.left + 14, mx + 3);
-          monthLabels.push(`<text x="${monthLabelX}" y="${h - 34}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
+          if (monthLabelX - lastMonthLabelX > 34) {
+            monthLabels.push(`<text x="${monthLabelX}" y="${h - 15}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
+            lastMonthLabelX = monthLabelX;
+          }
         }
 
         if (periodKey === 'ALL' && cur.getUTCMonth() === 0) {
@@ -3023,7 +3055,7 @@
         <line id="crossV" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
         <line id="crossH" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
         <circle id="crossDot" cx="0" cy="0" r="4" fill="#ffffff" stroke="#0f1720" stroke-width="1.2" style="display:none" />
-        <text x="${w / 2}" y="${h - 4}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (months + week segments)</text>
+        <text x="${w / 2}" y="${h - 6}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (months + week segments)</text>
         <text x="16" y="${h / 2}" transform="rotate(-90 16 ${h / 2})" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">${curveMode.value === 'normalized' ? 'Index (Start = 100)' : `Capital (£) from scenario start £${startCapital.toLocaleString()}`}</text>
       `;
 
