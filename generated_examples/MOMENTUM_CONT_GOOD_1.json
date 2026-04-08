@@ -1,0 +1,21 @@
+{
+  "strategy_id": "MOMENTUM_CONT",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-24 20:44:00",
+  "confidence": 0.76,
+  "description": "Strong impulse, shallow flag/pause, then continuation breakout close above pause high.",
+  "sample_timeframe": "Wednesday 24 May 2023 20:04 GMT - Wednesday 24 May 2023 21:23 GMT",
+  "center_ohlc": {
+    "open": 13583.9,
+    "high": 13588.3,
+    "low": 13582.4,
+    "close": 13587.9
+  },
+  "entry": 13587.9,
+  "sl": 13567.5181,
+  "tp1": 13618.4728,
+  "tp2": 13638.8546
+}

@@ -1,0 +1,13 @@
+{
+  "generated_count": 7,
+  "strategies": [
+    "BREAKOUT_CONFIRM",
+    "MEAN_REVERT_BAND",
+    "MOMENTUM_CONT",
+    "ORB",
+    "RANGE_REVERSION",
+    "TREND_PULLBACK",
+    "VOL_SQUEEZE"
+  ],
+  "output_dir": "generated_examples"
+}

@@ -1,0 +1,21 @@
+{
+  "strategy_id": "ORB",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-24 12:01:00",
+  "confidence": 0.77,
+  "description": "Opening range defined from first 30 bars; breakout close above OR high with momentum body.",
+  "sample_timeframe": "Wednesday 24 May 2023 11:21 GMT - Wednesday 24 May 2023 12:40 GMT",
+  "center_ohlc": {
+    "open": 13672.0,
+    "high": 13675.6,
+    "low": 13671.1,
+    "close": 13675.2
+  },
+  "entry": 13675.2,
+  "sl": 13654.6872,
+  "tp1": 13705.9692,
+  "tp2": 13726.482
+}

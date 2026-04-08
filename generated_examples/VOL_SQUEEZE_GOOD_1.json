@@ -1,0 +1,21 @@
+{
+  "strategy_id": "VOL_SQUEEZE",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-25 21:00:00",
+  "confidence": 0.79,
+  "description": "Low BB width squeeze followed by expansion candle with breakout and higher volume.",
+  "sample_timeframe": "Thursday 25 May 2023 20:20 GMT - Thursday 25 May 2023 21:39 GMT",
+  "center_ohlc": {
+    "open": 13953.92,
+    "high": 13983.17,
+    "low": 13953.92,
+    "close": 13980.8
+  },
+  "entry": 13980.8,
+  "sl": 13959.8288,
+  "tp1": 14012.2568,
+  "tp2": 14033.228
+}

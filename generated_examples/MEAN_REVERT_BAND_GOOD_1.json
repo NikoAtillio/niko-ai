@@ -1,0 +1,21 @@
+{
+  "strategy_id": "MEAN_REVERT_BAND",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-24 11:07:00",
+  "confidence": 0.73,
+  "description": "Price stretched above 2SD band then closed back inside with bearish continuation.",
+  "sample_timeframe": "Wednesday 24 May 2023 10:27 GMT - Wednesday 24 May 2023 11:46 GMT",
+  "center_ohlc": {
+    "open": 13664.5,
+    "high": 13664.5,
+    "low": 13656.9,
+    "close": 13660.4
+  },
+  "entry": 13660.4,
+  "sl": 13680.8906,
+  "tp1": 13629.6641,
+  "tp2": 13609.1735
+}

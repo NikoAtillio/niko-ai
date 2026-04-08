@@ -1,0 +1,21 @@
+{
+  "strategy_id": "BREAKOUT_CONFIRM",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-24 16:33:00",
+  "confidence": 0.8,
+  "description": "20-bar consolidation, high-body breakout candle, volume expansion, hold above level.",
+  "sample_timeframe": "Wednesday 24 May 2023 15:53 GMT - Wednesday 24 May 2023 17:12 GMT",
+  "center_ohlc": {
+    "open": 13580.3,
+    "high": 13600.8,
+    "low": 13576.6,
+    "close": 13599.7
+  },
+  "entry": 13599.7,
+  "sl": 13579.3005,
+  "tp1": 13630.2993,
+  "tp2": 13650.6989
+}

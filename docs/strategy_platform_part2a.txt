@@ -1,0 +1,268 @@
+SUPERSEDED NOTICE
+This text export is superseded by PHANTOM_STRATEGY_RULESET_CANONICAL_v1_1.md.
+Use that file as the only implementation and training source of truth.
+
+UNIVERSAL TRADING STRATEGY PLATFORM — PART 2A
+
+Sections 5–9: Strategies 4–7 + Conflict Resolution
+
+Continues from Part 1 (Sections 0–4). Part 2B covers Sections 10–12.
+
+SECTION 5 — STRATEGY 4: MEAN REVERSION TO VWAP/BANDS  [MEAN_REVERT_BAND]
+
+5.1  Plain-English Definition
+Price has stretched statistically far from its mean (VWAP or Bollinger Band midline). Enter a fade trade expecting price to revert to the mean. Only valid in low-trend, range-bound or weak-trend conditions. Never trade against a strong trend.
+5.2  Market Context
+Active regimes: RANGE, WEAK_TREND. Deactivated in STRONG_TREND and HIGH_VOL.
+5.3  Statistical Stretch Detection
+is_stretched(candle, bb, vwap, params):   bb_sd_stretch  = (candle.close - bb.upper) / bb.std   // +ve = above upper band   vwap_atr_dist  = (candle.close - vwap) / ATR(14)      // +ve = above VWAP    long_signal  = (bb_sd_stretch <= -params.bb_sd_threshold)   // default -0.5 SD beyond lower                OR (vwap_atr_dist <= -params.vwap_atr_mult)    // default -1.5 ATR below VWAP   short_signal = (bb_sd_stretch >= params.bb_sd_threshold)                OR (vwap_atr_dist >= params.vwap_atr_mult)   return long_signal, short_signal
+5.4  Entry Rules & Confidence Scoring
+Rule Class
+Condition
+MANDATORY (w=3)
+Price beyond BB(20,2.0) outer band OR > 1.5 ATR from VWAP
+MANDATORY (w=3)
+Regime is RANGE or WEAK_TREND (ADX < 25)
+MANDATORY (w=3)
+Rejection candle at extreme: is_rejection_candle_bullish/bearish() = true (§0.3)
+STRONG (w=2)
+RSI divergence: price makes new extreme but RSI does not (optional indicator)
+STRONG (w=2)
+BB bandwidth < 0.04 (not in expansion — mean reversion more reliable)
+OPTIONAL (w=1)
+Volume: rejection candle volume > 1.2 × 20-bar average
+OPTIONAL (w=1)
+Fresh extreme: price has not been beyond this band level in last 20 bars
+OPTIONAL (w=1)
+Session: not within 30 min of major news event (user-flagged)
+
+Minimum confidence: 0.65. All mandatory rules must pass.
+5.5  Invalidation Rules
+ADX crosses above 25 while trade is open → exit immediately (trend emerging)
+Price closes beyond 3.0 SD from BB midline (extreme continuation — stop out)
+Regime switches to STRONG_TREND or HIGH_VOL
+Price has been beyond BB outer band for > 5 consecutive bars (trending, not reverting)
+5.6  Stop Loss & Take Profit
+Level
+Logic
+Stop Loss
+Beyond extreme candle wick + ATR(14) × 0.5 buffer
+TP1
+BB midline (20-bar EMA) — primary target
+TP2
+VWAP (intraday) or opposite BB band
+Max hold
+10 bars on entry TF (mean reversion should be fast)
+Exit rule
+If price reaches midline but rejection candle forms → exit immediately
+
+5.7  JSON Schema
+{   "strategy_id": "MEAN_REVERT_BAND",   "direction": "long | short",   "regime": "RANGE | WEAK_TREND",   "bb_upper": 1945.20,   "bb_lower": 1905.80,   "bb_mid": 1925.50,  "vwap": 1922.10,   "stretch_type": "bb | vwap | both",   "bb_sd_at_signal": 2.3,   "entry_price": 1906.50,   "stop_loss": 1902.80,   "take_profit_1": 1925.50,  "take_profit_2": 1945.20,   "confidence": 0.78,   "rules_met": { "price_at_extreme": true, "regime_ok": true,     "rejection_candle": true, "rsi_divergence": false,     "bb_bandwidth_ok": true, "volume_filter": true,     "fresh_extreme": false, "session_filter": true } }
+
+SECTION 6 — STRATEGY 5: VOLATILITY COMPRESSION BREAKOUT  [VOL_COMPRESS_BREAK]
+
+6.1  Plain-English Definition
+Bollinger Bands narrow inside Keltner Channels (the 'squeeze'). This signals compressed volatility about to expand. Enter in the direction of the first strong expansion candle after the squeeze releases. Direction confirmed by momentum (EMA slope or histogram).
+6.2  Market Context
+Active regimes: RANGE, WEAK_TREND. Also valid as a regime-transition signal. Deactivated in HIGH_VOL (already expanded).
+6.3  Squeeze Detection Formula
+is_squeeze(candles, params):   bb_upper = BB_upper(candles, 20, 2.0)   bb_lower = BB_lower(candles, 20, 2.0)   kc_upper = EMA(candles,20) + ATR(candles,20) * params.kc_mult  // default 1.5   kc_lower = EMA(candles,20) - ATR(candles,20) * params.kc_mult    squeeze_on  = (bb_upper < kc_upper) AND (bb_lower > kc_lower)   squeeze_off = prev_squeeze_on AND NOT squeeze_on  // release trigger   squeeze_bars = count_consecutive_squeeze_on(candles)   return squeeze_on, squeeze_off, squeeze_bars  // Minimum squeeze duration before signal valid: 5 bars (configurable)
+6.4  Direction Determination (2-of-3 required for STRONG)
+determine_direction(candles, params):   // Method 1: EMA slope   ema20 = calcEMA(candles, 20)   ema_slope_bullish = ema20[-1] > ema20[-3]    // Method 2: Momentum histogram (TTM-style)   momentum = close - mean([highest_high(5), lowest_low(5),              (highest_high(20)+lowest_low(20))/2]) / 2   momentum_bullish = momentum[-1] > 0    // Method 3: Expansion candle direction   expansion_bullish = candle.close > candle.open AND body_pct >= 0.55    bullish_votes = sum([ema_slope_bullish, momentum_bullish, expansion_bullish])   return 'long' if bullish_votes >= 2 else 'short' if bullish_votes <= 1 else 'neutral'
+6.5  Entry Rules & Confidence Scoring
+Rule Class
+Condition
+MANDATORY (w=3)
+Squeeze detected: BB inside KC for >= 5 consecutive bars
+MANDATORY (w=3)
+Squeeze release: BB has expanded outside KC on current or previous bar
+MANDATORY (w=3)
+Expansion candle: body_pct >= 0.55 in breakout direction
+STRONG (w=2)
+Volume: expansion candle volume > 1.8 × 20-bar average
+STRONG (w=2)
+Direction confirmed by >= 2 of 3 direction methods (§6.4)
+OPTIONAL (w=1)
+Squeeze duration >= 10 bars (longer squeeze = stronger expansion)
+OPTIONAL (w=1)
+ATR ratio: current ATR > 1.2 × squeeze-period ATR average
+OPTIONAL (w=1)
+No major S/R level within 1R of entry in breakout direction
+
+6.6  Stop Loss & Take Profit
+Level
+Logic
+Stop Loss
+Opposite side of expansion candle + ATR(14) × 0.3
+TP1
+Entry + ATR(14) × 2.0
+TP2
+Entry + ATR(14) × 4.0
+Trailing
+After TP1: trail by ATR(14) × 1.5 to capture full expansion
+Invalidation
+If price re-enters squeeze zone within 3 bars → exit immediately
+
+6.7  JSON Schema
+{   "strategy_id": "VOL_COMPRESS_BREAK",   "direction": "long | short",   "regime": "RANGE | WEAK_TREND",   "squeeze_bars": 12,   "squeeze_released": true,   "bb_width_at_squeeze": 0.018,   "kc_mult_used": 1.5,   "entry_price": 1928.40,   "stop_loss": 1924.10,   "take_profit_1": 1936.98,   "take_profit_2": 1945.56,   "confidence": 0.80,   "rules_met": { "squeeze_detected": true,     "squeeze_released": true, "expansion_candle": true,     "volume_expansion": true, "direction_confirmed": true,     "squeeze_duration_ok": true, "atr_expansion": false, "clear_air": true } }
+
+SECTION 7 — STRATEGY 6: OPENING RANGE BREAKOUT  [ORB]
+
+7.1  Plain-English Definition
+At the open of a defined trading session, price establishes a range during the first N minutes (configurable: 15, 30, or 60 min). Enter when price breaks out of this range with a strong close and volume confirmation. One signal per session per instrument maximum.
+7.2  Market Context
+Active regimes: ALL (including HIGH_VOL with 50% reduced size). Session-gated — only fires within the ORB breakout window.
+7.3  Session & ORB Window Definitions
+Session
+Definition
+London ORB
+07:00–07:30 UTC (range), breakout window 07:30–10:00 UTC
+New York ORB
+13:30–14:00 UTC (range), breakout window 14:00–17:00 UTC
+Asia ORB
+00:00–00:30 UTC (range), breakout window 00:30–04:00 UTC
+Custom session
+User-defined: session_open_utc, range_minutes (15/30/60), breakout_window_minutes
+DST handling
+Platform stores in exchange local time, converts to UTC at runtime
+24/5 instruments
+Use London open (07:00 UTC) as primary ORB anchor for XAUUSD/Forex
+Crypto (24/7)
+Use 00:00 UTC daily open as ORB anchor, or user-defined session
+
+7.4  ORB Range Construction
+build_orb_range(candles, session_open_utc, range_minutes, params):   range_candles = [c for c in candles                    if session_open_utc <= c.timestamp                    < session_open_utc + range_minutes]   orb_high  = max(c.high for c in range_candles)   orb_low   = min(c.low  for c in range_candles)   orb_mid   = (orb_high + orb_low) / 2   orb_width = orb_high - orb_low    if orb_width < ATR(14) * params.min_orb_atr_mult:  // default 0.5     return null  // range too tight — skip session   return { orb_high, orb_low, orb_mid, orb_width }
+7.5  Entry Rules & Confidence Scoring
+Rule Class
+Condition
+MANDATORY (w=3)
+ORB range established: >= range_minutes of candles after session open
+MANDATORY (w=3)
+Breakout candle: close beyond orb_high (long) or orb_low (short)
+MANDATORY (w=3)
+Body confirmation: body_pct >= 0.55 on breakout candle
+STRONG (w=2)
+Volume: breakout candle volume > 2.0 × 20-bar average
+STRONG (w=2)
+ORB width >= ATR(14) × 0.8 (meaningful range, not noise)
+OPTIONAL (w=1)
+Context trend alignment: breakout direction matches H1/H4 trend
+OPTIONAL (w=1)
+No major S/R level within 1× ORB width of breakout level
+OPTIONAL (w=1)
+First breakout attempt (not 3rd+ retest of same level)
+
+7.6  Invalidation Rules
+Price closes back inside ORB range within 3 bars (false breakout — exit immediately)
+Breakout occurs after breakout_window_minutes has elapsed (too late — skip)
+ORB width < ATR × 0.5 (range too tight — no signal for this session)
+Signal already fired this session for this instrument (one trade per session rule)
+7.7  Stop Loss & Take Profit
+Level
+Logic
+Stop Loss
+ORB midline (orb_mid) — price should not return to mid if breakout is real
+TP1
+Entry + orb_width × 1.0
+TP2
+Entry + orb_width × 2.0
+TP3
+Entry + orb_width × 3.0 (optional, trail after TP2)
+Time exit
+Close position at end of breakout_window if TP1 not reached
+
+7.8  JSON Schema
+{   "strategy_id": "ORB",   "direction": "long | short",   "regime": "any",   "session": "london | new_york | asia | custom",   "session_open_utc": "07:00",   "range_minutes": 30,   "orb_high": 1932.50,   "orb_low": 1926.80,   "orb_width": 5.70,   "breakout_level": 1932.50,   "entry_price": 1932.80,   "stop_loss": 1929.65,   "take_profit_1": 1938.50,   "take_profit_2": 1944.20,   "confidence": 0.85,   "rules_met": { "orb_established": true,     "close_beyond_orb": true, "body_confirmation": true,     "volume_expansion": true, "orb_width_ok": true,     "trend_alignment": true, "clear_air": false, "first_attempt": true } }
+
+SECTION 8 — STRATEGY 7: MOMENTUM CONTINUATION  [MOMENTUM_CONT]
+
+8.1  Plain-English Definition
+A strong impulse move (flag pole) is followed by a brief consolidation (flag or pennant). Enter when price breaks out of the consolidation in the direction of the original impulse. Captures the second leg of a strong momentum move.
+8.2  Market Context
+Active regimes: STRONG_TREND only. Deactivated in RANGE, WEAK_TREND, and HIGH_VOL.
+8.3  Flag/Pennant Detection
+detect_flag(candles, params):   // Step 1: Impulse (flag pole)   impulse_move = abs(candles[-params.impulse_bars].close - candles[-1].close)   is_impulse   = impulse_move >= ATR(14) * params.impulse_atr_mult  // default 3.0    // Step 2: Consolidation (flag body)   consol_high  = max(c.high for c in candles[-params.consolidation_bars:])   consol_low   = min(c.low  for c in candles[-params.consolidation_bars:])   consol_range = consol_high - consol_low   is_flag      = consol_range <= impulse_move * params.flag_depth_max  // default 0.50    // Step 3: Breakout of consolidation   breakout_long  = candle.close > consol_high AND body_pct >= 0.55   breakout_short = candle.close < consol_low  AND body_pct >= 0.55   return is_impulse AND is_flag AND (breakout_long OR breakout_short)
+8.4  Entry Rules & Confidence Scoring
+Rule Class
+Condition
+MANDATORY (w=3)
+Impulse detected: move >= ATR(14) × 3.0 in <= 8 bars
+MANDATORY (w=3)
+Consolidation: flag/pennant formed, range <= 50% of impulse
+MANDATORY (w=3)
+Breakout of consolidation: close beyond flag boundary in impulse direction
+STRONG (w=2)
+Volume: impulse candles had volume > 1.5× avg; consolidation volume declining
+STRONG (w=2)
+Regime: STRONG_TREND confirmed (ADX > 25)
+OPTIONAL (w=1)
+Consolidation depth: pullback 23.6%–50% of impulse (shallow = stronger)
+OPTIONAL (w=1)
+Breakout candle body_pct >= 0.55
+OPTIONAL (w=1)
+No major resistance within 1× impulse_move of entry
+
+8.5  Invalidation Rules
+Consolidation exceeds 50% retracement of impulse (flag too deep — likely reversal)
+Consolidation lasts > 20 bars (momentum dissipated)
+ADX drops below 22 during consolidation (trend weakening)
+Breakout candle is wick-only (body_pct < 0.40)
+8.6  Stop Loss & Take Profit
+Level
+Logic
+Stop Loss
+Opposite side of consolidation range + ATR(14) × 0.3
+TP1
+Entry + impulse_move × 0.618 (Fibonacci extension)
+TP2
+Entry + impulse_move × 1.0 (full measured move)
+TP3
+Entry + impulse_move × 1.618 (extended target, trail after TP2)
+Trailing
+After TP1: trail by ATR(14) × 2.0
+
+8.7  Wick Ratio Note
+Wick ratio check applied to the breakout candle only. Breakout candle should have wick_ratio < 1.0 (body-dominant). If wick_ratio > 1.5 on breakout candle → reduce confidence by 0.15.
+8.8  JSON Schema
+{   "strategy_id": "MOMENTUM_CONT",   "direction": "long | short",   "regime": "STRONG_TREND",   "impulse_move": 18.40,   "impulse_bars": 5,   "consolidation_bars": 8,   "consolidation_depth_pct": 0.32,   "flag_high": 1938.20,   "flag_low": 1932.80,   "entry_price": 1938.50,   "stop_loss": 1932.50,   "take_profit_1": 1949.86,   "take_profit_2": 1956.90,   "take_profit_3": 1968.26,   "confidence": 0.88,   "rules_met": { "impulse_detected": true, "consolidation_ok": true,     "breakout_confirmed": true, "volume_pattern": true,     "regime_strong_trend": true, "depth_ok": true,     "body_pct_ok": true, "clear_air": false } }
+
+SECTION 9 — MASTER CONFLICT RESOLUTION & SIGNAL PRIORITY
+
+9.1  Full Resolution Algorithm
+resolve_all_signals(signals[], regime, open_positions[], params):    // STEP 1: Minimum history guard   if bars_available < 200: return []    // STEP 2: Regime gate   allowed = REGIME_ACTIVATION_MAP[regime]   signals = [s for s in signals if s.strategy_id in allowed]    // STEP 3: Confidence gate   signals = [s for s in signals if s.confidence >= params.min_confidence]    // STEP 4: Direction conflict   longs  = [s for s in signals if s.direction == 'long']   shorts = [s for s in signals if s.direction == 'short']   if longs and shorts:     best_long  = max(longs,  key=lambda s: s.confidence)     best_short = max(shorts, key=lambda s: s.confidence)     if abs(best_long.confidence - best_short.confidence) < 0.10:       return []  // too close — NO TRADE     signals = [best_long if best_long.confidence > best_short.confidence                else best_short]    // STEP 5: Same direction — keep highest confidence   if len(signals) > 1:     signals = [max(signals, key=lambda s: s.confidence)]    // STEP 6: Position limit   if len(open_positions) >= params.max_concurrent_positions:     return []  // queue for next bar    // STEP 7: Duplicate instrument+direction check   for pos in open_positions:     if pos.instrument == signals[0].instrument        and pos.direction == signals[0].direction:       return []  // already in this trade    return signals
+9.2  Strategy Priority Ranking (tiebreaker when confidence equal)
+Priority
+Strategy
+1 (highest)
+ORB — session-specific, time-sensitive, highest edge window
+2
+TREND_PULLBACK — highest historical win rate in trending markets
+3
+MOMENTUM_CONT — strong trend continuation, clear measured move
+4
+BREAKOUT_CONFIRM — regime transition, high reward potential
+5
+VOL_COMPRESS_BREAK — reliable but direction uncertainty
+6
+RANGE_REVERSION — lower edge, range can break at any time
+7 (lowest)
+MEAN_REVERT_BAND — highest risk of trending against position
+
+9.3  Regime-Specific Conflict Scenarios
+Scenario
+Resolution
+STRONG_TREND: TREND_PULLBACK + BREAKOUT both fire long
+Take TREND_PULLBACK (higher priority). Log BREAKOUT as secondary confirmation.
+RANGE_REVERSION fires during WEAK_TREND
+Deactivated in WEAK_TREND. Signal suppressed automatically.
+VOL_COMPRESS fires, regime = HIGH_VOL
+Deactivated in HIGH_VOL. Signal suppressed.
+ORB + TREND_PULLBACK fire same bar
+Take ORB (higher priority within session window).
+MEAN_REVERT open, ADX crosses 25
+Immediate invalidation. Exit MEAN_REVERT position at market.
+Opposing signals within 0.10 confidence
+NO TRADE. Log both signals for review.
+HIGH_VOL regime: any non-ORB/BREAKOUT signal
+All other strategies deactivated. Reduce position size 50% on allowed strategies.
+

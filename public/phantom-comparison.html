@@ -308,7 +308,7 @@
     .curve-toolbar {
       display: grid;
       gap: 10px;
-      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
       align-items: start;
       margin-bottom: 10px;
     }
@@ -326,18 +326,29 @@
 
     @media (max-width: 1080px) {
       .curve-toolbar {
-        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
       }
     }
 
     @media (max-width: 640px) {
       .curve-toolbar {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
       }
 
       .curve-toolbar label {
         white-space: normal;
       }
+    }
+
+    .curve-toolbar input[type="date"] {
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      line-height: 1.2;
+      min-height: 42px;
     }
 
     .curve-box {
@@ -634,15 +645,15 @@
       <p>Interactive cross-comparison across imported test periods. Adjust scenario settings, inspect curve behaviour, compare strategy outcomes, and review modelled recommendations.</p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="benchmarkPanel">
       <div class="data-tabs">
         <button class="btn primary" id="uploadDataTabBtn" type="button">Drop Data</button>
-        <button class="btn" id="preloadedDataTabBtn" type="button">Market Data</button>
+        <button class="btn" id="preloadedDataTabBtn" type="button">Existing Market Data</button>
       </div>
       <div class="data-ingest" id="uploadDataPane">
         <label class="drop-zone" id="dataDropZone">
-          <input id="dataFileInput" type="file" accept=".json,.csv,.txt,.tsv" multiple />
-          <span id="dataDropText">Drop curve data here or click to select a file (.json/.csv/.txt)</span>
+          <input id="dataFileInput" type="file" multiple />
+          <span id="dataDropText">Drop curve data here or click to select a file (.json/.csv/.txt, including raw MT exports)</span>
         </label>
         <div class="dataset-meta">
           <h3 id="datasetTitle">Imported market data for X for Y</h3>
@@ -660,13 +671,21 @@
           </div>
           <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
         </div>
-        <p class="footnote" id="preloadedSummary" style="margin:0;">Loads all available years and timeframes for the selected instrument from hosted datasets.</p>
+        <p class="footnote" id="preloadedSummary" style="margin:0;">Runs live PHANTOM validation for the selected instrument using hosted M1/M5/H1/H4 datasets.</p>
       </div>
 
       <div class="curve-toolbar">
-        <div>
+        <div style="display:none;">
           <label for="curveYearSelect">Capital Curve Year</label>
           <select id="curveYearSelect"></select>
+        </div>
+        <div>
+          <label for="curveStartDateInput">From Date</label>
+          <input id="curveStartDateInput" type="date" />
+        </div>
+        <div>
+          <label for="curveEndDateInput">To Date</label>
+          <input id="curveEndDateInput" type="date" />
         </div>
         <div>
           <label for="curveMode">Curve Scale</label>
@@ -769,6 +788,7 @@
               <th data-key="profitFactor">PF</th>
               <th data-key="netReturn">Return %</th>
               <th data-key="maxDD">Max DD %</th>
+              <th data-key="maxDDMoney">Max DD (£)</th>
               <th data-key="expectancy">Expectancy</th>
               <th data-key="finalCapital">Final Cap</th>
               <th data-key="status">Status</th>
@@ -849,6 +869,8 @@
     const barsEl = document.getElementById('bars');
     const bodyEl = document.getElementById('rows');
     const curveYearSelect = document.getElementById('curveYearSelect');
+    const curveStartDateInput = document.getElementById('curveStartDateInput');
+    const curveEndDateInput = document.getElementById('curveEndDateInput');
     const curveMode = document.getElementById('curveMode');
     const curveSvg = document.getElementById('curveSvg');
     const curveLegend = document.getElementById('curveLegend');
@@ -883,21 +905,43 @@
 
     let curveData = null;
     let preloadedCatalog = [];
+    const apiBaseCandidates = ['', 'http://localhost:3000'];
+    const marketChartState = {
+      active: false,
+      symbol: '',
+      timeframe: '',
+      candles: [],
+      xStart: 0,
+      xSpan: 1,
+      yOffset: 0,
+      yZoom: 1,
+      dragging: false,
+      dragStartClientX: 0,
+      dragStartClientY: 0,
+      dragStartX: 0,
+      dragStartY: 0,
+    };
     const curveView = { start: 0, span: 1 };
     const periodOrder = { '2023-24': 1, '2024-25': 2, '2025-26': 3 };
     let latestResultsSummary = null;
+    let validationSummary = null;
     let lastSavedRunSignature = '';
     downloadResultsPdfBtn.disabled = true;
 
     const periods = [...new Set(rows.map(r => r.period))];
     const scenarios = [...new Set(rows.map(r => r.scenario))].sort();
 
-    periods.forEach(p => {
-      const id = `p-${p}`;
-      const label = document.createElement('label');
-      label.innerHTML = `<input type="checkbox" id="${id}" value="${p}" checked /> ${p}`;
-      periodChecksEl.appendChild(label);
-    });
+    function renderPeriodChecks(items, { disabled = false, checked = true } = {}) {
+      periodChecksEl.innerHTML = '';
+      for (const item of items) {
+        const id = `p-${String(item).replace(/[^A-Za-z0-9]/g, '-')}`;
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" id="${id}" value="${item}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} /> ${item}`;
+        periodChecksEl.appendChild(label);
+      }
+    }
+
+    renderPeriodChecks(periods);
 
     scenarios.forEach(s => {
       const opt = document.createElement('option');
@@ -911,6 +955,14 @@
       return Number(v).toFixed(d);
     }
 
+    function fmtMoney(v) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return 'N/A';
+      return Number(v).toLocaleString('en-GB', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+
     function statusPill(s) {
       if (s === 'Completed') return '<span class="pill ok">Completed</span>';
       if (s === 'Poor performance') return '<span class="pill bad">Poor performance</span>';
@@ -919,6 +971,17 @@
 
     function selectedPeriods() {
       return Array.from(periodChecksEl.querySelectorAll('input:checked')).map(i => i.value);
+    }
+
+    function syncPeriodControlsForCurrentRange() {
+      if (!validationSummary) {
+        if (periodChecksEl.querySelectorAll('input').length !== periods.length) {
+          renderPeriodChecks(periods);
+        }
+        return;
+      }
+      const rangeLabel = formatRangeLabel(getDateFilterRange());
+      renderPeriodChecks([rangeLabel], { disabled: true, checked: true });
     }
 
     function getScenarioSettings() {
@@ -973,12 +1036,70 @@
       return out;
     }
 
+    function resetMarketChartView() {
+      marketChartState.xStart = 0;
+      marketChartState.xSpan = 1;
+      marketChartState.yOffset = 0;
+      marketChartState.yZoom = 1;
+    }
+
+    function enableMarketChartMode(enabled) {
+      marketChartState.active = Boolean(enabled);
+      curveYearSelect.disabled = marketChartState.active;
+      curveMode.disabled = marketChartState.active;
+    }
+
     function parseWhitespaceColumns(line) {
       return line.trim().split(/\s+/).map(x => x.trim());
     }
 
+    function getDateFilterRange() {
+      const startText = String(curveStartDateInput.value || '').trim();
+      const endText = String(curveEndDateInput.value || '').trim();
+      const startMs = startText ? Date.parse(`${startText}T00:00:00Z`) : null;
+      const endMs = endText ? Date.parse(`${endText}T23:59:59Z`) : null;
+      return {
+        startMs: Number.isFinite(startMs) ? startMs : null,
+        endMs: Number.isFinite(endMs) ? endMs : null,
+      };
+    }
+
+    function isPointInDateRange(pointDateText, range) {
+      const ms = Date.parse(pointDateText);
+      if (!Number.isFinite(ms)) return false;
+      if (range.startMs !== null && ms < range.startMs) return false;
+      if (range.endMs !== null && ms > range.endMs) return false;
+      return true;
+    }
+
+    function formatRangeLabel(range) {
+      const startText = range.startMs !== null ? new Date(range.startMs).toISOString().slice(0, 10) : 'start';
+      const endText = range.endMs !== null ? new Date(range.endMs).toISOString().slice(0, 10) : 'latest';
+      return `${startText} to ${endText}`;
+    }
+
     function inferMarketFromFilename(name) {
       const base = (name || '').split('/').pop() || '';
+      const knownTokens = [
+        'XAUUSD',
+        'US100',
+        'BTCUSD',
+        'EURUSD',
+        'GBPUSD',
+        'NZDUSD',
+        'USDCHF',
+        'USDJPY',
+        'NAS100',
+        'XAU',
+        'BTC',
+      ];
+
+      for (const token of knownTokens) {
+        if (new RegExp(`(^|[^A-Za-z0-9])${token}([^A-Za-z0-9]|$)`, 'i').test(base)) {
+          return token.toUpperCase();
+        }
+      }
+
       const m = base.match(/^([A-Za-z0-9]+)_/);
       return m ? m[1].toUpperCase() : 'Imported market';
     }
@@ -1074,13 +1195,34 @@
       }
     }
 
+    function buildApiUrl(base, path) {
+      if (!base) return path;
+      return `${base}${path}`;
+    }
+
+    async function fetchApiJson(path, init) {
+      let lastError = null;
+
+      for (const base of apiBaseCandidates) {
+        const url = buildApiUrl(base, path);
+        try {
+          const response = await fetch(url, init);
+          const payload = await parseJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(payload.error || `Request failed (${response.status})`);
+          }
+          return { payload, response, url };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError || new Error('API request failed');
+    }
+
     async function loadPreloadedCatalog() {
       try {
-        const response = await fetch('/platform/datasets');
-        const payload = await parseJsonResponse(response);
-        if (!response.ok) {
-          throw new Error(payload.error || 'Dataset catalog unavailable');
-        }
+        const { payload, url } = await fetchApiJson('/platform/datasets');
 
         preloadedCatalog = Array.isArray(payload.markets) ? payload.markets : [];
         if (!preloadedCatalog.length) {
@@ -1094,11 +1236,147 @@
           .map((market) => `<option value="${market.symbol}">${market.symbol}</option>`)
           .join('');
         loadPreloadedBtn.disabled = false;
-        preloadedSummary.textContent = `Loaded dataset catalog with ${preloadedCatalog.length} instruments.`;
+        preloadedSummary.textContent = `Loaded dataset catalog with ${preloadedCatalog.length} instruments from ${url}.`;
       } catch (error) {
         preloadedSummary.textContent = (error && error.message) ? error.message : 'Unable to load preloaded market datasets.';
         loadPreloadedBtn.disabled = true;
       }
+    }
+
+    function renderMarketCandles() {
+      if (!marketChartState.active || !marketChartState.candles.length) {
+        curveSvg.innerHTML = '';
+        curveLegend.innerHTML = '';
+        curveNote.textContent = 'No market candles loaded.';
+        return;
+      }
+
+      const candles = marketChartState.candles;
+      const w = 1400;
+      const h = 430;
+      const m = { top: 18, right: 22, bottom: 62, left: 72 };
+      const pw = w - m.left - m.right;
+      const ph = h - m.top - m.bottom;
+
+      const total = candles.length;
+      const visibleCount = Math.max(40, Math.floor(total * marketChartState.xSpan));
+      const maxStart = Math.max(0, total - visibleCount);
+      const startIndex = Math.min(maxStart, Math.max(0, Math.floor(maxStart * marketChartState.xStart)));
+      const endIndex = Math.min(total, startIndex + visibleCount);
+      const visible = candles.slice(startIndex, endIndex);
+
+      if (!visible.length) {
+        curveSvg.innerHTML = '';
+        curveLegend.innerHTML = '';
+        curveNote.textContent = 'No visible candle range in current view.';
+        return;
+      }
+
+      const baseLow = Math.min(...visible.map((c) => Number(c.low)));
+      const baseHigh = Math.max(...visible.map((c) => Number(c.high)));
+      const baseSpan = Math.max(1e-6, baseHigh - baseLow);
+      const centerBase = (baseLow + baseHigh) / 2;
+      const zoomedSpan = baseSpan / Math.max(0.2, marketChartState.yZoom);
+      const shiftedCenter = centerBase + (marketChartState.yOffset * baseSpan);
+      let y0 = shiftedCenter - (zoomedSpan / 2);
+      let y1 = shiftedCenter + (zoomedSpan / 2);
+      if (!Number.isFinite(y0) || !Number.isFinite(y1) || y1 <= y0) {
+        y0 = baseLow;
+        y1 = baseHigh;
+      }
+
+      const sx = (idx) => m.left + ((idx - startIndex) / Math.max(1, visibleCount - 1)) * pw;
+      const sy = (price) => m.top + (1 - ((price - y0) / Math.max(1e-6, y1 - y0))) * ph;
+
+      const candleWidth = Math.max(1, Math.floor((pw / Math.max(visible.length, 1)) * 0.66));
+      const yTicks = 8;
+      const grid = [];
+      for (let i = 0; i <= yTicks; i += 1) {
+        const v = y0 + (i / yTicks) * (y1 - y0);
+        const gy = sy(v);
+        grid.push(`<line x1="${m.left}" y1="${gy}" x2="${w - m.right}" y2="${gy}" stroke="rgba(255,255,255,0.14)" />`);
+        grid.push(`<text x="${m.left - 8}" y="${gy + 4}" text-anchor="end" fill="rgba(238,248,242,0.85)" font-size="11">${v.toFixed(2)}</text>`);
+      }
+
+      const monthLabels = [];
+      let lastMonthKey = '';
+      visible.forEach((candle, idx) => {
+        const dt = new Date(Number(candle.ts || 0));
+        if (!Number.isFinite(dt.getTime())) return;
+        const mk = `${dt.getUTCFullYear()}-${dt.getUTCMonth() + 1}`;
+        if (mk === lastMonthKey) return;
+        lastMonthKey = mk;
+        const gx = sx(startIndex + idx);
+        grid.push(`<line x1="${gx}" y1="${m.top}" x2="${gx}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.10)" />`);
+        monthLabels.push(`<text x="${gx + 3}" y="${h - 34}" fill="rgba(238,248,242,0.9)" font-size="11">${dt.toLocaleString('en-GB', { month: 'short' })}</text>`);
+      });
+
+      const candlesSvg = visible.map((candle, idx) => {
+        const x = sx(startIndex + idx);
+        const o = Number(candle.open);
+        const hPrice = Number(candle.high);
+        const lPrice = Number(candle.low);
+        const c = Number(candle.close);
+        const up = c >= o;
+        const color = up ? '#00b894' : '#ff7675';
+        const bodyTop = sy(Math.max(o, c));
+        const bodyBottom = sy(Math.min(o, c));
+        const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+        return `
+          <line x1="${x}" y1="${sy(hPrice)}" x2="${x}" y2="${sy(lPrice)}" stroke="${color}" stroke-width="1.2" />
+          <rect x="${x - (candleWidth / 2)}" y="${bodyTop}" width="${candleWidth}" height="${bodyHeight}" fill="${color}" fill-opacity="0.85" />
+        `;
+      }).join('');
+
+      grid.push(`<line x1="${m.left}" y1="${h - m.bottom}" x2="${w - m.right}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.45)" />`);
+      grid.push(`<line x1="${m.left}" y1="${m.top}" x2="${m.left}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.45)" />`);
+
+      curveSvg.innerHTML = `
+        <defs>
+          <clipPath id="plotClip">
+            <rect x="${m.left}" y="${m.top}" width="${pw}" height="${ph}" />
+          </clipPath>
+        </defs>
+        ${grid.join('')}
+        <g clip-path="url(#plotClip)">${candlesSvg}</g>
+        ${monthLabels.join('')}
+        <text x="${w / 2}" y="${h - 4}" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Time (scroll/zoom + drag horizontally/vertically)</text>
+        <text x="16" y="${h / 2}" transform="rotate(-90 16 ${h / 2})" text-anchor="middle" fill="rgba(238,248,242,0.92)" font-size="12">Price</text>
+      `;
+
+      const firstTs = Number(visible[0]?.ts || 0);
+      const lastTs = Number(visible[visible.length - 1]?.ts || 0);
+      const firstIso = Number.isFinite(firstTs) ? new Date(firstTs).toISOString().slice(0, 10) : 'N/A';
+      const lastIso = Number.isFinite(lastTs) ? new Date(lastTs).toISOString().slice(0, 10) : 'N/A';
+      curveLegend.innerHTML = `<span class="curve-chip"><span class="dot" style="background:#00b894"></span>${marketChartState.symbol} ${normalizeTfLabel(marketChartState.timeframe)} candles | visible ${visible.length.toLocaleString()} / total ${candles.length.toLocaleString()} | ${firstIso} to ${lastIso}</span>`;
+      curveNote.textContent = `Preloaded market view: ${marketChartState.symbol} ${normalizeTfLabel(marketChartState.timeframe)}. Wheel: scroll timeline. Ctrl/Cmd+wheel: horizontal zoom. Alt+wheel: vertical zoom. Shift+wheel or vertical drag: pan price axis.`;
+    }
+
+    async function loadPreloadedMarketCandles(symbol, timeframe) {
+      if (!symbol || !timeframe) {
+        throw new Error('Select instrument and timeframe first.');
+      }
+
+      setDataDropStatus(`Loading preloaded candles for ${symbol} ${normalizeTfLabel(timeframe)}...`);
+      const path = `/platform/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}&maxPoints=120000`;
+      const { payload } = await fetchApiJson(path);
+      const candles = Array.isArray(payload.candles) ? payload.candles : [];
+      if (!candles.length) {
+        throw new Error(`No candles returned for ${symbol} ${normalizeTfLabel(timeframe)}.`);
+      }
+
+      marketChartState.symbol = symbol;
+      marketChartState.timeframe = timeframe;
+      marketChartState.candles = candles;
+      resetMarketChartView();
+      enableMarketChartMode(true);
+      renderMarketCandles();
+
+      const range = payload.range || {};
+      preloadedSummary.textContent = `${symbol} ${normalizeTfLabel(timeframe)} loaded with ${candles.length.toLocaleString()} candles (${String(range.from || '').slice(0, 10)} to ${String(range.to || '').slice(0, 10)}).`;
+      datasetTitle.textContent = `Preloaded market candles for ${symbol} (${normalizeTfLabel(timeframe)})`;
+      datasetSubtitle.textContent = 'Full hosted candle history for selected timeframe. Switch timeframe from Market Data panel to compare structure across M1 to MN1.';
+      setDataDropStatus(`Loaded preloaded ${symbol} ${normalizeTfLabel(timeframe)} candles.`);
     }
 
     async function buildCurveDataFromPreloadedMarket(symbol) {
@@ -1157,6 +1435,10 @@
         throw new Error(`No candle series could be built for ${symbol}.`);
       }
 
+      out.sourceType = 'preloaded market';
+      out.timeframe = 'multi-timeframe';
+      out.sourceFile = market.symbol;
+
       return out;
     }
 
@@ -1181,6 +1463,9 @@
       const out = {
         startCapital: 10000,
         market,
+        sourceType: 'price export',
+        sourceFile: fileName,
+        timeframe,
         periods: {},
       };
 
@@ -1221,6 +1506,94 @@
       return out;
     }
 
+    function parseTradeLogCsv(text, fileName = '') {
+      const cleaned = text.replace(/^\uFEFF/, '');
+      const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) throw new Error('Trade log has no data rows.');
+
+      const delimiter = chooseDelimiter(lines[0]);
+      const headers = parseDelimitedLine(lines[0], delimiter).map(h => h.trim().toLowerCase());
+
+      const aliases = {
+        entryTs: ['entry_ts', 'entryts', 'entry_time', 'entrydatetime', 'entry_date', 'entrydate'],
+        exitTs: ['exit_ts', 'exitts', 'exit_time', 'exitdatetime', 'exit_date', 'exitdate'],
+        pnl: ['pnl', 'profit', 'net_pnl', 'netprofit', 'return', 'gain'],
+        scenario: ['scenario', 'set', 'variant'],
+        label: ['label', 'name', 'strategy'],
+        market: ['market', 'symbol', 'instrument'],
+      };
+
+      const findIdx = (key) => {
+        const keys = aliases[key] || [key];
+        for (const k of keys) {
+          const idx = headers.indexOf(k);
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+
+      const iEntryTs = findIdx('entryTs');
+      const iExitTs = findIdx('exitTs');
+      const iPnl = findIdx('pnl');
+
+      if (iPnl < 0 || (iEntryTs < 0 && iExitTs < 0)) {
+        throw new Error('Unsupported trade log format. Expected entry/exit timestamp and pnl columns.');
+      }
+
+      const fileStem = (fileName || '').split('/').pop() || 'Imported trade log';
+      const labelStem = fileStem.replace(/\.[^.]+$/, '') || 'Imported trade log';
+
+      const out = {
+        startCapital: 10000,
+        market: inferMarketFromFilename(fileName),
+        sourceType: 'trade log',
+        sourceFile: fileName,
+        periods: {},
+      };
+
+      const periodFromName = inferYearBucketFromFilename(fileName);
+      const scenarioFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])([ABCD])(?:[^A-Za-z0-9]|$)/i);
+      const scenarioFromName = scenarioFromNameMatch ? scenarioFromNameMatch[1].toUpperCase() : '';
+      const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
+      const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'v2';
+
+      let parsedRows = 0;
+      let cumulativeCapital = out.startCapital;
+      let firstDate = '';
+      const points = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseDelimitedLine(lines[i], delimiter);
+        const entryTs = iEntryTs >= 0 ? cols[iEntryTs] : '';
+        const exitTs = iExitTs >= 0 ? cols[iExitTs] : '';
+        const date = exitTs || entryTs;
+        const pnl = Number(cols[iPnl]);
+        if (!date || Number.isNaN(pnl)) continue;
+
+        cumulativeCapital += pnl;
+        points.push({ trade: points.length + 1, date, capital: cumulativeCapital });
+        firstDate = firstDate || date;
+        parsedRows += 1;
+      }
+
+      if (parsedRows === 0) {
+        throw new Error('Trade log parsed but no valid rows were found.');
+      }
+
+      const period = periodFromName || bucketLabelFromDate(firstDate) || 'Imported';
+      const version = versionFromName;
+      const scenario = scenarioFromName || 'B';
+      const label = `${labelStem} (${version} ${scenario})`;
+
+      out.periods[period] = [{ version, scenario, label, trades: points.length, points }];
+
+      if (!firstDate) {
+        throw new Error('Trade log did not contain usable timestamps.');
+      }
+
+      return out;
+    }
+
     function chooseDelimiter(headerLine) {
       const candidates = [',', ';', '\t'];
       let best = ',';
@@ -1243,6 +1616,10 @@
       const first = lines[0].replace(/[<>]/g, '').toLowerCase();
       if ((/\bdate\b/.test(first) && /\btime\b/.test(first) && /\bclose\b/.test(first)) || /^\s*<date>/i.test(lines[0])) {
         return parseMtPriceCsv(cleaned, fileName);
+      }
+
+      if ((/\bentry_ts\b/.test(first) || /\bexit_ts\b/.test(first) || /\bpnl\b/.test(first)) && !/\bperiod\b/.test(first)) {
+        return parseTradeLogCsv(cleaned, fileName);
       }
 
       const delimiter = chooseDelimiter(lines[0]);
@@ -1319,12 +1696,18 @@
 
     function detectFileKind(text) {
       const cleaned = text.replace(/^\uFEFF/, '').trimStart();
-      const firstLine = cleaned.split(/\r?\n/, 1)[0] || '';
-      const header = firstLine.replace(/[<>]/g, '').toLowerCase();
+      const headerPreview = cleaned
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' ')
+        .replace(/[<>]/g, '')
+        .toLowerCase();
 
       if (cleaned.startsWith('{') || cleaned.startsWith('[')) return 'json';
-      if (/\bdate\b/.test(header) && /\btime\b/.test(header) && /\bclose\b/.test(header)) return 'mt-price';
-      if (/\bperiod\b/.test(header) && /\bcapital\b/.test(header)) return 'curve-csv';
+      if (/\bdate\b/.test(headerPreview) && /\btime\b/.test(headerPreview) && /\bclose\b/.test(headerPreview)) return 'mt-price';
+      if (/\bperiod\b/.test(headerPreview) && /\bcapital\b/.test(headerPreview)) return 'curve-csv';
       return 'unknown';
     }
 
@@ -1341,6 +1724,11 @@
       preloadedDataPane.style.display = isPreloaded ? 'grid' : 'none';
       uploadDataTabBtn.classList.toggle('primary', !isPreloaded);
       preloadedDataTabBtn.classList.toggle('primary', isPreloaded);
+      if (!isPreloaded) {
+        enableMarketChartMode(false);
+      } else if (marketChartState.active) {
+        renderMarketCandles();
+      }
     }
 
     function pdfEscape(text) {
@@ -1564,8 +1952,63 @@
       if (!span) return;
       const market = data.market || 'US100';
       const duration = formatDuration(span.start, span.end);
+      const sourceType = String(data.sourceType || 'imported data').replace(/-/g, ' ');
+      const timeframe = String(data.timeframe || '').toUpperCase();
+      const sourceFile = String(data.sourceFile || '').split('/').pop();
+      const sourceDetails = [sourceType, timeframe ? `timeframe ${timeframe}` : '', sourceFile ? `source ${sourceFile}` : '']
+        .filter(Boolean)
+        .join(' • ');
+
       datasetTitle.textContent = `Imported market data for ${duration} for ${market}`;
-      datasetSubtitle.textContent = `Reviewing strategy performance for imported periods using scenario-based capital modelling, risk scaling, monthly withdrawals, and comparative recommendation scoring.`;
+      datasetSubtitle.textContent = `Source: ${sourceDetails}. Reviewing strategy performance for imported periods using scenario-based capital modelling, risk scaling, monthly withdrawals, and comparative recommendation scoring.`;
+    }
+
+    function syncDateInputsFromCurveData(data, force = false) {
+      const span = getCurveDateSpan(data);
+      if (!span) return;
+      const startText = span.start.toISOString().slice(0, 10);
+      const endText = span.end.toISOString().slice(0, 10);
+      if (force || !curveStartDateInput.value) curveStartDateInput.value = startText;
+      if (force || !curveEndDateInput.value) curveEndDateInput.value = endText;
+    }
+
+    function normalizeValidationSymbol(input) {
+      const raw = String(input || '').trim().toUpperCase();
+      if (!raw) return '';
+      const cleaned = raw
+        .replace(/\.(CSV|TXT)$/g, '')
+        .replace(/\.(CASH|SPOT|IDX)$/g, '')
+        .replace(/[^A-Z0-9]/g, '');
+      const aliases = {
+        US100CASH: 'US100',
+        NAS100: 'US100',
+        XAU: 'XAUUSD',
+        BTC: 'BTCUSD',
+      };
+      return aliases[cleaned] || cleaned;
+    }
+
+    async function validateCurrentDataset(data) {
+      const symbol = normalizeValidationSymbol(String(data?.market || '').split(',')[0]);
+      if (!symbol) {
+        throw new Error('Could not infer market symbol from imported file name.');
+      }
+
+      const { payload } = await fetchApiJson('/platform/phantom-v2/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol,
+          scenario: 'ALL',
+          capital: Number(startCapitalInput.value || 5000),
+        }),
+      });
+
+      if (!payload || payload.ok !== true) {
+        throw new Error('Validation endpoint did not return a valid payload.');
+      }
+
+      return payload;
     }
 
     function resetCurveView() {
@@ -1726,7 +2169,105 @@
       };
     }
 
+    function modelLiveValidationSeries(rawPoints, startCapital, riskMultiplier, withdrawalPct) {
+      const points = [...(rawPoints || [])]
+        .filter((p) => Number.isFinite(new Date(p.date).getTime()) && Number.isFinite(Number(p.capital)))
+        .sort((a, b) => new Date(a.date) - new Date(b.date) || Number(a.trade || 0) - Number(b.trade || 0));
+
+      if (!points.length) {
+        return { points: [], finalCapital: startCapital, returnPct: 0, maxDDPct: 0, withdrawnTotal: 0 };
+      }
+
+      let cap = startCapital;
+      let peak = cap;
+      let minDD = 0;
+      let withdrawnTotal = 0;
+      let prevBase = Number(points[0].capital);
+      let currentMonth = null;
+      let monthStartCap = cap;
+      const modeledPoints = [{
+        trade: 1,
+        date: points[0].date,
+        capital: cap,
+        baselineCapital: prevBase,
+        withdrawnTotal,
+      }];
+
+      function applyMonthWithdrawal() {
+        if (withdrawalPct <= 0) return;
+        const monthProfit = Math.max(0, cap - monthStartCap);
+        if (monthProfit <= 0) return;
+        const withdrawn = monthProfit * (withdrawalPct / 100);
+        cap -= withdrawn;
+        withdrawnTotal += withdrawn;
+      }
+
+      for (let i = 1; i < points.length; i += 1) {
+        const p = points[i];
+        const dt = new Date(p.date);
+        const monthKey = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
+        if (currentMonth === null) {
+          currentMonth = monthKey;
+          monthStartCap = cap;
+        } else if (monthKey !== currentMonth) {
+          applyMonthWithdrawal();
+          currentMonth = monthKey;
+          monthStartCap = cap;
+        }
+
+        const base = Number(p.capital);
+        const baseRet = prevBase !== 0 ? (base / prevBase) - 1 : 0;
+        const scaledRet = baseRet * riskMultiplier;
+        cap = cap * (1 + scaledRet);
+        peak = Math.max(peak, cap);
+        const dd = peak !== 0 ? ((cap - peak) / peak) * 100 : 0;
+        minDD = Math.min(minDD, dd);
+
+        modeledPoints.push({
+          trade: modeledPoints.length + 1,
+          date: p.date,
+          capital: cap,
+          baselineCapital: base,
+          withdrawnTotal,
+        });
+        prevBase = base;
+      }
+
+      applyMonthWithdrawal();
+
+      return {
+        points: modeledPoints,
+        finalCapital: cap,
+        returnPct: ((cap / startCapital) - 1) * 100,
+        maxDDPct: minDD,
+        withdrawnTotal,
+      };
+    }
+
     function getModeledRows() {
+      if (validationSummary) {
+        const { startCapital } = getScenarioSettings();
+        const rangeLabel = formatRangeLabel(getDateFilterRange());
+        return getLiveValidationRangeSummaries().map((summary) => ({
+          period: rangeLabel,
+          version: 'v2',
+          scenario: summary.scenario,
+          strategyLabel: summary.label,
+          entryTf: summary.scenario === 'A' ? 'M1' : 'M5',
+          trades: summary.trades,
+          winRate: summary.winRatePct,
+          profitFactor: summary.profitFactor,
+          netReturn: summary.netReturnPct,
+          maxDD: summary.maxDrawdownPct,
+          maxDDMoney: summary.maxDrawdownMoney,
+          expectancy: summary.expectancy,
+          finalCapital: summary.finalCapital,
+          status: 'Completed',
+          netPnl: summary.finalCapital - startCapital,
+          withdrawnTotal: 0,
+        }));
+      }
+
       const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
 
       return rows
@@ -1744,6 +2285,7 @@
             netReturn: modeled.returnPct,
             finalCapital: modeled.finalCapital,
             maxDD: modeled.maxDDPct,
+            maxDDMoney: Math.abs(modeled.maxDDPct) / 100 * startCapital,
             expectancy: r.trades ? netPnl / r.trades : r.expectancy,
             netPnl,
             withdrawnTotal: modeled.withdrawnTotal,
@@ -1804,6 +2346,8 @@
       const bestPF = [...complete].sort((a,b) => b.profitFactor - a.profitFactor)[0];
       const bestDD = [...complete].sort((a,b) => b.maxDD - a.maxDD)[0];
       const worst = [...complete].sort((a,b) => a.netReturn - b.netReturn)[0];
+      const { startCapital } = getScenarioSettings();
+      const bestDDMoney = Math.abs(Number(bestDD.maxDD || 0)) / 100 * startCapital;
 
       cardsEl.innerHTML = `
         <div class="metric-card">
@@ -1819,7 +2363,7 @@
         <div class="metric-card">
           <h3>Best Drawdown Control</h3>
           <div class="value">${fmt(bestDD.maxDD)}%</div>
-          <div class="meta">${bestDD.period} | ${bestDD.version}-${bestDD.scenario}</div>
+          <div class="meta">${bestDD.period} | ${bestDD.version}-${bestDD.scenario} | £${fmtMoney(bestDDMoney)}</div>
         </div>
         <div class="metric-card">
           <h3>Worst Return</h3>
@@ -1873,6 +2417,7 @@
           <td>${r.profitFactor == null ? 'N/A' : fmt(r.profitFactor,3)}</td>
           <td>${r.netReturn == null ? 'N/A' : fmt(r.netReturn,2)}</td>
           <td>${r.maxDD == null ? 'N/A' : fmt(r.maxDD,2)}</td>
+          <td>${r.maxDDMoney == null ? 'N/A' : `£${fmtMoney(r.maxDDMoney)}`}</td>
           <td>${r.expectancy == null ? 'N/A' : fmt(r.expectancy,2)}</td>
           <td>${r.finalCapital == null ? 'N/A' : fmt(r.finalCapital,2)}</td>
           <td>${statusPill(r.status)}</td>
@@ -1880,7 +2425,164 @@
       `).join('');
     }
 
+    function getLiveValidationRangeSummaries() {
+      if (!validationSummary || !curveData?.periods) return [];
+
+      const range = getDateFilterRange();
+      const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
+      const baseByScenario = new Map(
+        (Array.isArray(validationSummary.summaries) ? validationSummary.summaries : [])
+          .map((summary) => [String(summary.scenario || '').toUpperCase(), summary]),
+      );
+
+      const grouped = new Map();
+      for (const seriesList of Object.values(curveData.periods || {})) {
+        for (const series of (seriesList || [])) {
+          const scenario = String(series.scenario || '').toUpperCase();
+          if (!scenario) continue;
+          if (!grouped.has(scenario)) grouped.set(scenario, []);
+          const points = Array.isArray(series.points) ? series.points : [];
+          grouped.get(scenario).push(...points);
+        }
+      }
+
+      const out = [];
+      for (const [scenario, pointsRaw] of grouped.entries()) {
+        const points = pointsRaw
+          .map((p, idx) => ({
+            trade: Number(p.trade || idx + 1),
+            date: String(p.date || ''),
+            capital: Number(p.capital),
+          }))
+          .filter((p) => Number.isFinite(Date.parse(p.date)) && Number.isFinite(p.capital))
+          .sort((a, b) => Date.parse(a.date) - Date.parse(b.date) || a.trade - b.trade);
+
+        const inRange = points.filter((p) => isPointInDateRange(p.date, range));
+        if (!inRange.length) continue;
+
+        const modeled = modelLiveValidationSeries(inRange, startCapital, riskMultiplier, withdrawalPct);
+
+        const base = baseByScenario.get(scenario) || {};
+        out.push({
+          scenario,
+          label: base.label || `Scenario ${scenario}`,
+          trades: modeled.points.length,
+          winRatePct: Number(base.winRatePct || 0),
+          profitFactor: Number(base.profitFactor || 0),
+          netReturnPct: modeled.returnPct,
+          maxDrawdownPct: modeled.maxDDPct,
+          maxDrawdownMoney: Math.abs(modeled.maxDDPct) / 100 * startCapital,
+          expectancy: modeled.points.length ? (modeled.finalCapital - startCapital) / modeled.points.length : 0,
+          finalCapital: modeled.finalCapital,
+          timeoutPct: Number(base.timeoutPct || 0),
+        });
+      }
+
+      return out.sort((a, b) => {
+        if (b.netReturnPct !== a.netReturnPct) return b.netReturnPct - a.netReturnPct;
+        if (b.profitFactor !== a.profitFactor) return b.profitFactor - a.profitFactor;
+        if (a.maxDrawdownPct !== b.maxDrawdownPct) return b.maxDrawdownPct - a.maxDrawdownPct;
+        return b.winRatePct - a.winRatePct;
+      });
+    }
+
     function renderRecommendation() {
+      if (validationSummary) {
+        const summaries = getLiveValidationRangeSummaries();
+        const best = summaries[0] || null;
+        const rangeLabel = formatRangeLabel(getDateFilterRange());
+
+        if (!best) {
+          recCards.innerHTML = '<div class="rec-card"><h4>No Validation</h4><div class="rec-sub">No live v2 result was returned.</div></div>';
+          recRows.innerHTML = '';
+          recNote.textContent = 'Unable to build a live validation summary for the currently loaded data.';
+          latestResultsSummary = null;
+          downloadResultsPdfBtn.disabled = true;
+          return;
+        }
+
+        recHeading.textContent = `Recommended Strategy (Current Data Validation at £${Number(validationSummary.capital || startCapitalInput.value || 5000).toLocaleString()} Start | ${rangeLabel})`;
+        recCards.innerHTML = `
+          <div class="rec-card">
+            <h4>Recommended Strategy</h4>
+            <div class="rec-big">${best.label}</div>
+            <div class="rec-sub">Best live v2 validation across the loaded market files.</div>
+          </div>
+          <div class="rec-card">
+            <h4>Net Return</h4>
+            <div class="rec-big">${best.netReturnPct.toFixed(2)}%</div>
+            <div class="rec-sub">Scenario ${best.scenario} on ${validationSummary.symbol}</div>
+          </div>
+          <div class="rec-card">
+            <h4>Final Capital</h4>
+            <div class="rec-big">£${best.finalCapital.toFixed(2)}</div>
+            <div class="rec-sub">Output from the current data validation run.</div>
+          </div>
+          <div class="rec-card">
+            <h4>Risk & Quality</h4>
+            <div class="rec-big">DD ${best.maxDrawdownPct.toFixed(2)}%</div>
+            <div class="rec-sub">DD £${fmtMoney(best.maxDrawdownMoney)} | Win ${best.winRatePct.toFixed(1)}% | PF ${best.profitFactor.toFixed(3)}</div>
+          </div>
+        `;
+
+        recRows.innerHTML = summaries.map((summary) => `
+          <tr>
+            <td>${summary.scenario}</td>
+            <td>${validationSummary.symbol}</td>
+            <td>${summary.netReturnPct.toFixed(2)}%</td>
+            <td>£${summary.finalCapital.toFixed(2)}</td>
+            <td>£${(summary.finalCapital - Number(validationSummary.capital || startCapitalInput.value || 5000)).toFixed(2)}</td>
+            <td>${summary.maxDrawdownPct.toFixed(2)}%</td>
+            <td>£${fmtMoney(summary.maxDrawdownMoney)}</td>
+            <td>${summary.winRatePct.toFixed(1)}%</td>
+            <td>${summary.profitFactor.toFixed(3)}</td>
+          </tr>
+        `).join('');
+
+        recNote.textContent = `Live v2 validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.`;
+
+        latestResultsSummary = {
+          generatedAt: new Date().toISOString(),
+          datasetTitle: datasetTitle.textContent || 'Imported market data',
+          market: validationSummary.symbol,
+          periodKey: 'LIVE V2 VALIDATION',
+          startCapital: validationSummary.capital,
+          riskMultiplier: Number(riskMultiplierInput.value || 1),
+          withdrawalPct: Number(withdrawalPctInput.value || 0),
+          best: {
+            label: best.label,
+            avgRet: best.netReturnPct,
+            compoundedProfit: best.finalCapital - validationSummary.capital,
+            compounded: best.finalCapital,
+            worstDD: best.maxDrawdownPct,
+            avgWin: best.winRatePct,
+            avgPf: best.profitFactor,
+            yearly: summaries.map((summary) => ({
+              period: summary.scenario,
+              ret: summary.netReturnPct,
+              endCap: summary.finalCapital,
+              endProfit: summary.finalCapital - validationSummary.capital,
+              ddPct: summary.maxDrawdownPct,
+              ddPrice: summary.maxDrawdownMoney,
+              win: summary.winRatePct,
+              pf: summary.profitFactor,
+            })),
+          },
+          candidates: summaries.map((summary) => ({
+            label: summary.label,
+            avgRet: summary.netReturnPct,
+            avgPf: summary.profitFactor,
+            worstDD: summary.maxDrawdownPct,
+            compounded: summary.finalCapital,
+          })),
+          note: recNote.textContent,
+        };
+
+        downloadResultsPdfBtn.disabled = false;
+        void persistRunSummary(latestResultsSummary);
+        return;
+      }
+
       const order = ['2023-24', '2024-25', '2025-26'];
       const { startCapital, riskMultiplier, withdrawalPct } = getScenarioSettings();
       const completed = getModeledRows().filter(r => r.status === 'Completed');
@@ -1958,7 +2660,7 @@
       }
 
       const best = candidates[0];
-      recHeading.textContent = `Recommended Strategy (Modelled at £${startCapital.toLocaleString()} Start)`;
+      recHeading.textContent = `Recommended Strategy (Stored Benchmark Matrix, Modelled at £${startCapital.toLocaleString()} Start)`;
       recCards.innerHTML = `
         <div class="rec-card">
           <h4>Recommended Strategy</h4>
@@ -1990,7 +2692,7 @@
           <td>£${y.endCap.toFixed(2)}</td>
           <td>£${y.endProfit.toFixed(2)}</td>
           <td>${y.ddPct.toFixed(2)}%</td>
-          <td>£${y.ddPrice.toFixed(2)}</td>
+          <td>£${fmtMoney(y.ddPrice)}</td>
           <td>${y.win.toFixed(1)}%</td>
           <td>${y.pf.toFixed(3)}</td>
         </tr>
@@ -1999,7 +2701,7 @@
       const withdrawalText = withdrawalPct > 0
         ? `monthly withdrawal ${withdrawalPct.toFixed(0)}% of each month's positive profit`
         : 'no monthly withdrawals (full compounding)';
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded.`;
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file.`;
 
       latestResultsSummary = {
         generatedAt: new Date().toISOString(),
@@ -2018,6 +2720,7 @@
     }
 
     function render() {
+      syncPeriodControlsForCurrentRange();
       const filtered = getFiltered();
       const sorted = sortRows(filtered);
       renderCards(filtered);
@@ -2030,8 +2733,16 @@
       void downloadResultsPdf();
     });
 
-    Array.from(periodChecksEl.querySelectorAll('input')).forEach(el => el.addEventListener('change', render));
+    periodChecksEl.addEventListener('change', render);
     [versionFilter, scenarioFilter, statusFilter, searchInput, metricBars].forEach(el => el.addEventListener('input', render));
+    [curveStartDateInput, curveEndDateInput].forEach((el) => {
+      const rerenderForDateChange = () => {
+        render();
+        renderCurve(curveYearSelect.value);
+      };
+      el.addEventListener('change', rerenderForDateChange);
+      el.addEventListener('input', rerenderForDateChange);
+    });
 
     document.querySelectorAll('thead th').forEach(th => {
       th.addEventListener('click', () => {
@@ -2068,6 +2779,8 @@
       const sourceSeries = sourceGroups
         .flat()
         .filter(s => s.version !== 'v4' && Array.isArray(s.points) && s.points.length);
+      const isLiveValidation = String(curveData.sourceType || '').toLowerCase().includes('live v2 validation');
+      const dateRange = getDateFilterRange();
       const seriesList = periodKey === 'ALL'
         ? Array.from(sourceSeries.reduce((map, series) => {
             const key = getSeriesKey(series);
@@ -2076,12 +2789,52 @@
             return map;
           }, new Map()).values()).map(seriesParts => {
             const first = seriesParts[0];
+            if (isLiveValidation) {
+              const mergedPoints = seriesParts
+                .flatMap(part => part.points || [])
+                .map((p, idx) => ({
+                  trade: Number(p.trade || idx + 1),
+                  date: p.date,
+                  capital: Number(p.capital),
+                  baselineCapital: Number(p.capital),
+                  withdrawnTotal: 0,
+                }))
+                .filter(p => Number.isFinite(new Date(p.date).getTime()) && Number.isFinite(p.capital))
+                .sort((a, b) => new Date(a.date) - new Date(b.date) || a.trade - b.trade)
+                .filter((p) => isPointInDateRange(p.date, dateRange))
+                .map((p, idx) => ({ ...p, trade: idx + 1 }));
+              const modeled = modelLiveValidationSeries(mergedPoints, startCapital, riskMultiplier, withdrawalPct);
+              return {
+                ...first,
+                label: first.label,
+                modeledPoints: modeled.points,
+                finalCapital: modeled.finalCapital,
+                withdrawnTotal: modeled.withdrawnTotal,
+                trades: modeled.points.length,
+              };
+            }
             const modeled = modelContinuousSeries(seriesParts, startCapital, riskMultiplier, withdrawalPct);
             return { ...first, label: first.label, modeledPoints: modeled.points, finalCapital: modeled.finalCapital, withdrawnTotal: modeled.withdrawnTotal, trades: seriesParts.reduce((sum, part) => sum + (part.trades || (part.points || []).length || 0), 0) };
           })
         : sourceSeries.map(s => {
+            if (isLiveValidation) {
+              const rawPoints = (s.points || [])
+                .map((p, idx) => ({
+                  trade: Number(p.trade || idx + 1),
+                  date: p.date,
+                  capital: Number(p.capital),
+                  baselineCapital: Number(p.capital),
+                  withdrawnTotal: 0,
+                }))
+                .filter(p => Number.isFinite(new Date(p.date).getTime()) && Number.isFinite(p.capital))
+                .filter((p) => isPointInDateRange(p.date, dateRange));
+              const modeled = modelLiveValidationSeries(rawPoints, startCapital, riskMultiplier, withdrawalPct);
+              return { ...s, modeledPoints: modeled.points, finalCapital: modeled.finalCapital, withdrawnTotal: modeled.withdrawnTotal };
+            }
             const modeled = modelSeries(s, startCapital, riskMultiplier, withdrawalPct);
-            return { ...s, modeledPoints: modeled.points, finalCapital: modeled.finalCapital, withdrawnTotal: modeled.withdrawnTotal };
+            const filteredPoints = modeled.points.filter((p) => isPointInDateRange(p.date, dateRange));
+            const finalCapital = filteredPoints.length ? filteredPoints[filteredPoints.length - 1].capital : startCapital;
+            return { ...s, modeledPoints: filteredPoints, finalCapital, withdrawnTotal: modeled.withdrawnTotal };
           });
       if (!seriesList.length) {
         curveSvg.innerHTML = '';
@@ -2200,11 +2953,21 @@
       const monthLabels = [];
       const yearLabels = [];
       let cur = new Date(vx0.getFullYear(), vx0.getMonth(), 1);
+      const totalMonths = Math.max(1,
+        ((vx1.getUTCFullYear() - vx0.getUTCFullYear()) * 12) +
+        (vx1.getUTCMonth() - vx0.getUTCMonth()) + 1,
+      );
+      const targetLabelCount = Math.max(6, Math.floor(pw / 95));
+      const monthLabelStep = Math.max(1, Math.ceil(totalMonths / targetLabelCount));
+      let monthIndex = 0;
       while (cur <= vx1) {
         const mx = sx(cur);
         const monthName = cur.toLocaleString('en-GB', { month: 'short' });
         grid.push(`<line x1="${mx}" y1="${m.top}" x2="${mx}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.10)" />`);
-        monthLabels.push(`<text x="${mx + 3}" y="${h - 34}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
+        if (monthIndex % monthLabelStep === 0) {
+          const monthLabelX = Math.max(m.left + 14, mx + 3);
+          monthLabels.push(`<text x="${monthLabelX}" y="${h - 34}" fill="rgba(238,248,242,0.9)" font-size="11">${monthName}</text>`);
+        }
 
         if (periodKey === 'ALL' && cur.getUTCMonth() === 0) {
           const yearLineX = sx(cur);
@@ -2214,6 +2977,7 @@
 
         const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
         cur = next;
+        monthIndex += 1;
       }
 
       grid.push(`<line x1="${m.left}" y1="${h - m.bottom}" x2="${w - m.right}" y2="${h - m.bottom}" stroke="rgba(255,255,255,0.45)" />`);
@@ -2361,7 +3125,11 @@
       }).join('');
 
       const periodLabel = periodKey === 'ALL' ? 'all loaded periods' : `year ${periodKey}`;
-      curveNote.textContent = `Showing ${periodLabel} with £${startCapital.toLocaleString()} starting capital, risk at x${riskMultiplier.toFixed(2)}, and monthly withdrawal at ${withdrawalPct.toFixed(0)}% of each month's positive profit.`;
+      const rangeLabel = formatRangeLabel(dateRange);
+      curveNote.textContent = `Showing ${periodLabel} for ${rangeLabel} with £${startCapital.toLocaleString()} starting capital, risk at x${riskMultiplier.toFixed(2)}, and monthly withdrawal at ${withdrawalPct.toFixed(0)}% of each month's positive profit.`;
+      if (isLiveValidation) {
+        curveNote.textContent = `Live PHANTOM validation curves for ${curveData.market} (${rangeLabel}). Displaying raw strategy equity outputs (A/B/D) from hosted M1/M5/H1/H4 data.`;
+      }
     }
 
     async function initCurves() {
@@ -2370,6 +3138,7 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         curveData = await res.json();
         updateDatasetMeta(curveData);
+        syncDateInputsFromCurveData(curveData, true);
         resetCurveView();
         const keys = Object.keys(curveData.periods || {});
         curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All loaded periods' : k}</option>`).join('');
@@ -2392,20 +3161,29 @@
       }
 
       try {
-        setDataDropStatus(`Loading preloaded market data for ${symbol}...`);
-        preloadedSummary.textContent = `Building comparison curves from all uploaded years/timeframes for ${symbol}...`;
-        const built = await buildCurveDataFromPreloadedMarket(symbol);
-        curveData = built;
+        enableMarketChartMode(false);
+        setDataDropStatus(`Loading PHANTOM scenario set (A/B/D) for ${symbol}...`);
+        preloadedSummary.textContent = `Loading PHANTOM scenario set (A/B/D) for ${symbol}... please wait.`;
+        validationSummary = await validateCurrentDataset({ market: symbol });
+
+        if (!validationSummary?.curveData || !validationSummary?.summaries?.length) {
+          throw new Error('Live validation returned no scenario summaries.');
+        }
+
+        curveData = validationSummary.curveData;
         updateDatasetMeta(curveData);
+        syncDateInputsFromCurveData(curveData, false);
         resetCurveView();
         const keys = Object.keys(curveData.periods || {});
-        curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All loaded periods' : k}</option>`).join('');
+        curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All validation periods' : k}</option>`).join('');
         curveYearSelect.value = 'ALL';
         render();
         renderCurve(curveYearSelect.value);
-        setDataDropStatus(`Loaded preloaded market data for ${symbol}.`);
-        preloadedSummary.textContent = `${symbol} loaded with ${keys.length} period group(s).`;
+
+        preloadedSummary.textContent = `${symbol} loaded with live PHANTOM v2 scenario validation (A/B/D) from hosted M1/M5/H1/H4 data.`;
+        setDataDropStatus(`✓ ${symbol} scenario set loaded. Strategy chart ready.`);
       } catch (error) {
+        validationSummary = null;
         const message = (error && error.message) ? error.message : 'Unable to load preloaded market data.';
         preloadedSummary.textContent = message;
         setDataDropStatus(message, true);
@@ -2413,7 +3191,7 @@
     }
 
     function mergeCurveDataSets(dataSets) {
-      const merged = { startCapital: 10000, periods: {}, market: 'Imported market' };
+      const merged = { startCapital: 10000, periods: {}, market: 'Imported market', sourceType: 'imported data' };
       const markets = new Set();
 
       for (const ds of dataSets) {
@@ -2500,19 +3278,52 @@
           curveNote.textContent = `Loaded ${parsedList.length} file${parsedList.length > 1 ? 's' : ''}, skipped ${errors.length}: ${errors.join(' | ')}`;
         }
 
+        enableMarketChartMode(false);
         curveData = mergeCurveDataSets(parsedList);
         updateDatasetMeta(curveData);
+        syncDateInputsFromCurveData(curveData, false);
         resetCurveView();
+        validationSummary = null;
         const keys = Object.keys(curveData.periods || {});
         curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All loaded periods' : k}</option>`).join('');
         if (!keys.length) throw new Error('No periods found in uploaded data.');
         curveYearSelect.value = 'ALL';
         render();
         renderCurve(curveYearSelect.value);
-        setDataDropStatus(`Loaded ${files.length} file${files.length > 1 ? 's' : ''} successfully.`);
+
+        let validationFailed = false;
+        try {
+          setDataDropStatus(`Loading PHANTOM scenario set (A/B/D) for ${curveData.market}...`);
+          validationSummary = await validateCurrentDataset(curveData);
+          if (validationSummary?.curveData && validationSummary?.summaries?.length) {
+            curveData = validationSummary.curveData;
+            updateDatasetMeta(curveData);
+            syncDateInputsFromCurveData(curveData, false);
+            resetCurveView();
+            const validationKeys = Object.keys(curveData.periods || {});
+            curveYearSelect.innerHTML = ['ALL', ...validationKeys].map(k => `<option value="${k}">${k === 'ALL' ? 'All validation periods' : k}</option>`).join('');
+            curveYearSelect.value = 'ALL';
+          } else {
+            validationFailed = true;
+            validationSummary = null;
+            curveNote.textContent = 'Loaded imported data, but no live v2 scenario summary was returned.';
+          }
+        } catch (validationError) {
+          validationFailed = true;
+          validationSummary = null;
+          curveNote.textContent = `Loaded imported data, but live v2 validation failed: ${validationError.message}`;
+        }
+
+        render();
+        renderCurve(curveYearSelect.value);
+        if (validationFailed) {
+          setDataDropStatus(`Loaded ${files.length} file${files.length > 1 ? 's' : ''}, but live validation failed. See curve note for details.`, true);
+        } else {
+          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and PHANTOM scenario set (A/B/D).`);
+        }
         dataFileInput.value = '';
       } catch (err) {
-        curveNote.textContent = `Could not load selected file (${err.message}). Use JSON in phantom-curves format, or CSV with period,date,capital columns.`;
+        curveNote.textContent = `Could not load selected file (${err.message}). Use JSON curve data, raw MT-style price exports, or trade-log CSVs from the backtester.`;
         setDataDropStatus(`Could not load one or more files. ${err.message}`, true);
       }
     }
@@ -2520,6 +3331,12 @@
     curveYearSelect.addEventListener('change', () => renderCurve(curveYearSelect.value));
     curveMode.addEventListener('change', () => renderCurve(curveYearSelect.value));
     zoomInBtn.addEventListener('click', () => {
+      if (marketChartState.active) {
+        marketChartState.xSpan = Math.max(0.05, marketChartState.xSpan * 0.8);
+        marketChartState.xStart = Math.min(marketChartState.xStart, 1 - marketChartState.xSpan);
+        renderMarketCandles();
+        return;
+      }
       if (!curveData) return;
       curveView.span *= 0.8;
       curveView.span = Math.max(0.15, curveView.span);
@@ -2528,6 +3345,12 @@
     });
 
     zoomOutBtn.addEventListener('click', () => {
+      if (marketChartState.active) {
+        marketChartState.xSpan = Math.min(1, marketChartState.xSpan * 1.2);
+        marketChartState.xStart = Math.min(marketChartState.xStart, 1 - marketChartState.xSpan);
+        renderMarketCandles();
+        return;
+      }
       if (!curveData) return;
       curveView.span *= 1.2;
       curveView.span = Math.min(1, curveView.span);
@@ -2536,11 +3359,22 @@
     });
 
     zoomResetBtn.addEventListener('click', () => {
+      if (marketChartState.active) {
+        resetMarketChartView();
+        renderMarketCandles();
+        return;
+      }
       resetCurveView();
       renderCurve(curveYearSelect.value);
     });
 
     scrollLeftBtn.addEventListener('click', () => {
+      if (marketChartState.active) {
+        const step = 0.05 * marketChartState.xSpan;
+        marketChartState.xStart = Math.max(0, marketChartState.xStart - step);
+        renderMarketCandles();
+        return;
+      }
       if (!curveData) return;
       const step = 0.05 * curveView.span;
       curveView.start = Math.max(0, curveView.start - step);
@@ -2548,6 +3382,13 @@
     });
 
     scrollRightBtn.addEventListener('click', () => {
+      if (marketChartState.active) {
+        const step = 0.05 * marketChartState.xSpan;
+        const maxStart = Math.max(0, 1 - marketChartState.xSpan);
+        marketChartState.xStart = Math.min(maxStart, marketChartState.xStart + step);
+        renderMarketCandles();
+        return;
+      }
       if (!curveData) return;
       const step = 0.05 * curveView.span;
       const maxStart = Math.max(0, 1 - curveView.span);
@@ -2556,6 +3397,27 @@
     });
 
     curveSvg.addEventListener('wheel', ev => {
+      if (marketChartState.active) {
+        ev.preventDefault();
+        if (ev.altKey) {
+          const nextZoom = ev.deltaY < 0 ? marketChartState.yZoom * 1.12 : marketChartState.yZoom / 1.12;
+          marketChartState.yZoom = Math.max(0.25, Math.min(20, nextZoom));
+        } else if (ev.shiftKey) {
+          marketChartState.yOffset += (ev.deltaY / 240) / Math.max(0.25, marketChartState.yZoom);
+          marketChartState.yOffset = Math.max(-3, Math.min(3, marketChartState.yOffset));
+        } else if (ev.ctrlKey || ev.metaKey) {
+          const nextSpan = ev.deltaY < 0 ? marketChartState.xSpan * 0.9 : marketChartState.xSpan * 1.1;
+          marketChartState.xSpan = Math.max(0.05, Math.min(1, nextSpan));
+          marketChartState.xStart = Math.min(marketChartState.xStart, 1 - marketChartState.xSpan);
+        } else {
+          const horizontalDelta = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY;
+          const step = 0.02 * marketChartState.xSpan * Math.max(1, Math.abs(horizontalDelta) / 20);
+          marketChartState.xStart += horizontalDelta > 0 ? step : -step;
+          marketChartState.xStart = Math.max(0, Math.min(1 - marketChartState.xSpan, marketChartState.xStart));
+        }
+        renderMarketCandles();
+        return;
+      }
       if (!curveData) return;
       ev.preventDefault();
       const zoomGesture = ev.ctrlKey || ev.metaKey || ev.shiftKey;
@@ -2571,6 +3433,26 @@
       }
       renderCurve(curveYearSelect.value);
     }, { passive: false });
+
+    curveSvg.addEventListener('mousedown', (ev) => {
+      if (!marketChartState.active) return;
+      marketChartState.dragging = true;
+      marketChartState.dragStartClientX = ev.clientX;
+      marketChartState.dragStartClientY = ev.clientY;
+      marketChartState.dragStartX = marketChartState.xStart;
+      marketChartState.dragStartY = marketChartState.yOffset;
+    });
+    window.addEventListener('mouseup', () => {
+      marketChartState.dragging = false;
+    });
+    window.addEventListener('mousemove', (ev) => {
+      if (!marketChartState.active || !marketChartState.dragging) return;
+      const dx = ev.clientX - marketChartState.dragStartClientX;
+      const dy = ev.clientY - marketChartState.dragStartClientY;
+      marketChartState.xStart = Math.max(0, Math.min(1 - marketChartState.xSpan, marketChartState.dragStartX - (dx / 900) * marketChartState.xSpan));
+      marketChartState.yOffset = Math.max(-3, Math.min(3, marketChartState.dragStartY + (dy / 260) / Math.max(0.25, marketChartState.yZoom)));
+      renderMarketCandles();
+    });
 
     dataDropZone.addEventListener('dragover', ev => {
       ev.preventDefault();
@@ -2615,15 +3497,27 @@
 
     startCapitalInput.addEventListener('input', () => {
       render();
-      renderCurve(curveYearSelect.value);
+      if (marketChartState.active) {
+        renderMarketCandles();
+      } else {
+        renderCurve(curveYearSelect.value);
+      }
     });
     riskMultiplierInput.addEventListener('input', () => {
       render();
-      renderCurve(curveYearSelect.value);
+      if (marketChartState.active) {
+        renderMarketCandles();
+      } else {
+        renderCurve(curveYearSelect.value);
+      }
     });
     withdrawalPctInput.addEventListener('input', () => {
       render();
-      renderCurve(curveYearSelect.value);
+      if (marketChartState.active) {
+        renderMarketCandles();
+      } else {
+        renderCurve(curveYearSelect.value);
+      }
     });
 
     render();

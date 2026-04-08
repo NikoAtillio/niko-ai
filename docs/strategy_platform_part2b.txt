@@ -1,0 +1,239 @@
+SUPERSEDED NOTICE
+This text export is superseded by PHANTOM_STRATEGY_RULESET_CANONICAL_v1_1.md.
+Use that file as the only implementation and training source of truth.
+
+UNIVERSAL TRADING STRATEGY PLATFORM — PART 2B
+
+Sections 10–12: User Config · Detector Pseudocode · Quick Reference
+
+Final part. Combine with Part 1 (Sections 0–4) and Part 2A (Sections 5–9) for complete specification.
+
+SECTION 10 — USER-CONFIGURABLE PARAMETERS (Platform UI)
+
+10.1  Global Parameters (apply to all strategies)
+Parameter
+Description / Default
+instrument
+Any tradeable symbol: XAUUSD, BTCUSDT, US100, EURUSD, AAPL, NQ, etc.
+entry_timeframe
+M1 / M5 / M15 / M30 / H1 / H4 / D1
+context_timeframe
+Auto (2–4× entry TF) or manual override
+risk_pct_per_trade
+% of account to risk per trade. Default: 1.0%
+max_concurrent_positions
+Max open trades at once. Default: 3
+min_confidence_threshold
+Minimum confidence to generate signal. Default: 0.65
+atr_period
+ATR calculation period. Default: 14
+adx_period
+ADX calculation period. Default: 14
+ema_periods
+EMA periods used. Default: [20, 50, 200]
+bb_period
+Bollinger Band period. Default: 20
+bb_std
+Bollinger Band standard deviation. Default: 2.0
+volume_filter_enabled
+Enable/disable volume filter. Default: true
+volume_avg_period
+Volume average period. Default: 20
+min_bars_history
+Minimum bars before signals valid. Default: 200 (hard minimum — not overridable)
+active_strategies
+List of enabled strategy IDs. Default: all 7
+session_filter_enabled
+Enable session-based filtering. Default: false
+active_sessions
+Sessions to trade: [london, new_york, asia, custom]
+partial_exit_enabled
+Close 50% at TP1, move SL to break-even. Default: true
+trailing_stop_enabled
+Enable trailing stop after TP1. Default: false
+max_hold_bars
+Max bars to hold a position before time-exit. Default: 20
+use_ema_not_sma
+Use EMA throughout (not SMA). Default: true — EMA is standard across platform
+
+10.2  Per-Strategy Parameter Overrides
+Each strategy can override global parameters independently via the UI strategy settings panel:
+Strategy
+Configurable Parameters (default values)
+TREND_PULLBACK
+wick_ratio_min (1.5), fib_min (0.236), fib_max (0.786), ema_zone_atr_mult (0.5), min_adx (18)
+BREAKOUT_CONFIRM
+body_pct_min (0.60), volume_mult (2.0), hold_bars (3), range_min_bars (10), counter_trend_conf_penalty (0.20)
+RANGE_REVERSION
+range_min_bars (10), range_width_atr_min (2.0), max_range_age_bars (50), max_touches_required (2)
+MEAN_REVERT_BAND
+bb_sd_threshold (0.5), vwap_atr_mult (1.5), max_hold_bars (10), max_bb_sd_extreme (3.0)
+VOL_COMPRESS_BREAK
+kc_mult (1.5), squeeze_min_bars (5), direction_methods_required (2), squeeze_max_bars (50)
+ORB
+range_minutes (30), breakout_window_minutes (150), min_orb_atr_mult (0.5), one_per_session (true)
+MOMENTUM_CONT
+impulse_atr_mult (3.0), impulse_bars_max (8), flag_depth_max (0.50), consol_max_bars (20)
+
+10.3  Regime Switcher Parameters
+Parameter
+Description / Default
+adx_strong_trend_enter
+ADX threshold to enter STRONG_TREND. Default: 25
+adx_strong_trend_exit
+ADX threshold to exit STRONG_TREND (hysteresis). Default: 22
+adx_range_enter
+ADX threshold to enter RANGE. Default: 18
+adx_range_exit
+ADX threshold to exit RANGE (hysteresis). Default: 21
+atr_high_vol_enter
+ATR ratio to enter HIGH_VOL. Default: 2.0
+atr_high_vol_exit
+ATR ratio to exit HIGH_VOL (hysteresis). Default: 1.5
+ema_slope_threshold
+EMA slope to confirm trend direction. Default: 0.001
+bb_width_range_threshold
+BB width to confirm RANGE. Default: 0.03
+regime_hold_min_bars
+Minimum bars before regime can change. Default: 3
+
+10.4  Risk Profile Presets
+Profile
+Parameter Set
+Conservative
+risk_pct=0.5%, min_confidence=0.80, max_concurrent=2, partial_exit=true, trailing=false, max_hold=15
+Balanced
+risk_pct=1.0%, min_confidence=0.65, max_concurrent=3, partial_exit=true, trailing=true, max_hold=20
+Aggressive
+risk_pct=2.0%, min_confidence=0.55, max_concurrent=5, partial_exit=false, trailing=true, max_hold=30
+Custom
+All parameters user-defined via UI sliders, toggles, and number inputs
+
+10.5  Instrument-Specific Notes
+Instrument
+Notes
+XAUUSD (Gold)
+Tick volume only. Use London open as ORB anchor. ATR typically 5–25 per H1 bar.
+BTCUSDT (Crypto)
+Real volume available. 24/7 — use 00:00 UTC as daily ORB anchor. High ATR volatility.
+US100 / NQ
+Futures volume if available. Use NY open (13:30 UTC) as primary ORB anchor.
+EURUSD (Forex)
+Tick volume only. London/NY overlap (13:00–16:00 UTC) highest liquidity.
+Equities (AAPL etc.)
+Real share volume. Market hours only (13:30–20:00 UTC). No 24/5 session.
+All instruments
+Indicator periods (EMA, ATR, ADX) are bar-count based — same formula regardless of TF.
+
+
+SECTION 11 — PLATFORM DETECTOR PSEUDOCODE (TypeScript-style)
+
+11.1  Core Data Types
+interface Candle {   timestamp: Date;   open: number; high: number; low: number; close: number;   volume: number; }  interface Signal {   strategy_id: string;   direction: 'long' | 'short';   regime: RegimeType;   entry_price: number;   stop_loss: number;   take_profit_1: number;   take_profit_2: number;   confidence: number;           // 0.0 – 1.0   rules_met: Record<string, boolean>;   instrument: string;   entry_timeframe: string;   signal_time: Date; }  type RegimeType = 'STRONG_TREND' | 'WEAK_TREND' | 'RANGE' | 'HIGH_VOL';  const REGIME_ACTIVATION_MAP: Record<RegimeType, string[]> = {   STRONG_TREND: ['TREND_PULLBACK','MOMENTUM_CONT','BREAKOUT_CONFIRM','ORB'],   WEAK_TREND:   ['TREND_PULLBACK','BREAKOUT_CONFIRM','MEAN_REVERT_BAND','ORB','VOL_COMPRESS_BREAK'],   RANGE:        ['RANGE_REVERSION','MEAN_REVERT_BAND','VOL_COMPRESS_BREAK','ORB'],   HIGH_VOL:     ['BREAKOUT_CONFIRM','ORB'], };  const STRATEGY_PRIORITY: string[] = [   'ORB','TREND_PULLBACK','MOMENTUM_CONT','BREAKOUT_CONFIRM',   'VOL_COMPRESS_BREAK','RANGE_REVERSION','MEAN_REVERT_BAND' ];
+11.2  Universal Candle Utilities
+const candleBody  = (c: Candle) => Math.abs(c.close - c.open); const candleRange = (c: Candle) => c.high - c.low; const bodyPct     = (c: Candle) => candleBody(c) / candleRange(c);  function wickRatio(c: Candle, minBodyPct = 0.10): number | null {   if (bodyPct(c) < minBodyPct) return null;  // doji guard   const upper = c.high - Math.max(c.open, c.close);   const lower = Math.min(c.open, c.close) - c.low;   return Math.max(upper, lower) / candleBody(c); }  function isRejectionBullish(c: Candle, wickMin = 1.5, minBodyPct = 0.10): boolean {   if (bodyPct(c) < minBodyPct) return false;   const lower = Math.min(c.open, c.close) - c.low;   const upper = c.high - Math.max(c.open, c.close);   return c.close > c.open && (lower / candleBody(c)) >= wickMin && lower > upper; }  function isRejectionBearish(c: Candle, wickMin = 1.5, minBodyPct = 0.10): boolean {   if (bodyPct(c) < minBodyPct) return false;   const upper = c.high - Math.max(c.open, c.close);   const lower = Math.min(c.open, c.close) - c.low;   return c.close < c.open && (upper / candleBody(c)) >= wickMin && upper > lower; }
+11.3  Confidence Scorer
+const MANDATORY = 3, STRONG = 2, OPTIONAL = 1;  function scoreSignal(   rules: Array<{ name: string; weight: number; met: boolean }> ): number {   // Hard block: any mandatory rule fails → 0.0   for (const r of rules)     if (r.weight === MANDATORY && !r.met) return 0.0;    const total  = rules.reduce((s, r) => s + r.weight, 0);   const earned = rules.filter(r => r.met).reduce((s, r) => s + r.weight, 0);   return earned / total; }  // Example: TREND_PULLBACK — 8 rules met out of 9, volume failed // Rules: 3×MANDATORY(met) + 1×STRONG(failed) + 1×STRONG(met) + 3×OPTIONAL(met) // earned = 9+2+3 = 14, total = 9+2+2+3 = 16 → confidence = 0.875
+11.4  Regime Classifier with Hysteresis
+function classifyRegime(   candles: Candle[], prevRegime: RegimeType, p: StrategyParams ): RegimeType {   if (candles.length < p.min_bars_history) return prevRegime;    const adx      = calcADX(candles, p.adx_period).at(-1)!;   const ema50    = calcEMA(candles, 50);   const slope    = (ema50.at(-1)! - ema50.at(-5)!) / ema50.at(-5)!;   const atrNow   = calcATR(candles, p.atr_period).at(-1)!;   const atrAvg   = mean(calcATR(candles, p.atr_period).slice(-20));   const atrRatio = atrNow / atrAvg;   const bbWidth  = calcBBWidth(candles, 20, 2.0).at(-1)!;    // HIGH_VOL — highest priority   if (prevRegime === 'HIGH_VOL' && atrRatio >= (p.atr_high_vol_exit ?? 1.5)) return 'HIGH_VOL';   if (atrRatio > (p.atr_high_vol_enter ?? 2.0)) return 'HIGH_VOL';    // STRONG_TREND with hysteresis   const inStrong = prevRegime === 'STRONG_TREND';   if (inStrong && adx >= (p.adx_strong_trend_exit ?? 22)) return 'STRONG_TREND';   if (!inStrong && adx > (p.adx_strong_trend_enter ?? 25)       && Math.abs(slope) > (p.ema_slope_threshold ?? 0.001)) return 'STRONG_TREND';    // RANGE with hysteresis   const inRange = prevRegime === 'RANGE';   if (inRange && adx <= (p.adx_range_exit ?? 21)) return 'RANGE';   if (!inRange && adx < (p.adx_range_enter ?? 18)       && bbWidth < (p.bb_width_range_threshold ?? 0.03)) return 'RANGE';    return 'WEAK_TREND'; }
+11.5  Main Platform Loop (per bar)
+function onNewBar(   candles: Candle[], params: StrategyParams, state: PlatformState ): Signal[] {    // Guard: minimum history   if (candles.length < params.min_bars_history) return [];    // Step 1: Classify regime with hold-bar hysteresis   const candidate = classifyRegime(candles, state.regime, params);   if (candidate !== state.regime) {     state.regimeBarCount = (state.regimeBarCount ?? 0) + 1;     if (state.regimeBarCount >= (params.regime_hold_min_bars ?? 3)) {       state.regime = candidate;       state.regimeBarCount = 0;     }   } else { state.regimeBarCount = 0; }    // Step 2: Run allowed strategy detectors   const allowed = REGIME_ACTIVATION_MAP[state.regime];   const signals: Signal[] = [];    const detectors: Record<string, () => Signal[]> = {     TREND_PULLBACK:    () => detectTrendPullback(candles, state.regime, params),     BREAKOUT_CONFIRM:  () => detectBreakout(candles, state.regime, params),     RANGE_REVERSION:   () => detectRangeReversion(candles, state.regime, params),     MEAN_REVERT_BAND:  () => detectMeanReversion(candles, state.regime, params),     VOL_COMPRESS_BREAK:() => detectVolCompression(candles, state.regime, params),     ORB:               () => detectORB(candles, state.regime, params, state.session),     MOMENTUM_CONT:     () => detectMomentumCont(candles, state.regime, params),   };    for (const id of allowed) {     if (params.active_strategies.includes(id))       signals.push(...detectors[id]());   }    // Step 3: Resolve conflicts and return   return resolveAllSignals(signals, state.regime, state.openPositions, params); }
+11.6  Indicator Caching Strategy
+All indicators are pre-computed once per bar and cached. Strategies read from cache — never recompute. This ensures consistent values across all detectors and avoids performance issues.
+interface IndicatorCache {   ema20: number[]; ema50: number[]; ema200: number[];   atr14: number[]; adx14: number[];   bb_upper: number[]; bb_lower: number[]; bb_mid: number[]; bb_std: number[];   kc_upper: number[]; kc_lower: number[];   vwap: number[];    // intraday reset at session open   volume_avg20: number[];   bb_width: number[]; }  function buildCache(candles: Candle[], params: StrategyParams): IndicatorCache {   return {     ema20:       calcEMA(candles, 20),     ema50:       calcEMA(candles, 50),     ema200:      calcEMA(candles, 200),     atr14:       calcATR(candles, params.atr_period),     adx14:       calcADX(candles, params.adx_period),     bb_upper:    calcBBUpper(candles, 20, params.bb_std),     bb_lower:    calcBBLower(candles, 20, params.bb_std),     bb_mid:      calcEMA(candles, 20),  // same as ema20     bb_std:      calcBBStd(candles, 20),     kc_upper:    calcKCUpper(candles, 20, params.kc_mult ?? 1.5),     kc_lower:    calcKCLower(candles, 20, params.kc_mult ?? 1.5),     vwap:        calcVWAP(candles),     volume_avg20:calcRollingMean(candles.map(c => c.volume), 20),     bb_width:    calcBBWidth(candles, 20, params.bb_std),   }; }
+
+SECTION 12 — QUICK REFERENCE SUMMARY
+
+12.1  Strategy Cheat Sheet
+Strategy ID
+Active Regime
+Key Entry Criteria
+TREND_PULLBACK
+STRONG/WEAK TREND
+Rejection candle at EMA zone in confirmed trend. wick_ratio ≥ 1.5, EMA alignment, ADX > 18.
+BREAKOUT_CONFIRM
+ALL regimes
+Strong close beyond range/level with volume. body_pct ≥ 0.60, volume > 2×, hold confirmation.
+RANGE_REVERSION
+RANGE only
+Fade at S/R boundary with rejection candle. ADX < 20, range ≥ 10 bars, wick_ratio ≥ 1.5.
+MEAN_REVERT_BAND
+RANGE/WEAK TREND
+Fade price beyond BB outer band or VWAP extreme. Price > 2SD from mean, rejection candle.
+VOL_COMPRESS_BREAK
+RANGE/WEAK TREND
+BB inside KC squeeze releases. Expansion candle in direction of momentum. body_pct ≥ 0.55.
+ORB
+ALL (session-gated)
+Break of first-N-minute session range. body_pct ≥ 0.55, volume > 2×. One per session.
+MOMENTUM_CONT
+STRONG TREND only
+Flag/pennant breakout in impulse direction. Impulse ≥ 3× ATR, consolidation ≤ 50% depth.
+
+12.2  Universal Rules — Always Apply
+Minimum 200 bars of history required before ANY signal is generated (hard minimum)
+Wick ratio formula: longer_wick / candle_body (NOT range-relative)
+Wick ratio threshold: >= 1.5 across all strategies (configurable per strategy)
+Rejection candle: bullish = close > open + lower wick dominant; bearish = inverse
+Confidence = Σ(weight × met) / Σ(weight). Any MANDATORY rule failure → confidence = 0.0
+Regime runs FIRST on every bar before any strategy detector
+Regime hysteresis: enter/exit thresholds are asymmetric (3-point ADX band)
+Indicator periods are bar-count based — same on M1, M5, H1, D1
+EMA used throughout (not SMA) — more responsive to recent price action
+Volume filter: tick volume for Forex/Metals, real volume for Crypto/Equities
+Opposing signals within 0.10 confidence gap → NO TRADE
+All times in UTC. DST handled by converting exchange local time at runtime
+12.3  Confidence Score Interpretation
+Score Range
+Interpretation
+0.90 – 1.00
+Exceptional — all rules met including optionals. High-conviction trade.
+0.80 – 0.89
+Strong — all mandatory + most strong rules met. Standard trade.
+0.65 – 0.79
+Acceptable — all mandatory met, some strong/optional failed. Proceed with caution.
+0.50 – 0.64
+Below threshold — signal suppressed. Log for review only.
+0.00 – 0.49
+Mandatory rule failed or very weak setup. No signal generated.
+
+12.4  Regime Activation Quick Reference
+Regime
+Active Strategies
+STRONG_TREND (ADX>25)
+✅ TREND_PULLBACK  ✅ MOMENTUM_CONT  ✅ BREAKOUT  ✅ ORB  ❌ RANGE_REVERSION  ❌ MEAN_REVERT  ❌ VOL_COMPRESS
+WEAK_TREND (ADX 18–25)
+✅ TREND_PULLBACK  ✅ BREAKOUT  ✅ MEAN_REVERT  ✅ ORB  ✅ VOL_COMPRESS  ❌ RANGE_REVERSION  ❌ MOMENTUM
+RANGE (ADX<18)
+✅ RANGE_REVERSION  ✅ MEAN_REVERT  ✅ VOL_COMPRESS  ✅ ORB  ❌ TREND_PULLBACK  ❌ MOMENTUM  ❌ BREAKOUT
+HIGH_VOL (ATR>2×avg)
+✅ BREAKOUT  ✅ ORB (50% size)  ❌ ALL OTHERS — stand-down mode
+
+12.5  Document Index
+Document
+Contents
+Part 1 — Sections 0–4
+Global Standards · Regime Switcher · TREND_PULLBACK · BREAKOUT_CONFIRM · RANGE_REVERSION
+Part 2A — Sections 5–9
+MEAN_REVERT_BAND · VOL_COMPRESS_BREAK · ORB · MOMENTUM_CONT · Conflict Resolution
+Part 2B — Sections 10–12
+User Config · Detector Pseudocode · Quick Reference (this document)
+
+12.6  Implementation Checklist
+Before going live, verify each item is implemented and tested:
+[ ] 200-bar minimum history guard active on all detectors
+[ ] Regime classifier runs before all strategy detectors on every bar
+[ ] Hysteresis applied to all regime transitions (3-bar hold minimum)
+[ ] Wick ratio uses longer_wick / candle_body formula everywhere
+[ ] Rejection candle definition identical across all 7 strategies
+[ ] Confidence scorer: mandatory rule failure returns 0.0 immediately
+[ ] Indicator cache built once per bar, shared across all detectors
+[ ] Conflict resolver: opposing signals within 0.10 → NO TRADE
+[ ] ORB: one signal per session per instrument enforced
+[ ] Session times stored in exchange local time, converted to UTC at runtime
+[ ] Volume filter: tick volume flag set correctly per instrument type
+[ ] Fibonacci reference leg: most recent completed impulse leg only
+[ ] Partial exit at TP1 (50%) + move SL to break-even implemented
+[ ] HIGH_VOL regime: position size reduced 50% on allowed strategies
+[ ] All JSON schemas validated against Signal interface type
+[ ] Backtested on minimum 6 months of data per instrument before live deployment

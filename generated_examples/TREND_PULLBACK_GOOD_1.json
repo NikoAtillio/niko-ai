@@ -1,0 +1,21 @@
+{
+  "strategy_id": "TREND_PULLBACK",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-24 12:00:00",
+  "confidence": 0.78,
+  "description": "Uptrend EMA alignment, pullback touch, bullish rejection and confirmation close.",
+  "sample_timeframe": "Wednesday 24 May 2023 11:20 GMT - Wednesday 24 May 2023 12:39 GMT",
+  "center_ohlc": {
+    "open": 13670.2,
+    "high": 13673.5,
+    "low": 13662.9,
+    "close": 13672.4
+  },
+  "entry": 13672.4,
+  "sl": 13651.8914,
+  "tp1": 13703.1629,
+  "tp2": 13723.6715
+}

@@ -1,0 +1,494 @@
+SUPERSEDED NOTICE
+This text export is superseded by PHANTOM_STRATEGY_RULESET_CANONICAL_v1_1.md.
+Use that file as the only implementation and training source of truth.
+
+PHANTOM STRATEGY SPECIFICATION
+Complete Platform Recognition & Implementation Document
+Part 1 of 3  |  Sections §0–4  |  Version 1.0
+
+TABLE OF CONTENTS
+§0   Global Standards & Shared Definitions
+  §0.1  Candle Anatomy Definitions
+  §0.2  Wick Ratio Formula (Universal)
+  §0.3  Rejection Candle Standard Definition
+  §0.4  Confidence Scoring System
+  §0.5  Timeframe & Minimum Data Rules
+  §0.6  Regime Hysteresis Rules
+  §0.7  Volume Interpretation by Instrument
+  §0.8  Session & Timezone Standards
+  §0.9  Indicator Caching & Computation Order
+  §0.10 Fibonacci Reference Leg Rule
+§1   REGIME_SWITCH — Market Classifier
+§2   TREND_PULLBACK — Strategy Detector
+§3   BREAKOUT — Strategy Detector
+§4   RANGE_REVERSION — Strategy Detector
+
+§0  GLOBAL STANDARDS & SHARED DEFINITIONS
+All rules in this section apply universally across every strategy detector. No strategy may override these definitions. They form the single source of truth for all shared concepts used in this specification.
+§0.1  Candle Anatomy Definitions
+All strategies use the following standardized candle component definitions:
+Term
+Formula
+body
+abs(close − open)
+upper_wick
+high − max(open, close)
+lower_wick
+min(open, close) − low
+total_range
+high − low
+longer_wick
+max(upper_wick, lower_wick)
+shorter_wick
+min(upper_wick, lower_wick)
+bullish candle
+close > open
+bearish candle
+close < open
+doji
+body < 0.1 × total_range
+
+§0.2  Wick Ratio Formula (Universal)
+MANDATORY: This is the single wick ratio formula used across ALL strategies. No alternative formula is permitted.
+wick_ratio = longer_wick / body   (where body > 0)
+If body == 0 (doji): wick_ratio = longer_wick / total_range
+Threshold: wick_ratio ≥ 0.4 is the default minimum for a valid rejection candle.
+Rationale: longer_wick / body measures how much the wick extends relative to the committed price movement. A ratio of 0.4 means the wick is at least 40% as long as the body — a meaningful rejection signal.
+
+§0.3  Rejection Candle Standard Definition
+Used identically in: TREND_PULLBACK, RANGE_REVERSION, MEAN_REVERT_BAND, MOMENTUM_CONT
+BULLISH REJECTION CANDLE — all conditions must be true:
+1. lower_wick / total_range >= 0.35   (wick occupies ≥35% of total range)
+2. wick_ratio >= 0.4                  (lower_wick / body >= 0.4)
+3. close > open                       (bullish close)
+4. close >= (low + 0.6 × total_range) (close in upper 40% of candle)
+5. body >= 0.05 × total_range         (not a doji)
+BEARISH REJECTION CANDLE — all conditions must be true:
+1. upper_wick / total_range >= 0.35   (wick occupies ≥35% of total range)
+2. wick_ratio >= 0.4                  (upper_wick / body >= 0.4)
+3. close < open                       (bearish close)
+4. close <= (high - 0.6 × total_range)(close in lower 40% of candle)
+5. body >= 0.05 × total_range         (not a doji)
+ENGULFING CANDLE (alternative confirmation):
+Bullish:  close[0] > open[1] AND open[0] < close[1] AND body[0] > body[1]
+Bearish:  close[0] < open[1] AND open[0] > close[1] AND body[0] > body[1]
+Note: [0] = current candle, [1] = previous candle
+
+§0.4  Confidence Scoring System
+Every strategy outputs a confidence score in [0.0, 1.0]. The scoring system is weighted and rule-tiered.
+Rule Tiers:
+Tier
+Weight
+Behaviour
+MANDATORY
+3 pts
+Any single MANDATORY fail → confidence = 0.0 (signal suppressed)
+STRONG
+2 pts
+Failure reduces score significantly but does not suppress signal
+OPTIONAL
+1 pt
+Bonus points — enhances confidence when met
+
+Scoring Formula:
+max_score = sum of weights for all rules in strategy
+earned_score = sum of weights for all rules that PASS
+raw_confidence = earned_score / max_score
+confidence = 0.0 if any MANDATORY rule fails else round(raw_confidence, 2)
+Example — TREND_PULLBACK with 9 rules:
+Rules: trend_confirmed(M), ema_zone(M), rejection_wick(M), adx_filter(S),
+       volume_filter(S), fib_depth(S), higher_tf_align(O), session(O), spread(O)
+
+Scenario: trend✓ ema✓ wick✓ adx✓ volume✗ fib✓ htf✓ session✓ spread✗
+Earned:   3+3+3+2+0+2+1+1+0 = 15  |  Max: 3+3+3+2+2+2+1+1+1 = 18
+Confidence = 15/18 = 0.83
+
+§0.5  Timeframe & Minimum Data Rules
+TIMEFRAME SCALING RULE:
+All indicator periods are bar-count based, not time-based. A 20-bar EMA means 20 candles regardless of timeframe. A 20-bar EMA on M5 covers 100 minutes. On H1 it covers 20 hours. This is intentional — the strategy logic is calibrated to bar structure, not clock time.
+MINIMUM DATA REQUIREMENT (hard rule, non-overridable):
+MIN_BARS_REQUIRED = 200
+No signal of any kind is generated until 200 bars of history are available.
+This ensures: EMA200 is valid, ADX(14) is stable, ATR(14) is reliable,
+              BB(20) is valid, pivot detection has sufficient lookback.
+Standard Indicator Periods (defaults, user-overridable):
+Indicator
+Default Period
+Notes
+EMA fast
+20
+Use EMA throughout — not SMA
+EMA mid
+50
+
+EMA slow
+200
+Trend direction anchor
+ATR
+14
+All ATR-based stops use this
+ADX
+14
+Regime classification
+Bollinger Bands
+20, stddev=2.0
+Single BB config across all strategies
+RSI
+14
+Used in MEAN_REVERT_BAND
+Volume MA
+20
+Volume filter baseline
+
+§0.6  Regime Hysteresis Rules
+To prevent whipsaw re-classification when ADX oscillates near thresholds, asymmetric entry/exit thresholds are used for all regime boundaries.
+STRONG TREND:  Enter when ADX > 25  |  Exit when ADX < 22
+WEAK TREND:    Enter when ADX 18–25 |  Exit when ADX < 15 or ADX > 27
+RANGE:         Enter when ADX < 18  |  Exit when ADX > 21
+HIGH_VOL:      Enter when ATR > 2.0×avg_ATR | Exit when ATR < 1.6×avg_ATR
+Implementation: Maintain current_regime as state. Only update when exit threshold is crossed, not when entry threshold is merely touched from the other side.
+
+§0.7  Volume Interpretation by Instrument
+Instrument Type
+Volume Type
+Filter Rule
+Crypto (BTC, ETH)
+Real contract volume
+volume > 1.5 × 20-bar avg volume
+Forex (EURUSD etc)
+Tick volume (proxy)
+volume > 1.3 × 20-bar avg (lower threshold — tick vol noisier)
+Indices (US100)
+Tick volume
+volume > 1.3 × 20-bar avg
+Gold (XAUUSD)
+Tick volume
+volume > 1.3 × 20-bar avg
+Stocks / Futures
+Real contract volume
+volume > 1.5 × 20-bar avg
+
+§0.8  Session & Timezone Standards
+All session times are in UTC. DST is handled by converting exchange local time to UTC at runtime.
+Session
+UTC Start
+UTC End
+Notes
+Asia
+00:00
+08:00
+Tokyo/Sydney overlap
+London
+07:00
+16:00
+Adjusted for BST: 06:00–15:00 UTC in summer
+New York
+13:00
+22:00
+Adjusted for EDT: 12:00–21:00 UTC in summer
+London/NY Overlap
+13:00
+16:00
+Highest liquidity window
+ORB Window
+Session open
++30 min
+First 30 min of chosen session
+DST Rule: System must check DST status of exchange timezone at runtime and adjust UTC offsets accordingly. Hard-coded UTC times without DST adjustment are NOT acceptable.
+
+§0.9  Indicator Caching & Computation Order
+Performance rule: All indicators are computed ONCE per bar and cached. No strategy detector recomputes an indicator independently.
+Per-bar computation order:
+  1. Candle anatomy (body, wicks, total_range)
+  2. ATR(14)  →  cache["atr"]
+  3. EMA(20), EMA(50), EMA(200)  →  cache["ema20"], etc.
+  4. ADX(14)  →  cache["adx"]
+  5. BB(20, 2.0)  →  cache["bb_upper"], cache["bb_mid"], cache["bb_lower"]
+  6. RSI(14)  →  cache["rsi"]
+  7. Volume MA(20)  →  cache["vol_ma"]
+  8. REGIME_SWITCH reads cache → outputs current_regime
+  9. All strategy detectors read cache + current_regime → output signals
+ 10. CONFLICT_RESOLVER processes all signals → final output
+
+§0.10  Fibonacci Reference Leg Rule
+When any strategy references Fibonacci retracement levels (e.g. 23.6%–78.6% pullback depth), the reference leg is defined as:
+Reference leg = the most recently COMPLETED impulse leg in the trend direction.
+
+Definition of "completed impulse leg":
+  - A directional move of ≥ 1.5 × ATR(14) from swing low to swing high (bullish)
+    or swing high to swing low (bearish)
+  - Followed by at least 3 bars of counter-directional or sideways price action
+  - The leg endpoint is the extreme price of that move (highest high / lowest low)
+
+If multiple completed legs exist: use the MOST RECENT one only.
+If no completed leg exists: Fibonacci filter is SKIPPED (treated as optional pass).
+
+§1  REGIME_SWITCH — Market Classifier
+REGIME_SWITCH is not a trading strategy. It is a prerequisite classifier that runs FIRST on every bar before any strategy detector is evaluated. Its output (current_regime) gates which strategies are permitted to generate signals.
+§1.1  Classification Logic
+Inputs: ADX(14), EMA(20) slope, BB width, ATR ratio
+
+ema_slope    = (EMA20[0] - EMA20[5]) / EMA20[5]   # 5-bar slope %
+bb_width     = (BB_upper - BB_lower) / BB_mid
+atr_ratio    = ATR[0] / mean(ATR, 20)
+
+Classification (evaluated in priority order):
+
+  if atr_ratio > 2.0:
+      regime = HIGH_VOLATILITY   # checked first — overrides all others
+
+  elif ADX > 25 AND abs(ema_slope) > 0.001:
+      regime = STRONG_TREND
+
+  elif ADX >= 18:
+      regime = WEAK_TREND
+
+  else:   # ADX < 18
+      regime = RANGE
+
+  # Apply hysteresis (see §0.6) — only update if exit threshold crossed
+§1.2  Strategy Activation Matrix
+Strategy
+STRONG_TREND
+WEAK_TREND
+RANGE
+HIGH_VOL
+Notes
+TREND_PULLBACK
+✅ PRIMARY
+✅ SECONDARY
+❌ OFF
+❌ OFF
+Core trend strategy
+BREAKOUT
+✅
+✅
+✅
+❌ OFF
+Off in HIGH_VOL — false breaks
+RANGE_REVERSION
+❌ OFF
+⚠️ CAUTION
+✅ PRIMARY
+❌ OFF
+Caution = halved position
+MEAN_REVERT_BAND
+❌ OFF
+✅
+✅ PRIMARY
+❌ OFF
+
+VOL_COMPRESS_BREAK
+✅
+✅
+✅
+❌ OFF
+Regime-agnostic
+ORB
+✅
+✅
+⚠️ CAUTION
+❌ OFF
+Weaker in range
+MOMENTUM_CONT
+✅ PRIMARY
+⚠️ CAUTION
+❌ OFF
+❌ OFF
+Trend-only
+§1.3  Output Schema
+{
+  "regime": "STRONG_TREND" | "WEAK_TREND" | "RANGE" | "HIGH_VOLATILITY",
+  "adx": float,
+  "ema_slope": float,
+  "bb_width": float,
+  "atr_ratio": float,
+  "active_strategies": ["TREND_PULLBACK", "BREAKOUT", ...],
+  "timestamp": ISO8601
+}
+
+§2  TREND_PULLBACK — Strategy Detector
+§2.1  Overview
+Enters in the direction of the primary trend after a counter-trend pullback to a key EMA zone, confirmed by a rejection candle. Highest-probability setup in trending markets.
+§2.2  Regime Gate
+Active in: STRONG_TREND (primary), WEAK_TREND (secondary — reduced size)
+Inactive in: RANGE, HIGH_VOLATILITY
+§2.3  Entry Rules
+MANDATORY rules (any fail → confidence = 0.0):
+M1. TREND CONFIRMED:
+    Bullish: EMA20 > EMA50 > EMA200 AND close > EMA200
+    Bearish: EMA20 < EMA50 < EMA200 AND close < EMA200
+
+M2. EMA ZONE HIT:
+    Price has touched or penetrated EMA20 or EMA50 zone
+    Zone = EMA ± 0.5 × ATR(14)
+    Condition: low <= EMA50 + 0.5×ATR (bull) or high >= EMA50 - 0.5×ATR (bear)
+
+M3. REJECTION CANDLE:
+    Bullish rejection candle OR bullish engulfing (see §0.3)
+    Bearish rejection candle OR bearish engulfing (see §0.3)
+STRONG rules (failure reduces confidence):
+S1. ADX FILTER: ADX(14) > 20
+S2. VOLUME FILTER: volume > vol_threshold (see §0.7 for threshold by instrument)
+S3. FIB DEPTH: pullback depth between 23.6% and 78.6% of reference leg (see §0.10)
+OPTIONAL rules (bonus confidence):
+O1. HIGHER TF ALIGN: Same trend direction on next higher timeframe EMA alignment
+O2. SESSION: Price action during London or NY session (see §0.8)
+O3. SPREAD: Current spread < 2 × average spread
+§2.4  Confidence Scoring
+Rule weights: M1=3, M2=3, M3=3, S1=2, S2=2, S3=2, O1=1, O2=1, O3=1
+Max score = 18
+confidence = 0.0 if M1 OR M2 OR M3 fails
+confidence = earned_score / 18  (if all mandatory pass)
+§2.5  Entry & Exit Parameters
+Entry:      Next bar open after signal candle closes
+Stop Loss:  Below/above signal candle low/high + 0.5 × ATR(14)
+Target 1:   Entry + 1.0 × risk (1R)  →  close 50% of position
+Target 2:   Entry + 2.0 × risk (2R)  →  close remaining 50%
+Stop to BE: Move stop to entry after Target 1 is hit
+Time exit:  Close if no Target 1 hit within 20 bars
+§2.6  Output Signal Schema
+{
+  "strategy_id": "TREND_PULLBACK",
+  "direction": "long" | "short",
+  "entry": float,
+  "stop_loss": float,
+  "target_1": float,
+  "target_2": float,
+  "confidence": 0.0–1.0,
+  "regime": "STRONG_TREND" | "WEAK_TREND",
+  "rules_passed": ["M1","M2","M3","S1","S3","O1","O2"],
+  "rules_failed": ["S2","O3"],
+  "timeframe": "M5",
+  "timestamp": ISO8601
+}
+
+§3  BREAKOUT — Strategy Detector
+§3.1  Overview
+Detects and trades breakouts from consolidation zones, key S/R levels, or volatility compression patterns. Enters on confirmed break with volume.
+§3.2  Regime Gate
+Active in: STRONG_TREND, WEAK_TREND, RANGE
+Inactive in: HIGH_VOLATILITY (too many false breaks in extreme vol)
+§3.3  Entry Rules
+MANDATORY rules:
+M1. STRUCTURE LEVEL IDENTIFIED:
+    A swing high/low, S/R zone, or BB band that price has tested ≥ 2 times
+    Level tolerance: ± 0.3 × ATR(14)
+
+M2. CLEAN BREAK:
+    Close beyond level by ≥ 0.2 × ATR(14) (avoids wicks-only breaks)
+    Bullish: close > resistance_level + 0.2×ATR
+    Bearish: close < support_level - 0.2×ATR
+
+M3. VOLUME CONFIRMATION:
+    volume > vol_threshold (see §0.7) — MANDATORY for BREAKOUT (not optional)
+STRONG rules:
+S1. RETEST ENTRY (preferred): Price retests broken level from above/below
+    Retest zone: level ± 0.5 × ATR(14)
+    Retest candle shows rejection (see §0.3) — if no retest, enter on break close
+S2. ADX DIRECTION: ADX trending (not flat) in direction of break
+S3. NO MAJOR RESISTANCE within 1.5 × risk distance ahead
+OPTIONAL rules:
+O1. HIGHER TF ALIGNMENT: Break aligns with higher TF trend
+O2. SESSION: London or NY session
+O3. BB EXPANSION: BB width expanding at time of break
+§3.4  Confidence Scoring
+Rule weights: M1=3, M2=3, M3=3, S1=2, S2=2, S3=2, O1=1, O2=1, O3=1
+Max score = 18
+confidence = 0.0 if M1 OR M2 OR M3 fails
+§3.5  Entry & Exit Parameters
+Entry (break):   Next bar open after break candle closes
+Entry (retest):  Next bar open after retest rejection candle closes
+Stop Loss:       Below/above the broken level + 0.5 × ATR(14)
+Target 1:        1R  →  close 50%
+Target 2:        2R  →  close remaining 50%
+Stop to BE:      After Target 1 hit
+Time exit:       Close if no Target 1 within 15 bars
+§3.6  Output Signal Schema
+{
+  "strategy_id": "BREAKOUT",
+  "direction": "long" | "short",
+  "entry": float,
+  "stop_loss": float,
+  "target_1": float,
+  "target_2": float,
+  "confidence": 0.0–1.0,
+  "entry_type": "break" | "retest",
+  "broken_level": float,
+  "regime": string,
+  "rules_passed": [...],
+  "rules_failed": [...],
+  "timeframe": string,
+  "timestamp": ISO8601
+}
+
+§4  RANGE_REVERSION — Strategy Detector
+§4.1  Overview
+Fades price to the opposite boundary of a defined range. Enters near range extremes with rejection confirmation. Mean-reversion logic within a bounded price structure.
+§4.2  Regime Gate
+Active in: RANGE (primary), WEAK_TREND (caution — halved position size)
+Inactive in: STRONG_TREND, HIGH_VOLATILITY
+§4.3  Range Definition
+Range is valid when:
+  1. ADX < 20 (low directional pressure)
+  2. Price has touched upper boundary ≥ 2 times AND lower boundary ≥ 2 times
+     within the last 50 bars
+  3. Range height ≥ 1.5 × ATR(14)  (meaningful range, not noise)
+  4. Range height ≤ 8 × ATR(14)    (not an extended trend disguised as range)
+
+Boundary tolerance: ± 0.3 × ATR(14)
+Range midpoint: (upper_boundary + lower_boundary) / 2
+§4.4  Entry Rules
+MANDATORY rules:
+M1. VALID RANGE: Range definition above is satisfied
+M2. PRICE AT BOUNDARY:
+    Long: low touches lower_boundary ± 0.3×ATR
+    Short: high touches upper_boundary ± 0.3×ATR
+M3. REJECTION CANDLE: Bullish/bearish rejection at boundary (see §0.3)
+STRONG rules:
+S1. RSI EXTREME: RSI(14) < 35 (long) or > 65 (short)
+S2. VOLUME: volume > vol_threshold at boundary touch
+S3. PRIOR BOUNDARY RESPECT: Last touch of this boundary resulted in reversal
+OPTIONAL rules:
+O1. BB BAND TOUCH: Price touching BB lower (long) or BB upper (short)
+O2. SESSION: Active session (not dead hours)
+O3. WICK RATIO ≥ 0.6: Stronger rejection (above minimum 0.4 threshold)
+§4.5  Confidence Scoring
+Rule weights: M1=3, M2=3, M3=3, S1=2, S2=2, S3=2, O1=1, O2=1, O3=1
+Max score = 18
+confidence = 0.0 if M1 OR M2 OR M3 fails
+WEAK_TREND caution: If regime is WEAK_TREND, cap confidence at 0.65 regardless of score.
+§4.6  Entry & Exit Parameters
+Entry:      Next bar open after rejection candle closes
+Stop Loss:  Beyond boundary + 0.5 × ATR(14)
+            Long SL: lower_boundary - 0.5×ATR
+            Short SL: upper_boundary + 0.5×ATR
+Target 1:   Range midpoint  →  close 50%
+Target 2:   Opposite boundary - 0.5×ATR  →  close remaining 50%
+Stop to BE: After Target 1 hit
+Time exit:  Close if no Target 1 within 25 bars
+Invalidation: Close beyond boundary by > 1.0×ATR → range broken, exit immediately
+§4.7  Output Signal Schema
+{
+  "strategy_id": "RANGE_REVERSION",
+  "direction": "long" | "short",
+  "entry": float,
+  "stop_loss": float,
+  "target_1": float,   // range midpoint
+  "target_2": float,   // opposite boundary
+  "confidence": 0.0–1.0,
+  "range_upper": float,
+  "range_lower": float,
+  "range_midpoint": float,
+  "regime": "RANGE" | "WEAK_TREND",
+  "rules_passed": [...],
+  "rules_failed": [...],
+  "timeframe": string,
+  "timestamp": ISO8601
+}
+
+Document Notes
+This is Part 1 of 3 of the Phantom Strategy Specification.
+Part 2A covers: §5 MEAN_REVERT_BAND · §6 VOL_COMPRESS_BREAK · §7 ORB · §8 MOMENTUM_CONT · §9 Conflict Resolution
+Part 2B covers: §10 User Config · §11 TypeScript Pseudocode · §12 Quick Reference & Implementation Checklist
+Version 1.0 — All critical gaps resolved. Production-ready for code generation.

@@ -141,6 +141,7 @@ interface StrategyRecognitionInput {
 	templateName?: string;
 	market: string;
 	primaryTimeframe: string;
+	tradeHorizonTimeframe: string;
 	riskPerTradePct: number;
 	zoneWidthPct: number;
 	minTouches: number;
@@ -155,6 +156,7 @@ interface StrategyRecognitionResult {
 	confidenceBand?: 'low' | 'medium' | 'high';
 	market: string;
 	primaryTimeframe: string;
+	tradeHorizonTimeframe: string;
 	timeframes: string[];
 	sessions: string[];
 	indicators: string[];
@@ -173,7 +175,9 @@ interface StrategyExecutionConfig {
 	name: string;
 	market: string;
 	execution: {
+		entryTimeframe: string;
 		primaryTimeframe: string;
+		tradeHorizonTimeframe: string;
 		engineInterval: string;
 		timeframes: string[];
 		bias: 'long' | 'short' | 'both' | 'neutral';
@@ -234,6 +238,7 @@ interface StrategyProofExample {
 	title: string;
 	rationale: string;
 	confidence: number;
+	direction?: 'long' | 'short';
 	centerTs: number;
 	centerPrice: number;
 	window: CandleRecord[];
@@ -648,13 +653,20 @@ function normalizeStrategyInput(input: StrategyRecognitionInput & { templateText
 		? String(templateObject.theoryText || templateObject.strategyText || templateObject.description || '').trim()
 		: '';
 	const theoryText = templateTheory || input.theoryText;
-	const fallbackPrimary = String(templateObject?.primaryTimeframe || templateObject?.timeframe || input.primaryTimeframe || 'H4').toUpperCase();
-	const inferredPrimary = inferPrimaryTimeframeFromText(theoryText, fallbackPrimary);
+	const fallbackPrimary = String(templateObject?.primaryTimeframe || templateObject?.entryTimeframe || templateObject?.timeframe || input.primaryTimeframe || 'H4').toUpperCase();
+	const selectedPrimary = String(input.primaryTimeframe || fallbackPrimary || 'H4').toUpperCase();
+	const fallbackHorizon = String(
+		templateObject?.tradeHorizonTimeframe
+		|| templateObject?.executionTimeframe
+		|| input.tradeHorizonTimeframe
+		|| selectedPrimary,
+	).toUpperCase();
 	return {
 		theoryText,
 		templateName: input.templateName,
 		market: String(templateObject?.market || input.market || 'BTCUSD').toUpperCase(),
-		primaryTimeframe: inferredPrimary,
+		primaryTimeframe: selectedPrimary,
+		tradeHorizonTimeframe: fallbackHorizon,
 		riskPerTradePct: toNumber(templateObject?.riskPerTradePct ?? templateObject?.riskPct ?? input.riskPerTradePct, input.riskPerTradePct),
 		zoneWidthPct: toNumber(templateObject?.zoneWidthPct ?? input.zoneWidthPct, input.zoneWidthPct),
 		minTouches: Math.max(1, parsePositiveInt(templateObject?.minTouches ?? input.minTouches, input.minTouches)),
@@ -972,6 +984,170 @@ function resolveStrategyDataFile(symbolInput: string, requestedFileInput: string
 	return normalizePath(fallback);
 }
 
+function resolveMarketTimeframeFile(symbolInput: string, timeframeInput: string): string {
+	const symbol = canonicalizeDatasetSymbol(String(symbolInput || ''));
+	const timeframe = String(timeframeInput || '').toLowerCase();
+	const discovered = getMarketDatasets();
+	const match = discovered.find((item) => item.symbol === symbol);
+	if (match) {
+		const exact = match.files.find((file) => file.timeframe === timeframe);
+		if (exact?.filePath) {
+			return exact.filePath;
+		}
+		if (match.defaultDataFile) {
+			return match.defaultDataFile;
+		}
+	}
+	return resolveStrategyDataFile(symbol, '');
+}
+
+interface PhantomV2ScenarioSummary {
+	scenario: string;
+	label: string;
+	trades: number;
+	winRatePct: number;
+	profitFactor: number;
+	netReturnPct: number;
+	maxDrawdownPct: number;
+	expectancy: number;
+	finalCapital: number;
+	timeoutPct: number;
+}
+
+interface PhantomV2ValidationResult {
+	symbol: string;
+	capital: number;
+	scenario: string;
+	dataFiles: Record<string, string>;
+	summaries: PhantomV2ScenarioSummary[];
+	best: PhantomV2ScenarioSummary | null;
+	stdout: string;
+}
+
+function parsePhantomV2ValidationOutput(stdout: string): PhantomV2ScenarioSummary[] {
+	const blocks = [...stdout.matchAll(/=+\n\s*(.+?)\n=+\n([\s\S]*?)(?=\n=+\n\s*.+?\n=+|\n\n=== v5\.0 → v5\.1 COMPARISON ===|$)/g)];
+	return blocks.map((match) => {
+		const label = match[1].trim();
+		const body = match[2];
+		const getNumber = (pattern: RegExp): number => {
+			const found = body.match(pattern)?.[1];
+			if (!found) return Number.NaN;
+			return Number(String(found).replace(/,/g, ''));
+		};
+		const scenario = (label.match(/Scenario\s+([DAB])/i)?.[1] || 'B').toUpperCase();
+		return {
+			scenario,
+			label,
+			trades: getNumber(/Trades\s*:\s*(\d+)/),
+			winRatePct: getNumber(/Win %\s*:\s*([\d.]+)%/),
+			profitFactor: getNumber(/PF\s*:\s*([\d.]+)/),
+			netReturnPct: getNumber(/Net Return\s*:\s*([\-\d.]+)%/),
+			maxDrawdownPct: getNumber(/Max DD\s*:\s*([\-\d.]+)%/),
+			expectancy: getNumber(/Expectancy\s*:\s*\$([\-\d.]+)\/trade/),
+			finalCapital: getNumber(/Final Cap\s*:\s*\$([\d,.-]+)/),
+			timeoutPct: getNumber(/Timeout %\s*:\s*([\d.]+)%/),
+		};
+	}).filter((summary) => Number.isFinite(summary.trades));
+}
+
+function bucketStartYearFromDate(dateText: string): number | null {
+	const date = new Date(dateText);
+	if (!Number.isFinite(date.getTime())) return null;
+	const month = date.getUTCMonth() + 1;
+	const year = date.getUTCFullYear();
+	return month >= 4 ? year : year - 1;
+}
+
+function bucketLabelFromDate(dateText: string): string {
+	const startYear = bucketStartYearFromDate(dateText);
+	if (startYear === null) return 'Imported';
+	return `${startYear}-${String(startYear + 1).slice(-2)}`;
+}
+
+function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[]): Record<string, unknown> {
+	const periods: Record<string, Array<Record<string, unknown>>> = {};
+
+	for (const summary of summaries) {
+		const tradeFile = path.join(workingDir, `phantom_v5_1_trades_${summary.scenario}.csv`);
+		if (!fileExists(tradeFile)) {
+			continue;
+		}
+
+		const lines = fs.readFileSync(tradeFile, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+		if (lines.length < 2) {
+			continue;
+		}
+
+		const headers = lines[0].split(',').map((header) => header.trim().toLowerCase());
+		const iEntryTs = headers.indexOf('entry_ts');
+		const iExitTs = headers.indexOf('exit_ts');
+		const iPnl = headers.indexOf('pnl');
+		if (iPnl < 0 || (iEntryTs < 0 && iExitTs < 0)) {
+			continue;
+		}
+
+		let cumulativeCapital = capital;
+		const groupedPoints = new Map<string, Array<{ trade: number; date: string; capital: number }>>();
+		let tradeCount = 0;
+
+		for (let index = 1; index < lines.length; index += 1) {
+			const cols = lines[index].split(',');
+			const rawDate = (iExitTs >= 0 ? cols[iExitTs] : '') || (iEntryTs >= 0 ? cols[iEntryTs] : '');
+			const pnl = Number(cols[iPnl]);
+			if (!rawDate || Number.isNaN(pnl)) {
+				continue;
+			}
+
+			const date = new Date(rawDate);
+			if (!Number.isFinite(date.getTime())) {
+				continue;
+			}
+
+			cumulativeCapital += pnl;
+			tradeCount += 1;
+			const bucket = bucketLabelFromDate(date.toISOString());
+			if (!groupedPoints.has(bucket)) {
+				groupedPoints.set(bucket, []);
+			}
+			groupedPoints.get(bucket)?.push({
+				trade: tradeCount,
+				date: date.toISOString(),
+				capital: cumulativeCapital,
+			});
+		}
+
+		for (const [bucket, points] of groupedPoints.entries()) {
+			periods[bucket] = periods[bucket] || [];
+			periods[bucket].push({
+				version: 'v2',
+				scenario: summary.scenario,
+				label: `v2 ${summary.scenario}`,
+				trades: points.length,
+				points,
+			});
+		}
+	}
+
+	return {
+		startCapital: capital,
+		market: symbol,
+		sourceType: 'live v2 validation',
+		timeframe: 'multi-timeframe',
+		sourceFile: workingDir,
+		periods,
+	};
+}
+
+function pickBestPhantomV2Summary(summaries: PhantomV2ScenarioSummary[]): PhantomV2ScenarioSummary | null {
+	if (!summaries.length) return null;
+	return [...summaries].sort((a, b) => {
+		if (b.netReturnPct !== a.netReturnPct) return b.netReturnPct - a.netReturnPct;
+		if (b.profitFactor !== a.profitFactor) return b.profitFactor - a.profitFactor;
+		if (a.maxDrawdownPct !== b.maxDrawdownPct) return b.maxDrawdownPct - a.maxDrawdownPct;
+		return b.winRatePct - a.winRatePct;
+	})[0];
+}
+
 function buildRecognition(input: StrategyRecognitionInput): StrategyRecognitionResult {
 	const text = normalizeStrategyText(input.theoryText);
 	const lower = toLowerStrategyText(text);
@@ -1024,6 +1200,7 @@ function buildRecognition(input: StrategyRecognitionInput): StrategyRecognitionR
 		confidenceBand: confidenceInfo.band,
 		market: input.market,
 		primaryTimeframe: input.primaryTimeframe,
+		tradeHorizonTimeframe: input.tradeHorizonTimeframe,
 		timeframes,
 		sessions,
 		indicators,
@@ -1073,17 +1250,17 @@ function mapUiTfToProofTimeframe(tf: string): string {
 	if (normalized === 'M1' || normalized === '1M') return '1m';
 	if (normalized === 'M5' || normalized === '5M') return '5m';
 	if (normalized === 'M15' || normalized === '15M') return '15m';
-	if (normalized === 'M30' || normalized === '30M') return '15m';
+	if (normalized === 'M30' || normalized === '30M') return '30m';
 	if (normalized === 'H1' || normalized === '1H') return '1h';
 	if (normalized === 'H4' || normalized === '4H') return '4h';
-	if (normalized === 'D1' || normalized === '1D' || normalized === 'DAILY') return '4h';
-	if (normalized === 'W1' || normalized === '1W' || normalized === 'WEEKLY') return '4h';
-	if (normalized === 'MN1' || normalized === '1MO' || normalized === 'MONTHLY') return '4h';
+	if (normalized === 'D1' || normalized === '1D' || normalized === 'DAILY') return '1d';
+	if (normalized === 'W1' || normalized === '1W' || normalized === 'WEEKLY') return '1w';
+	if (normalized === 'MN1' || normalized === '1MO' || normalized === 'MONTHLY') return '1mo';
 	return '15m';
 }
 
 function adjustProofTimeframe(baseTimeframe: string, mode: string): string {
-	const ladder = ['1m', '5m', '15m', '1h', '4h'];
+	const ladder = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1mo'];
 	const baseIdx = ladder.indexOf(baseTimeframe);
 	if (baseIdx < 0) {
 		return baseTimeframe;
@@ -1128,6 +1305,46 @@ function clampProbability(value: number): number {
 	return Math.max(0.05, Math.min(0.99, value));
 }
 
+function detectRejectionDirection(candle: CandleRecord): 'long' | 'short' | null {
+	const open = Number(candle.open || 0);
+	const close = Number(candle.close || 0);
+	const high = Number(candle.high || 0);
+	const low = Number(candle.low || 0);
+	const body = Math.max(1e-9, Math.abs(close - open));
+	const range = Math.max(1e-9, high - low);
+	const upperWick = Math.max(0, high - Math.max(open, close));
+	const lowerWick = Math.max(0, Math.min(open, close) - low);
+
+	const bearishReject = upperWick >= body * 1.2 && upperWick >= range * 0.34;
+	const bullishReject = lowerWick >= body * 1.2 && lowerWick >= range * 0.34;
+	if (bearishReject && !bullishReject) return 'short';
+	if (bullishReject && !bearishReject) return 'long';
+	return null;
+}
+
+function inferDirectionFromFollowThrough(candles: CandleRecord[], idx: number): 'long' | 'short' {
+	const lookahead = Math.min(candles.length - 1, idx + 3);
+	const entry = Number(candles[idx].close || 0);
+	const later = Number(candles[lookahead].close || entry);
+	return later >= entry ? 'long' : 'short';
+}
+
+function calculateEntrySlTpOverlays(
+	entryPrice: number,
+	zoneWidthPct: number,
+	direction: 'long' | 'short',
+): StrategyProofExample['overlays'] {
+	const zoneWidth = entryPrice * (zoneWidthPct / 100);
+	const slPrice = direction === 'long' ? (entryPrice - zoneWidth) : (entryPrice + zoneWidth);
+	const tpPrice = direction === 'long' ? (entryPrice + zoneWidth * 2) : (entryPrice - zoneWidth * 2);
+	
+	return [
+		{ kind: 'hline' as const, label: `Entry (${direction.toUpperCase()})`, price: entryPrice },
+		{ kind: 'hline' as const, label: 'Stop Loss', price: slPrice },
+		{ kind: 'hline' as const, label: 'Take Profit', price: tpPrice },
+	];
+}
+
 function pushProofExample(
 	out: StrategyProofExample[],
 	candles: CandleRecord[],
@@ -1135,6 +1352,7 @@ function pushProofExample(
 	title: string,
 	rationale: string,
 	confidence: number,
+	direction: 'long' | 'short',
 	overlays: StrategyProofExample['overlays'] = [],
 ): void {
 	if (idx < 0 || idx >= candles.length) {
@@ -1146,6 +1364,7 @@ function pushProofExample(
 		title,
 		rationale,
 		confidence: clampProbability(confidence),
+		direction,
 		centerTs: c.ts,
 		centerPrice: c.close,
 		window: buildProofWindow(candles, idx),
@@ -1153,7 +1372,13 @@ function pushProofExample(
 	});
 }
 
-function detectStrategyProofExamples(candles: CandleRecord[], strategyType: string, maxExamples: number): StrategyProofExample[] {
+function detectStrategyProofExamples(
+	candles: CandleRecord[],
+	strategyType: string,
+	maxExamples: number,
+	zoneWidthPct: number = 0.18,
+	confirmation: string = '',
+): StrategyProofExample[] {
 	if (candles.length < 40) {
 		return [];
 	}
@@ -1162,6 +1387,8 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 	const ranges = candles.map((c) => Math.max(1e-9, c.high - c.low));
 	const avgRange = ranges.reduce((acc, v) => acc + v, 0) / ranges.length;
 	const type = String(strategyType || '').toLowerCase();
+	const confirmationLower = String(confirmation || '').toLowerCase();
+	const requireRejection = confirmationLower.includes('rejection');
 
 	if (type.includes('trend')) {
 		for (let i = 35; i < candles.length && examples.length < maxExamples; i += 8) {
@@ -1175,25 +1402,30 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 				const hi = Math.max(...windowCandles.map((c) => c.high));
 				const lo = Math.min(...windowCandles.map((c) => c.low));
 				const pad = (hi - lo) * 0.18;
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = upward ? 'long' : 'short';
+				const baseOverlays = [
+					{
+						kind: 'channel' as const,
+						label: 'Trend channel',
+						startTs: candles[windowStart].ts,
+						endTs: candles[i].ts,
+						upperStartPrice: hi,
+						upperEndPrice: hi + (upward ? pad : -pad),
+						lowerStartPrice: lo,
+						lowerEndPrice: lo + (upward ? pad : -pad),
+					},
+				];
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					i,
 					'Trend continuation',
-					'Sustained directional closes across the lookback window.',
+					`Sustained directional closes across the lookback window (${direction}).`,
 					0.58 + ratio * 0.35,
-					[
-						{
-							kind: 'channel',
-							label: 'Trend channel',
-							startTs: candles[windowStart].ts,
-							endTs: candles[i].ts,
-							upperStartPrice: hi,
-							upperEndPrice: hi + (upward ? pad : -pad),
-							lowerStartPrice: lo,
-							lowerEndPrice: lo + (upward ? pad : -pad),
-						},
-					],
+					direction,
+					[...baseOverlays, ...slTpOverlays],
 				);
 			}
 		}
@@ -1210,23 +1442,34 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 			const touchesLow = window.filter((c) => c.low <= lo + width * 0.12).length;
 			if (narrow && touchesHigh >= 2 && touchesLow >= 2) {
 				const confidence = 0.52 + Math.min(0.42, ((touchesHigh + touchesLow) / 10));
+				const centerPrice = candles[i].close;
+				const rejectionDir = detectRejectionDirection(candles[i]);
+				if (requireRejection && !rejectionDir) {
+					continue;
+				}
+				const distToHigh = Math.abs(candles[i].close - hi);
+				const distToLow = Math.abs(candles[i].close - lo);
+				const direction: 'long' | 'short' = rejectionDir || (distToHigh < distToLow ? 'short' : 'long');
+				const baseOverlays = [
+					{
+						kind: 'box' as const,
+						label: 'Range box',
+						startTs: window[0].ts,
+						endTs: window[window.length - 1].ts,
+						low: lo,
+						high: hi,
+					},
+				];
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					i,
 					'Range containment',
-					'Price repeatedly tests upper and lower boundaries without expansion.',
+					`Price repeatedly tests boundaries and aligns with ${direction} rejection context.`,
 					confidence,
-					[
-						{
-							kind: 'box',
-							label: 'Range box',
-							startTs: window[0].ts,
-							endTs: window[window.length - 1].ts,
-							low: lo,
-							high: hi,
-						},
-					],
+					direction,
+					[...baseOverlays, ...slTpOverlays],
 				);
 			}
 		}
@@ -1242,17 +1485,22 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 			if (breakoutUp || breakoutDown) {
 				const boundary = breakoutUp ? maxPrev : minPrev;
 				const impulse = Math.abs(candles[i].close - boundary) / Math.max(1e-9, avgRange);
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = breakoutUp ? 'long' : 'short';
+				const baseOverlays = [
+					{ kind: 'hline' as const, label: 'Breakout boundary', price: boundary },
+					{ kind: 'vline' as const, label: 'Break candle', ts: candles[i].ts },
+				];
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					i,
 					'Breakout trigger',
-					'Close breaches the prior consolidation boundary.',
+					`Close breaches the prior consolidation boundary (${direction} breakout).`,
 					0.55 + Math.min(0.38, impulse * 0.12),
-					[
-						{ kind: 'hline', label: 'Breakout boundary', price: boundary },
-						{ kind: 'vline', label: 'Break candle', ts: candles[i].ts },
-					],
+					direction,
+					[...baseOverlays, ...slTpOverlays],
 				);
 			}
 		}
@@ -1265,13 +1513,24 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 			const range = Math.max(1e-9, c.high - c.low);
 			const nextMove = Math.abs(candles[Math.min(candles.length - 1, i + 1)].close - c.close);
 			if (body / range < 0.45 && nextMove > avgRange * 0.55) {
+				const centerPrice = candles[i].close;
+				const rejectionDir = detectRejectionDirection(candles[i]);
+				if (requireRejection && !rejectionDir) {
+					continue;
+				}
+				const direction: 'long' | 'short' = rejectionDir || inferDirectionFromFollowThrough(candles, i);
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					i,
 					'Scalp micro-move',
-					'Short-duration setup with small body and fast follow-through.',
+					requireRejection
+						? `Rejection candle confirms a ${direction} scalp setup with follow-through.`
+						: `Short-duration setup with ${direction} follow-through.`,
 					0.5 + Math.min(0.4, (nextMove / Math.max(1e-9, avgRange)) * 0.08),
+					direction,
+					slTpOverlays,
 				);
 			}
 		}
@@ -1282,7 +1541,10 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 			const lo = candles.slice(i - 3, i + 4).every((c) => candles[i].low <= c.low);
 			const hi = candles.slice(i - 3, i + 4).every((c) => candles[i].high >= c.high);
 			if (lo || hi) {
-				pushProofExample(examples, candles, i, 'Swing pivot', 'Local pivot marks a potential multi-bar correction swing.', 0.66);
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = lo ? 'long' : 'short';
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
+				pushProofExample(examples, candles, i, 'Swing pivot', `Local pivot marks a potential ${direction} swing correction.`, 0.66, direction, slTpOverlays);
 			}
 		}
 	}
@@ -1292,7 +1554,10 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 			const longUp = isTrendWindow(candles, i - 80, i, 'up');
 			const longDown = isTrendWindow(candles, i - 80, i, 'down');
 			if (longUp || longDown) {
-				pushProofExample(examples, candles, i, 'Position trend leg', 'Extended directional leg consistent with position-style holding periods.', 0.72);
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = longUp ? 'long' : 'short';
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
+				pushProofExample(examples, candles, i, 'Position trend leg', `Extended ${direction} leg consistent with position holding periods.`, 0.72, direction, slTpOverlays);
 			}
 		}
 	}
@@ -1301,7 +1566,10 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 		for (let i = 1; i < candles.length && examples.length < maxExamples; i += 3) {
 			const ratio = (candles[i].high - candles[i].low) / Math.max(1e-9, avgRange);
 			if (ratio >= 2.8) {
-				pushProofExample(examples, candles, i, 'Volatility spike', 'Unusually large expansion bar consistent with event-driven volatility.', 0.56 + Math.min(0.36, ratio * 0.08));
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = Number(candles[i].close) >= Number(candles[i].open) ? 'long' : 'short';
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
+				pushProofExample(examples, candles, i, 'Volatility spike', `Expansion bar consistent with event-driven ${direction} volatility.`, 0.56 + Math.min(0.36, ratio * 0.08), direction, slTpOverlays);
 			}
 		}
 	}
@@ -1310,16 +1578,21 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 		for (let i = 1; i < candles.length && examples.length < maxExamples; i += 2) {
 			const gap = Math.abs(candles[i].open - candles[i - 1].close);
 			if (gap >= avgRange * 0.8) {
+				const centerPrice = candles[i].close;
+				const direction: 'long' | 'short' = Number(candles[i].open) >= Number(candles[i - 1].close) ? 'long' : 'short';
+				const baseOverlays = [
+					{ kind: 'vline' as const, label: 'Gap candle', ts: candles[i].ts },
+				];
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					i,
 					'Gap setup',
-					'Session transition opens away from prior close by a significant distance.',
+					`Session transition opens away from prior close, favoring ${direction} continuation.`,
 					0.54 + Math.min(0.38, (gap / Math.max(1e-9, avgRange)) * 0.1),
-					[
-						{ kind: 'vline', label: 'Gap candle', ts: candles[i].ts },
-					],
+					direction,
+					[...baseOverlays, ...slTpOverlays],
 				);
 			}
 		}
@@ -1341,27 +1614,36 @@ function detectStrategyProofExamples(candles: CandleRecord[], strategyType: stri
 				}
 			}
 			if (bestIdx >= 0) {
-				const proximity = 1 - Math.min(1, bestDist / Math.max(1e-9, width * 4));
+				const proximity = 1 - Math.min(1, bestDist / Math.max(1e-9, avgRange * 4));
 				const strengthScore = Math.min(0.30, zone.strength / 25);
 				const confidence = 0.48 + strengthScore + proximity * 0.20;
+				const centerPrice = candles[bestIdx].close;
+				const direction: 'long' | 'short' = zone.kind === 'support' ? 'long' : 'short';
+				const baseOverlays = [
+					{ kind: 'hline' as const, label: `${zone.kind} center`, price: zone.center },
+					{ kind: 'box' as const, label: `${zone.kind} zone`, startTs: candles[Math.max(0, bestIdx - 20)].ts, endTs: candles[Math.min(candles.length - 1, bestIdx + 20)].ts, low: zone.low, high: zone.high },
+				];
+				const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
 				pushProofExample(
 					examples,
 					candles,
 					bestIdx,
 					zone.kind === 'support' ? 'Support reaction' : 'Resistance reaction',
-					`Price action clusters around a ${zone.kind} zone with strength score ${zone.strength}.`,
+					`Price clusters around a ${zone.kind} zone, supporting a ${direction} reaction setup.`,
 					confidence,
-					[
-						{ kind: 'hline', label: `${zone.kind} center`, price: zone.center },
-						{ kind: 'box', label: `${zone.kind} zone`, startTs: candles[Math.max(0, bestIdx - 20)].ts, endTs: candles[Math.min(candles.length - 1, bestIdx + 20)].ts, low: zone.low, high: zone.high },
-					],
+					direction,
+					[...baseOverlays, ...slTpOverlays],
 				);
 			}
 		}
 	}
 
 	if (!examples.length) {
-		pushProofExample(examples, candles, candles.length - 1, 'Recent context', 'No strong pattern sample found; showing latest structure window for review.', 0.45);
+		const lastCandle = candles[candles.length - 1];
+		const centerPrice = lastCandle.close;
+		const direction: 'long' | 'short' = Number(lastCandle.close) >= Number(lastCandle.open) ? 'long' : 'short';
+		const slTpOverlays = calculateEntrySlTpOverlays(centerPrice, zoneWidthPct, direction);
+		pushProofExample(examples, candles, candles.length - 1, 'Recent context', 'No strong pattern sample found; showing latest structure window for review.', 0.45, direction, slTpOverlays);
 	}
 
 	examples.sort((a, b) => b.confidence - a.confidence);
@@ -1385,7 +1667,9 @@ function buildStrategyConfig(
 		name: recognition.name,
 		market: recognition.market,
 		execution: {
+			entryTimeframe: recognition.primaryTimeframe,
 			primaryTimeframe: recognition.primaryTimeframe,
+			tradeHorizonTimeframe: recognition.tradeHorizonTimeframe,
 			engineInterval: mapTfToEngineInterval(recognition.primaryTimeframe),
 			timeframes: recognition.timeframes,
 			bias: recognition.bias,
@@ -1530,11 +1814,23 @@ function timeframeToMinutes(tf: string): number {
 	if (tf === '15m') {
 		return 15;
 	}
+	if (tf === '30m') {
+		return 30;
+	}
 	if (tf === '1h') {
 		return 60;
 	}
 	if (tf === '4h') {
 		return 240;
+	}
+	if (tf === '1d') {
+		return 1440;
+	}
+	if (tf === '1w') {
+		return 10080;
+	}
+	if (tf === '1mo') {
+		return 43200;
 	}
 	throw new Error(`Unsupported timeframe: ${tf}`);
 }
@@ -2109,6 +2405,7 @@ app.post('/platform/strategy-lab/recognize', (req: Request, res: Response): void
 			templateName: String(req.body?.templateName || 'Structured Rule Strategy'),
 			market: String(req.body?.market || 'BTCUSD'),
 			primaryTimeframe: String(req.body?.primaryTimeframe || 'H4'),
+			tradeHorizonTimeframe: String(req.body?.tradeHorizonTimeframe || req.body?.primaryTimeframe || 'H4'),
 			riskPerTradePct: toNumber(req.body?.riskPerTradePct, 0.5),
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
@@ -2136,6 +2433,7 @@ app.post('/platform/strategy-lab/proof', (req: Request, res: Response): void => 
 			templateName: String(req.body?.templateName || 'Structured Rule Strategy'),
 			market: String(req.body?.market || 'BTCUSD'),
 			primaryTimeframe: String(req.body?.primaryTimeframe || 'H1'),
+			tradeHorizonTimeframe: String(req.body?.tradeHorizonTimeframe || req.body?.primaryTimeframe || 'H1'),
 			riskPerTradePct: toNumber(req.body?.riskPerTradePct, 0.5),
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
@@ -2151,7 +2449,13 @@ app.post('/platform/strategy-lab/proof', (req: Request, res: Response): void => 
 		const selectedFile = resolveStrategyDataFile(normalizedInput.market, normalizedInput.dataFile || '');
 		const candles = getCandles(selectedFile, proofTimeframe);
 		const maxExamples = Math.max(1, Math.min(6, parsePositiveInt(req.body?.maxExamples, 3)));
-		const examples = detectStrategyProofExamples(candles, recognition.strategyType, maxExamples);
+		const examples = detectStrategyProofExamples(
+			candles,
+			recognition.strategyType,
+			maxExamples,
+			normalizedInput.zoneWidthPct || 0.18,
+			normalizedInput.confirmation,
+		);
 
 		res.json({
 			ok: true,
@@ -2167,6 +2471,7 @@ app.post('/platform/strategy-lab/proof', (req: Request, res: Response): void => 
 					zoneWidthPct: normalizedInput.zoneWidthPct,
 					minTouches: normalizedInput.minTouches,
 					confirmation: normalizedInput.confirmation,
+					tradeHorizonTimeframe: normalizedInput.tradeHorizonTimeframe,
 				},
 				exampleCount: examples.length,
 				examples,
@@ -2198,6 +2503,7 @@ app.post('/platform/strategy-lab/confirm', (req: Request, res: Response): void =
 			templateName: String(req.body?.templateName || 'Structured Rule Strategy'),
 			market: String(req.body?.market || 'BTCUSD'),
 			primaryTimeframe: String(req.body?.primaryTimeframe || 'H4'),
+			tradeHorizonTimeframe: String(req.body?.tradeHorizonTimeframe || req.body?.primaryTimeframe || 'H4'),
 			riskPerTradePct: toNumber(req.body?.riskPerTradePct, 0.5),
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches, 2)),
@@ -2260,7 +2566,8 @@ app.post('/platform/strategy-lab/backtest-request', (req: Request, res: Response
 				strategyName: strategy.recognition.name,
 				strategyType: strategy.recognition.strategyType,
 				market: strategy.recognition.market,
-				primaryTimeframe: strategy.recognition.primaryTimeframe,
+				entryTimeframe: strategy.recognition.primaryTimeframe,
+				tradeHorizonTimeframe: strategy.recognition.tradeHorizonTimeframe || strategy.recognition.primaryTimeframe,
 				capital,
 				risk,
 				interval,
@@ -2313,6 +2620,8 @@ app.post('/platform/strategy-lab/backtest-request', (req: Request, res: Response
 					capital,
 					risk,
 					skipPlots,
+					entryTimeframe: strategy.recognition.primaryTimeframe,
+					tradeHorizonTimeframe: strategy.recognition.tradeHorizonTimeframe || strategy.recognition.primaryTimeframe,
 				},
 			},
 		});
@@ -2400,11 +2709,13 @@ app.post('/platform/strategy-lab/runs/:id/start', (req: Request, res: Response):
 app.get('/platform/candles', (req: Request, res: Response): void => {
 	try {
 		const symbol = String(req.query.symbol || 'XAUUSD').toUpperCase();
-		const timeframe = String(req.query.timeframe || '15m');
+		const timeframe = String(req.query.timeframe || '15m').toLowerCase();
 		const maxPoints = parsePositiveInt(req.query.maxPoints, 5000);
 
 		const userDataFile = typeof req.query.dataFile === 'string' ? req.query.dataFile : '';
-		const selectedFile = resolveStrategyDataFile(symbol, userDataFile);
+		const selectedFile = userDataFile
+			? resolveStrategyDataFile(symbol, userDataFile)
+			: resolveMarketTimeframeFile(symbol, timeframe);
 
 		const candles = getCandles(selectedFile, timeframe);
 		const fromMs = parseDateToMs(req.query.from);
@@ -2485,6 +2796,80 @@ app.get('/platform/zones', (req: Request, res: Response): void => {
 		});
 	} catch (error) {
 		res.status(400).json({ error: (error as Error).message });
+	}
+});
+
+app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): Promise<void> => {
+	try {
+		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
+		const capital = toNumber(req.body?.capital, 5_000);
+		const scenario = String(req.body?.scenario || 'ALL').toUpperCase();
+
+		const dataFiles = {
+			m1: resolveMarketTimeframeFile(symbol, '1m'),
+			m5: resolveMarketTimeframeFile(symbol, '5m'),
+			h1: resolveMarketTimeframeFile(symbol, '1h'),
+			h4: resolveMarketTimeframeFile(symbol, '4h'),
+		};
+
+		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
+		const scriptPath = path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py');
+		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, 'phantom-v2-validate-'));
+
+		const args = [
+			'-u',
+			scriptPath,
+			'--m1', dataFiles.m1,
+			'--m5', dataFiles.m5,
+			'--h1', dataFiles.h1,
+			'--h4', dataFiles.h4,
+			'--scenario', scenario,
+			'--capital', String(capital),
+		];
+
+		const stdout = await new Promise<string>((resolve, reject) => {
+			const proc = spawn(pythonExec, args, {
+				cwd: workingDir,
+				env: { ...process.env, PYTHONUNBUFFERED: '1' },
+			});
+
+			let output = '';
+			let errorOutput = '';
+
+			proc.stdout.on('data', (chunk) => {
+				output += chunk.toString();
+			});
+			proc.stderr.on('data', (chunk) => {
+				errorOutput += chunk.toString();
+			});
+			proc.on('error', reject);
+			proc.on('close', (code) => {
+				if (code !== 0) {
+					reject(new Error(errorOutput || output || `PHANTOM v2 validation exited with code ${code}`));
+					return;
+				}
+				resolve(`${output}\n${errorOutput}`.trim());
+			});
+		});
+
+		const summaries = parsePhantomV2ValidationOutput(stdout);
+		const best = pickBestPhantomV2Summary(summaries);
+		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries);
+
+		res.json({
+			ok: true,
+			symbol,
+			capital,
+			scenario,
+			dataFiles,
+			workingDir,
+			summaries,
+			best,
+			curveData,
+			stdout,
+		});
+	} catch (error) {
+		res.status(500).json({ error: (error as Error).message });
 	}
 });
 
@@ -2742,6 +3127,7 @@ app.post('/platform/strategy-lab/import', (req: Request, res: Response): void =>
 			templateName: String(req.body?.templateName || parsedTemplate?.name || parsedTemplate?.strategyName || 'Imported Strategy'),
 			market: String(req.body?.market || parsedTemplate?.market || 'BTCUSD'),
 			primaryTimeframe: String(req.body?.primaryTimeframe || parsedTemplate?.primaryTimeframe || parsedTemplate?.timeframe || 'H4'),
+			tradeHorizonTimeframe: String(req.body?.tradeHorizonTimeframe || parsedTemplate?.tradeHorizonTimeframe || parsedTemplate?.executionTimeframe || parsedTemplate?.primaryTimeframe || parsedTemplate?.timeframe || 'H4'),
 			riskPerTradePct: toNumber(req.body?.riskPerTradePct ?? parsedTemplate?.riskPerTradePct ?? parsedTemplate?.riskPct, 0.5),
 			zoneWidthPct: toNumber(req.body?.zoneWidthPct ?? parsedTemplate?.zoneWidthPct, 0.18),
 			minTouches: Math.max(1, parsePositiveInt(req.body?.minTouches ?? parsedTemplate?.minTouches, 2)),

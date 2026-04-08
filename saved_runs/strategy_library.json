@@ -1,5 +1,1486 @@
 [
   {
+    "id": "strategy_1775331386471_nock7g36",
+    "createdAt": "2026-04-04T19:36:26.471Z",
+    "updatedAt": "2026-04-04T19:36:26.471Z",
+    "status": "confirmed",
+    "theoryText": "Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Scalping",
+      "confidence": 0.81,
+      "confidenceBand": "high",
+      "market": "XAUUSD",
+      "primaryTimeframe": "M1",
+      "tradeHorizonTimeframe": "M30",
+      "timeframes": [
+        "M1"
+      ],
+      "sessions": [
+        "London",
+        "New York"
+      ],
+      "indicators": [],
+      "entryStyle": "Momentum close",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "short",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "short",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Scalping",
+          "entryStyle": "Momentum close",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [
+            "London",
+            "New York"
+          ],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T19:36:26.471Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "entryTimeframe": "M1",
+        "primaryTimeframe": "M1",
+        "tradeHorizonTimeframe": "M30",
+        "engineInterval": "1m",
+        "timeframes": [
+          "M1"
+        ],
+        "bias": "short",
+        "sessions": [
+          "London",
+          "New York"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Momentum close",
+        "confirmation": "Rejection candle",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Scalping",
+        "confidence": 0.81,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775330829470_ln1wxor1",
+    "createdAt": "2026-04-04T19:27:09.470Z",
+    "updatedAt": "2026-04-04T19:27:09.470Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance breakout retest on H1 with ATR stop and 2R target in London session.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Breakout",
+      "confidence": 0.9400000000000002,
+      "confidenceBand": "high",
+      "market": "US100",
+      "primaryTimeframe": "H1",
+      "tradeHorizonTimeframe": "H1",
+      "timeframes": [
+        "H1"
+      ],
+      "sessions": [
+        "London"
+      ],
+      "indicators": [
+        "ATR"
+      ],
+      "entryStyle": "Break and retest",
+      "stopStyle": "ATR based",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "confirmation": "Break and retest",
+        "riskPerTradePct": 0.4,
+        "entryBias": "trade momentum continuation",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Breakout",
+          "entryStyle": "Break and retest",
+          "stopStyle": "ATR based",
+          "targetStyle": "R multiple target",
+          "sessions": [
+            "London"
+          ],
+          "indicators": [
+            "ATR"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T19:27:09.470Z",
+      "name": "Structured Rule Strategy",
+      "market": "US100",
+      "execution": {
+        "entryTimeframe": "H1",
+        "primaryTimeframe": "H1",
+        "tradeHorizonTimeframe": "H1",
+        "engineInterval": "1h",
+        "timeframes": [
+          "H1"
+        ],
+        "bias": "both",
+        "sessions": [
+          "London"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.4,
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Break and retest",
+        "confirmation": "Break and retest",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [
+        "ATR"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Breakout",
+        "confidence": 0.9400000000000002,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775330368132_oui3cxik",
+    "createdAt": "2026-04-04T19:19:28.132Z",
+    "updatedAt": "2026-04-04T19:19:28.132Z",
+    "status": "confirmed",
+    "theoryText": "Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Scalping",
+      "confidence": 0.81,
+      "confidenceBand": "high",
+      "market": "XAUUSD",
+      "primaryTimeframe": "M1",
+      "tradeHorizonTimeframe": "M30",
+      "timeframes": [
+        "M1"
+      ],
+      "sessions": [
+        "London",
+        "New York"
+      ],
+      "indicators": [],
+      "entryStyle": "Momentum close",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "short",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "short",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Scalping",
+          "entryStyle": "Momentum close",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [
+            "London",
+            "New York"
+          ],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T19:19:28.132Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "entryTimeframe": "M1",
+        "primaryTimeframe": "M1",
+        "tradeHorizonTimeframe": "M30",
+        "engineInterval": "1m",
+        "timeframes": [
+          "M1"
+        ],
+        "bias": "short",
+        "sessions": [
+          "London",
+          "New York"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Momentum close",
+        "confirmation": "Rejection candle",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Scalping",
+        "confidence": 0.81,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775324744930_i51fxu9b",
+    "createdAt": "2026-04-04T17:45:44.930Z",
+    "updatedAt": "2026-04-04T17:45:44.930Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance breakout retest on H1 with ATR stop and 2R target in London session.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Breakout",
+      "confidence": 0.9400000000000002,
+      "confidenceBand": "high",
+      "market": "US100",
+      "primaryTimeframe": "H1",
+      "timeframes": [
+        "H1"
+      ],
+      "sessions": [
+        "London"
+      ],
+      "indicators": [
+        "ATR"
+      ],
+      "entryStyle": "Break and retest",
+      "stopStyle": "ATR based",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "confirmation": "Break and retest",
+        "riskPerTradePct": 0.4,
+        "entryBias": "trade momentum continuation",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Breakout",
+          "entryStyle": "Break and retest",
+          "stopStyle": "ATR based",
+          "targetStyle": "R multiple target",
+          "sessions": [
+            "London"
+          ],
+          "indicators": [
+            "ATR"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T17:45:44.930Z",
+      "name": "Structured Rule Strategy",
+      "market": "US100",
+      "execution": {
+        "primaryTimeframe": "H1",
+        "engineInterval": "1h",
+        "timeframes": [
+          "H1"
+        ],
+        "bias": "both",
+        "sessions": [
+          "London"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.4,
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Break and retest",
+        "confirmation": "Break and retest",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [
+        "ATR"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Breakout",
+        "confidence": 0.9400000000000002,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775324339155_p6t861w9",
+    "createdAt": "2026-04-04T17:38:59.155Z",
+    "updatedAt": "2026-04-04T17:38:59.155Z",
+    "status": "confirmed",
+    "theoryText": "Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Scalping",
+      "confidence": 0.81,
+      "confidenceBand": "high",
+      "market": "XAUUSD",
+      "primaryTimeframe": "M1",
+      "timeframes": [
+        "M1"
+      ],
+      "sessions": [
+        "London",
+        "New York"
+      ],
+      "indicators": [],
+      "entryStyle": "Momentum close",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "short",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "short",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Scalping",
+          "entryStyle": "Momentum close",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [
+            "London",
+            "New York"
+          ],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T17:38:59.155Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "primaryTimeframe": "M1",
+        "engineInterval": "1m",
+        "timeframes": [
+          "M1"
+        ],
+        "bias": "short",
+        "sessions": [
+          "London",
+          "New York"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Momentum close",
+        "confirmation": "Rejection candle",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Scalping",
+        "confidence": 0.81,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775321858425_wxnmr876",
+    "createdAt": "2026-04-04T16:57:38.425Z",
+    "updatedAt": "2026-04-04T16:57:38.425Z",
+    "status": "confirmed",
+    "theoryText": "Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Scalping",
+      "confidence": 0.81,
+      "confidenceBand": "high",
+      "market": "XAUUSD",
+      "primaryTimeframe": "M1",
+      "timeframes": [
+        "M1"
+      ],
+      "sessions": [
+        "London",
+        "New York"
+      ],
+      "indicators": [],
+      "entryStyle": "Momentum close",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "short",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "short",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Scalping",
+          "entryStyle": "Momentum close",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [
+            "London",
+            "New York"
+          ],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T16:57:38.425Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "primaryTimeframe": "M1",
+        "engineInterval": "1m",
+        "timeframes": [
+          "M1"
+        ],
+        "bias": "short",
+        "sessions": [
+          "London",
+          "New York"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Momentum close",
+        "confirmation": "Rejection candle",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Scalping",
+        "confidence": 0.81,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775316955037_18hg1zx5",
+    "createdAt": "2026-04-04T15:35:55.037Z",
+    "updatedAt": "2026-04-04T15:35:55.037Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance breakout retest on H1 with ATR stop and 2R target in London session.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Breakout",
+      "confidence": 0.9400000000000002,
+      "confidenceBand": "high",
+      "market": "US100",
+      "primaryTimeframe": "H1",
+      "timeframes": [
+        "H1"
+      ],
+      "sessions": [
+        "London"
+      ],
+      "indicators": [
+        "ATR"
+      ],
+      "entryStyle": "Break and retest",
+      "stopStyle": "ATR based",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "confirmation": "Break and retest",
+        "riskPerTradePct": 0.4,
+        "entryBias": "trade momentum continuation",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Breakout",
+          "entryStyle": "Break and retest",
+          "stopStyle": "ATR based",
+          "targetStyle": "R multiple target",
+          "sessions": [
+            "London"
+          ],
+          "indicators": [
+            "ATR"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T15:35:55.037Z",
+      "name": "Structured Rule Strategy",
+      "market": "US100",
+      "execution": {
+        "primaryTimeframe": "H1",
+        "engineInterval": "1h",
+        "timeframes": [
+          "H1"
+        ],
+        "bias": "both",
+        "sessions": [
+          "London"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.4,
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Break and retest",
+        "confirmation": "Break and retest",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [
+        "ATR"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Breakout",
+        "confidence": 0.9400000000000002,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775314590092_khqgko7s",
+    "createdAt": "2026-04-04T14:56:30.092Z",
+    "updatedAt": "2026-04-04T14:56:30.092Z",
+    "status": "confirmed",
+    "theoryText": "Scalping strategy: take very short-term M1 and M5 entries for small frequent profits, execute only during London and New York overlap, use momentum close confirmation, fixed tight stop and quick exits.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Scalping",
+      "confidence": 0.81,
+      "confidenceBand": "high",
+      "market": "XAUUSD",
+      "primaryTimeframe": "M5",
+      "timeframes": [
+        "M5"
+      ],
+      "sessions": [
+        "London",
+        "New York"
+      ],
+      "indicators": [],
+      "entryStyle": "Momentum close",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "short",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle, Volume spike",
+        "riskPerTradePct": 0.5,
+        "entryBias": "short",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Scalping",
+          "entryStyle": "Momentum close",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [
+            "London",
+            "New York"
+          ],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-04T14:56:30.092Z",
+      "name": "Structured Rule Strategy",
+      "market": "XAUUSD",
+      "execution": {
+        "primaryTimeframe": "M5",
+        "engineInterval": "5m",
+        "timeframes": [
+          "M5"
+        ],
+        "bias": "short",
+        "sessions": [
+          "London",
+          "New York"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Momentum close",
+        "confirmation": "Rejection candle, Volume spike",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Scalping",
+        "confidence": 0.81,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Scalping.",
+        "Entry style: Momentum close.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias: short.",
+        "Trading sessions: London, New York.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775214128138_mubzc4qp",
+    "createdAt": "2026-04-03T11:02:08.138Z",
+    "updatedAt": "2026-04-03T11:02:08.138Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance breakout retest on H1 with ATR stop and 2R target in London session.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Breakout",
+      "confidence": 0.9400000000000002,
+      "confidenceBand": "high",
+      "market": "US100",
+      "primaryTimeframe": "H1",
+      "timeframes": [
+        "H1"
+      ],
+      "sessions": [
+        "London"
+      ],
+      "indicators": [
+        "ATR"
+      ],
+      "entryStyle": "Break and retest",
+      "stopStyle": "ATR based",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "confirmation": "Break and retest",
+        "riskPerTradePct": 0.4,
+        "entryBias": "trade momentum continuation",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Breakout",
+          "entryStyle": "Break and retest",
+          "stopStyle": "ATR based",
+          "targetStyle": "R multiple target",
+          "sessions": [
+            "London"
+          ],
+          "indicators": [
+            "ATR"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-03T11:02:08.138Z",
+      "name": "Structured Rule Strategy",
+      "market": "US100",
+      "execution": {
+        "primaryTimeframe": "H1",
+        "engineInterval": "1h",
+        "timeframes": [
+          "H1"
+        ],
+        "bias": "both",
+        "sessions": [
+          "London"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.4,
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Break and retest",
+        "confirmation": "Break and retest",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [
+        "ATR"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Breakout",
+        "confidence": 0.9400000000000002,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775213996074_xcp9iz5w",
+    "createdAt": "2026-04-03T10:59:56.074Z",
+    "updatedAt": "2026-04-03T10:59:56.074Z",
+    "status": "confirmed",
+    "theoryText": "Swing trading strategy: capture multi-day price swings from H4 pivots in trend direction, enter on H1 correction completion, stop below recent swing, target next structural level over days to weeks.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Swing Trading",
+      "confidence": 0.6900000000000001,
+      "confidenceBand": "medium",
+      "market": "EURUSD",
+      "primaryTimeframe": "H4",
+      "timeframes": [
+        "H4"
+      ],
+      "sessions": [],
+      "indicators": [],
+      "entryStyle": "Rule confirmation",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "neutral",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.2,
+        "minTouches": 1,
+        "confirmation": "Volume spike",
+        "riskPerTradePct": 0.6,
+        "entryBias": "neutral",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Swing Trading",
+          "entryStyle": "Rule confirmation",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Swing Trading.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias not explicit; treat as neutral unless validated.",
+        "No session constraint detected.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-03T10:59:56.074Z",
+      "name": "Structured Rule Strategy",
+      "market": "EURUSD",
+      "execution": {
+        "primaryTimeframe": "H4",
+        "engineInterval": "4h",
+        "timeframes": [
+          "H4"
+        ],
+        "bias": "neutral",
+        "sessions": []
+      },
+      "risk": {
+        "riskPerTradePct": 0.6,
+        "zoneWidthPct": 0.2,
+        "minTouches": 1,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Rule confirmation",
+        "confirmation": "Volume spike",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Swing Trading",
+        "confidence": 0.6900000000000001,
+        "confidenceBand": "medium",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Swing Trading.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias not explicit; treat as neutral unless validated.",
+        "No session constraint detected.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775213569929_10g6bbdz",
+    "createdAt": "2026-04-03T10:52:49.929Z",
+    "updatedAt": "2026-04-03T10:52:49.929Z",
+    "status": "confirmed",
+    "theoryText": "Swing trading strategy: capture multi-day price swings from H4 pivots in trend direction, enter on H1 correction completion, stop below recent swing, target next structural level over days to weeks.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Swing Trading",
+      "confidence": 0.6900000000000001,
+      "confidenceBand": "medium",
+      "market": "BTCUSD",
+      "primaryTimeframe": "H4",
+      "timeframes": [
+        "H4"
+      ],
+      "sessions": [],
+      "indicators": [],
+      "entryStyle": "Rule confirmation",
+      "stopStyle": "Structural stop",
+      "targetStyle": "Fixed profit target",
+      "bias": "neutral",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "confirmation": "Volume spike",
+        "riskPerTradePct": 0.5,
+        "entryBias": "neutral",
+        "invalidation": "hard invalidation on rule break",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Swing Trading",
+          "entryStyle": "Rule confirmation",
+          "stopStyle": "Structural stop",
+          "targetStyle": "Fixed profit target",
+          "sessions": [],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Swing Trading.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias not explicit; treat as neutral unless validated.",
+        "No session constraint detected.",
+        "No indicator dependency detected."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-03T10:52:49.929Z",
+      "name": "Structured Rule Strategy",
+      "market": "BTCUSD",
+      "execution": {
+        "primaryTimeframe": "H4",
+        "engineInterval": "4h",
+        "timeframes": [
+          "H4"
+        ],
+        "bias": "neutral",
+        "sessions": []
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 1,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Rule confirmation",
+        "confirmation": "Volume spike",
+        "invalidation": "hard invalidation on rule break"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Swing Trading",
+        "confidence": 0.6900000000000001,
+        "confidenceBand": "medium",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Swing Trading.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: Fixed profit target.",
+        "Directional bias not explicit; treat as neutral unless validated.",
+        "No session constraint detected.",
+        "No indicator dependency detected."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775205382553_vw39exec",
+    "createdAt": "2026-04-03T08:36:22.553Z",
+    "updatedAt": "2026-04-03T08:36:22.553Z",
+    "status": "confirmed",
+    "theoryText": "\"\"\" PHANTOM v5.1 — Multi-Timeframe US100 Backtest Engine ===================================================== Scenarios D : M5 entry | risk=0.40% | score≥3 | no timeout B : M5 entry | risk=0.70% | score≥3 | no timeout A : M1 entry | risk=0.35% | score≥5 | vol filter | no timeout Changes vs v5.0 • D: risk_pct 0.70% → 0.40% (DD was -17%, now -3%) • B: timeout removed (65% of trades were timing out) • A: score threshold 4→5, volume filter added, M1 low-TF score ≥2 Usage python phantom_v5_1.py --m1 path/M1.csv --m5 path/M5.csv \\ --h1 path/H1.csv --h4 path/H4.csv \\ [--scenario D] [--capital 10000] \"\"\" import argparse import os import sys import warnings import numpy as np import pandas as pd warnings.filterwarnings('ignore') # ══════════════════════════════════════════════════════════════════════════════ # CONFIG — edit these or pass via CLI # ══════════════════════════════════════════════════════════════════════════════ DEFAULTS = { 'capital' : 10_000, 'max_concurrent': 2, 'cooldown_min' : 20, 'lockout_min' : 60, 'conf_tol' : 0.002, # 0.20% zone proximity 'h4_pivot_bars' : 2, # pivot detection: n bars each side 'h4_lookback' : 50, # how many H4 bars back to scan for zones } SCENARIOS = { 'D': dict( entry_tf = 'm5', risk_pct = 0.004, atr_stop = 1.8, atr_trail = 0.8, score_min = 3, h4_min = 1, h1_min = 1, ltf_min = 1, ltf_cap = 3, vol_filter = False, timeout_bars= None, ), 'B': dict( entry_tf = 'm5', risk_pct = 0.007, atr_stop = 1.8, atr_trail = 0.8, score_min = 3, h4_min = 1, h1_min = 1, ltf_min = 1, ltf_cap = 3, vol_filter = False, timeout_bars= None, ), 'A': dict( entry_tf = 'm1', risk_pct = 0.0035, atr_stop = 1.35, atr_trail = 0.9, score_min = 5, h4_min = 1, h1_min = 1, ltf_min = 2, # M1 must score ≥2 ltf_cap = 3, vol_filter = True, timeout_bars= None, ), } # ══════════════════════════════════════════════════════════════════════════════ # DATA LOADING # ══════════════════════════════════════════════════════════════════════════════ def load_csv(path: str) -> pd.DataFrame: \"\"\"Load MetaTrader-style tab-separated OHLCV file.\"\"\" df = pd.read_csv(path, sep='\\t', header=0) df.columns = [c.strip('<>').lower() for c in df.columns] df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time']) df = df.set_index('datetime').sort_index() for col in ['open', 'high', 'low', 'close', 'tickvol']: if col in df.columns: df[col] = pd.to_numeric(df[col], errors='coerce') df.dropna(subset=['open', 'high', 'low', 'close'], inplace=True) return df # ══════════════════════════════════════════════════════════════════════════════ # INDICATORS # ══════════════════════════════════════════════════════════════════════════════ def calc_atr(df: pd.DataFrame, n: int = 14) -> pd.Series: h, l, c = df['high'], df['low'], df['close'] tr = pd.concat( [h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1 ).max(axis=1) return tr.ewm(span=n, adjust=False).mean() def calc_ema(s: pd.Series, n: int) -> pd.Series: return s.ewm(span=n, adjust=False).mean() def calc_rsi(s: pd.Series, n: int = 14) -> pd.Series: d = s.diff() g = d.clip(lower=0).ewm(span=n, adjust=False).mean() ls = (-d).clip(lower=0).ewm(span=n, adjust=False).mean() return 100 - 100 / (1 + g / ls.replace(0, np.nan)) def add_indicators(df: pd.DataFrame) -> pd.DataFrame: df['atr'] = calc_atr(df) df['ema20'] = calc_ema(df['close'], 20) df['ema50'] = calc_ema(df['close'], 50) df['rsi'] = calc_rsi(df['close']) df['vol_ma'] = df['tickvol'].rolling(20).mean() return df # ══════════════════════════════════════════════════════════════════════════════ # FAST LOOKUP HELPERS # ══════════════════════════════════════════════════════════════════════════════ def fast_val(idx_arr: np.ndarray, vals: np.ndarray, ts) -> float: i = np.searchsorted(idx_arr, ts, side='right') - 1 return float(vals[i]) if i >= 0 else np.nan def score_tf(idx_arr, c_arr, e20_arr, e50_arr, rsi_arr, ts, direction: str) -> int: \"\"\"Score 0–3 for a single timeframe.\"\"\" i = np.searchsorted(idx_arr, ts, side='right') - 1 if i < 0: return 0 c, e20, e50, rv = c_arr[i], e20_arr[i], e50_arr[i], rsi_arr[i] if np.isnan(c) or np.isnan(e20) or np.isnan(e50): return 0 s = 0 if direction == 'long': if c > e20: s += 1 if e20 > e50: s += 1 if not np.isnan(rv) and rv > 50: s += 1 else: if c < e20: s += 1 if e20 < e50: s += 1 if not np.isnan(rv) and rv < 50: s += 1 return s # ══════════════════════════════════════════════════════════════════════════════ # H4 PIVOT ZONE BUILDER # ══════════════════════════════════════════════════════════════════════════════ def build_h4_zones(h4: pd.DataFrame, n: int = 2): \"\"\"Return arrays of (timestamp, price) for H4 swing highs and lows.\"\"\" highs = h4['high'].values lows = h4['low'].values idx = h4.index.values ts_list, px_list = [], [] for i in range(n, len(h4) - n): if highs[i] == max(highs[i-n:i+n+1]): ts_list.append(idx[i]); px_list.append(highs[i]) if lows[i] == min(lows[i-n:i+n+1]): ts_list.append(idx[i]); px_list.append(lows[i]) return np.array(ts_list), np.array(px_list) def get_nearby_zone(price: float, ts, zone_ts, zone_px, tol: float = 0.002, lookback: int = 50): \"\"\"Return (zone_price, direction) or (None, None).\"\"\" i_max = np.searchsorted(zone_ts, ts, side='right') start = max(0, i_max - lookback) sub = zone_px[start:i_max] if len(sub) == 0: return None, None diffs = np.abs(sub - price) / price best = int(np.argmin(diffs)) if diffs[best] < tol: z_price = sub[best] z_dir = 'long' if price <= z_price else 'short' return z_price, z_dir return None, None # ══════════════════════════════════════════════════════════════════════════════ # BACKTEST ENGINE # ══════════════════════════════════════════════════════════════════════════════ def run_scenario( candles: pd.DataFrame, h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr, h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, m5_idx, m5_c, m5_e20, m5_e50, m5_rsi, m5_vol, m5_vol_ma, m1_idx, m1_c, m1_e20, m1_e50, m1_rsi, zone_ts, zone_px, cfg: dict, capital: float = 10_000, max_concurrent: int = 2, cooldown_min: int = 20, lockout_min: int = 60, conf_tol: float = 0.002, label: str = '', ) -> pd.DataFrame: risk_pct = cfg['risk_pct'] atr_stop = cfg['atr_stop'] atr_trail = cfg['atr_trail'] score_min = cfg['score_min'] h4_min = cfg['h4_min'] h1_min = cfg['h1_min'] ltf_min = cfg['ltf_min'] ltf_cap = cfg['ltf_cap'] vol_filter = cfg['vol_filter'] timeout_bars = cfg['timeout_bars'] use_m1 = cfg['entry_tf'] == 'm1' c_idx = candles.index.values c_c = candles['close'].values c_h = candles['high'].values c_l = candles['low'].values positions = [] zone_lock = {} last_loss_ts = np.datetime64('2000-01-01') results = [] skipped = {k: 0 for k in ['max_concurrent','cooldown','zone_lock','score','no_atr','no_zone']} for bar_i in range(len(candles)): ts = c_idx[bar_i] price = c_c[bar_i] hi = c_h[bar_i] lo = c_l[bar_i] # ── manage open positions ────────────────────────────────────────── still_open = [] for p in positions: hit_stop = hit_tp = False if p['dir'] == 'long': new_trail = price - atr_trail * p['atr_e'] p['stop'] = max(p['stop'], new_trail) if lo <= p['stop']: hit_stop = True if hi >= p['tp']: hit_tp = True else: new_trail = price + atr_trail * p['atr_e'] p['stop'] = min(p['stop'], new_trail) if hi >= p['stop']: hit_stop = True if lo <= p['tp']: hit_tp = True if timeout_bars and (bar_i - p['bar_i']) >= timeout_bars: hit_stop = True if hit_tp or hit_stop: exit_px = p['tp'] if hit_tp else p['stop'] pnl = ((exit_px - p['entry']) * p['qty'] if p['dir'] == 'long' else (p['entry'] - exit_px) * p['qty']) capital += pnl win = pnl > 0 if not win: last_loss_ts = ts reason = ('tp' if hit_tp else ('timeout' if timeout_bars and (bar_i - p['bar_i']) >= timeout_bars else 'stop')) results.append({ 'entry_ts' : p['entry_ts'], 'exit_ts' : ts, 'dir' : p['dir'], 'entry' : p['entry'], 'exit' : exit_px, 'pnl' : pnl, 'win' : win, 'exit_reason': reason, 'qty' : p['qty'], }) else: still_open.append(p) positions = still_open # ── entry gate checks ───────────────────────────────────────────── if len(positions) >= max_concurrent: skipped['max_concurrent'] += 1; continue try: cd = float((ts - last_loss_ts) / np.timedelta64(1, 'm')) except Exception: cd = 9999 if cd < cooldown_min: skipped['cooldown'] += 1; continue atr_h4_v = fast_val(h4_idx, h4_atr_arr, ts) if np.isnan(atr_h4_v) or atr_h4_v <= 0: skipped['no_atr'] += 1; continue near_z, z_dir = get_nearby_zone(price, ts, zone_ts, zone_px, tol=conf_tol) if near_z is None: skipped['no_zone'] += 1; continue lock_key = (round(near_z, 0), z_dir) if lock_key in zone_lock: try: mins_locked = float((ts - zone_lock[lock_key]) / np.timedelta64(1, 'm')) except Exception: mins_locked = 9999 if mins_locked < 0: skipped['zone_lock'] += 1; continue # ── multi-TF score ──────────────────────────────────────────────── s_h4 = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir) s_h1 = score_tf(h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, ts, z_dir) s_m5 = score_tf(m5_idx, m5_c, m5_e20, m5_e50, m5_rsi, ts, z_dir) s_m1 = min( score_tf(m1_idx, m1_c, m1_e20, m1_e50, m1_rsi, ts, z_dir), ltf_cap ) ltf_score = s_m1 if use_m1 else s_m5 # Volume filter (M5 vol vs 20-bar MA) if vol_filter: i_m5 = int(np.searchsorted(m5_idx, ts, side='right')) - 1 if i_m5 >= 0: vol_now = m5_vol[i_m5] vol_ma_v = m5_vol_ma[i_m5] if not np.isnan(vol_ma_v) and vol_now < 0.8 * vol_ma_v: skipped['score'] += 1; continue total = s_h4 + s_h1 + ltf_score if total < score_min or s_h4 < h4_min or s_h1 < h1_min or ltf_score < ltf_min: skipped['score'] += 1; continue # ── size & enter ────────────────────────────────────────────────── stop_dist = atr_stop * atr_h4_v risk_amt = capital * risk_pct qty = risk_amt / stop_dist if stop_dist > 0 else 0 stop_px = price - stop_dist if z_dir == 'long' else price + stop_dist tp_px = price + 2 * stop_dist if z_dir == 'long' else price - 2 * stop_dist positions.append({ 'dir' : z_dir, 'entry' : price, 'entry_ts': ts, 'bar_i' : bar_i, 'stop' : stop_px, 'tp' : tp_px, 'qty' : qty, 'atr_e' : atr_h4_v, }) zone_lock[lock_key] = ts + np.timedelta64(lockout_min, 'm') # ── close any remaining open positions at last bar ──────────────────── for p in positions: exit_px = c_c[-1] pnl = ((exit_px - p['entry']) * p['qty'] if p['dir'] == 'long' else (p['entry'] - exit_px) * p['qty']) capital += pnl results.append({ 'entry_ts': p['entry_ts'], 'exit_ts': c_idx[-1], 'dir': p['dir'], 'entry': p['entry'], 'exit': exit_px, 'pnl': pnl, 'win': pnl > 0, 'exit_reason': 'eod', 'qty': p['qty'], }) df_r = pd.DataFrame(results) _print_summary(df_r, label, capital, skipped) return df_r # ══════════════════════════════════════════════════════════════════════════════ # REPORTING # ══════════════════════════════════════════════════════════════════════════════ def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float, skipped: dict, start_cap: float = 10_000): if df_r is None or len(df_r) == 0: print(f\"\\n{label}: 0 trades\"); return trades = len(df_r) wr = df_r['win'].mean() * 100 gw = df_r[df_r['win']]['pnl'].sum() gl = df_r[~df_r['win']]['pnl'].sum() pf = abs(gw / gl) if gl != 0 else float('inf') net = df_r['pnl'].sum() ret = net / start_cap * 100 eq = start_cap + df_r['pnl'].cumsum() peak = eq.cummax() dd = ((eq - peak) / peak).min() * 100 exp = df_r['pnl'].mean() t_pct = (df_r['exit_reason'] == 'timeout').mean() * 100 pf_flag = '✅' if pf >= 1.4 else '❌' dd_flag = '✅' if dd >= -8 else '❌' wr_flag = '✅' if wr >= 45 else '❌' ret_flag = '✅' if ret > 0 else '❌' print(f\"\\n{'='*52}\") print(f\" {label}\") print(f\"{'='*52}\") print(f\" Trades : {trades}\") print(f\" Win % : {wr:.1f}% {wr_flag}\") print(f\" PF : {pf:.3f} {pf_flag}\") print(f\" Net Return : {ret:.2f}% {ret_flag}\") print(f\" Max DD : {dd:.2f}% {dd_flag}\") print(f\" Expectancy : ${exp:.2f}/trade\") print(f\" Final Cap : ${final_cap:,.2f}\") print(f\" Timeout % : {t_pct:.1f}%\") print(f\" Skipped : {skipped}\") def print_comparison(): print(\"\\n\\n=== v5.0 → v5.1 COMPARISON ===\") print(f\"{'Scen':<6} {'Old PF':>8} {'New PF':>8} {'Old DD':>9} {'New DD':>9} {'Old Ret':>9} {'New Ret':>9}\") rows = [ ('D', '1.514', '1.319', '-17.34%', '-3.03%', '+68.65%', '+28.21%'), ('B', '1.253', '1.308', '-13.22%', '-5.24%', '+38.81%', '+53.61%'), ('A', '0.985', '1.450', '-26.12%', '-3.79%', '-18.97%', '+41.55%'), ] for r in rows: print(f\" {r[0]:<4} {r[1]:>8} {r[2]:>8} {r[3]:>9} {r[4]:>9} {r[5]:>9} {r[6]:>9}\") # ══════════════════════════════════════════════════════════════════════════════ # MAIN # ══════════════════════════════════════════════════════════════════════════════ def main(): parser = argparse.ArgumentParser(description='Phantom v5.1 Backtest') parser.add_argument('--m1', required=True, help='Path to M1 CSV') parser.add_argument('--m5', required=True, help='Path to M5 CSV') parser.add_argument('--h1', required=True, help='Path to H1 CSV') parser.add_argument('--h4', required=True, help='Path to H4 CSV') parser.add_argument('--scenario', default='ALL', help='D | B | A | ALL') parser.add_argument('--capital', type=float, default=10_000) args = parser.parse_args() print(\"Loading data...\") m1 = add_indicators(load_csv(args.m1)) m5 = add_indicators(load_csv(args.m5)) h1 = add_indicators(load_csv(args.h1)) h4 = add_indicators(load_csv(args.h4)) print(f\" M1:{len(m1)} M5:{len(m5)} H1:{len(h1)} H4:{len(h4)}\") print(f\" Range: {m1.index[0]} → {m1.index[-1]}\") print(\"Building H4 pivot zones...\") zone_ts, zone_px = build_h4_zones(h4) print(f\" {len(zone_ts)} zones found\") # Cache numpy arrays arrays = dict( h4_idx=h4.index.values, h4_c=h4['close'].values, h4_e20=h4['ema20'].values, h4_e50=h4['ema50'].values, h4_rsi=h4['rsi'].values, h4_atr_arr=h4['atr'].values, h1_idx=h1.index.values, h1_c=h1['close'].values, h1_e20=h1['ema20'].values, h1_e50=h1['ema50'].values, h1_rsi=h1['rsi'].values, m5_idx=m5.index.values, m5_c=m5['close'].values, m5_e20=m5['ema20'].values, m5_e50=m5['ema50'].values, m5_rsi=m5['rsi'].values, m5_vol=m5['tickvol'].values, m5_vol_ma=m5['vol_ma'].values, m1_idx=m1.index.values, m1_c=m1['close'].values, m1_e20=m1['ema20'].values, m1_e50=m1['ema50'].values, m1_rsi=m1['rsi'].values, ) scenarios_to_run = ( list(SCENARIOS.keys()) if args.scenario.upper() == 'ALL' else [args.scenario.upper()] ) results = {} for sc in scenarios_to_run: cfg = SCENARIOS[sc] candles = m1 if cfg['entry_tf'] == 'm1' else m5 print(f\"\\nRunning Scenario {sc}...\") df_r = run_scenario( candles=candles, zone_ts=zone_ts, zone_px=zone_px, cfg=cfg, capital=args.capital, max_concurrent=DEFAULTS['max_concurrent'], cooldown_min=DEFAULTS['cooldown_min'], lockout_min=DEFAULTS['lockout_min'], conf_tol=DEFAULTS['conf_tol'], label=f\"Scenario {sc} | {cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%\", **arrays, ) results[sc] = df_r if df_r is not None and len(df_r): out = f'phantom_v5_1_trades_{sc}.csv' df_r.to_csv(out, index=False) print(f\" Trades saved → {out}\") print_comparison() print(\"\\nDone.\") if __name__ == '__main__': main()",
+    "recognition": {
+      "name": "phantom_v2.py",
+      "strategyType": "Support / Resistance Mean Reversion",
+      "confidence": 0.7799999999999999,
+      "confidenceBand": "medium",
+      "market": "BTCUSD",
+      "primaryTimeframe": "H4",
+      "timeframes": [
+        "H4"
+      ],
+      "sessions": [],
+      "indicators": [
+        "EMA",
+        "RSI",
+        "ATR",
+        "Volume"
+      ],
+      "entryStyle": "Rule confirmation",
+      "stopStyle": "ATR based",
+      "targetStyle": "Fixed profit target",
+      "bias": "both",
+      "objective": "Optimize for risk-adjusted return with drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "buy support / sell resistance",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": null,
+        "templateName": "phantom_v2.py",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Mean Reversion",
+          "entryStyle": "Rule confirmation",
+          "stopStyle": "ATR based",
+          "targetStyle": "Fixed profit target",
+          "sessions": [],
+          "indicators": [
+            "EMA",
+            "RSI",
+            "ATR",
+            "Volume"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: ATR based.",
+        "Target model: Fixed profit target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "Indicators referenced: EMA, RSI, ATR, Volume.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-03T08:36:22.553Z",
+      "name": "phantom_v2.py",
+      "market": "BTCUSD",
+      "execution": {
+        "primaryTimeframe": "H4",
+        "engineInterval": "4h",
+        "timeframes": [
+          "H4"
+        ],
+        "bias": "both",
+        "sessions": []
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 0
+      },
+      "entry": {
+        "style": "Rule confirmation",
+        "confirmation": "Rejection candle",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "Fixed profit target",
+        "objective": "Optimize for risk-adjusted return with drawdown and stability constraints."
+      },
+      "indicators": [
+        "EMA",
+        "RSI",
+        "ATR",
+        "Volume"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Mean Reversion",
+        "confidence": 0.7799999999999999,
+        "confidenceBand": "medium",
+        "parserVersion": "v2",
+        "templateName": "phantom_v2.py",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: ATR based.",
+        "Target model: Fixed profit target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "Indicators referenced: EMA, RSI, ATR, Volume.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    }
+  },
+  {
+    "id": "strategy_1775202671809_d5afdgby",
+    "createdAt": "2026-04-03T07:51:11.808Z",
+    "updatedAt": "2026-04-03T07:51:11.808Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Mean Reversion",
+      "confidence": 0.74,
+      "confidenceBand": "medium",
+      "market": "BTCUSD",
+      "primaryTimeframe": "H4",
+      "timeframes": [
+        "H4"
+      ],
+      "sessions": [],
+      "indicators": [],
+      "entryStyle": "Rule confirmation",
+      "stopStyle": "Structural stop",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "confirmation": "Rejection candle",
+        "riskPerTradePct": 0.5,
+        "entryBias": "buy support / sell resistance",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Mean Reversion",
+          "entryStyle": "Rule confirmation",
+          "stopStyle": "Structural stop",
+          "targetStyle": "R multiple target",
+          "sessions": [],
+          "indicators": []
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "No indicator dependency detected.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-03T07:51:11.808Z",
+      "name": "Structured Rule Strategy",
+      "market": "BTCUSD",
+      "execution": {
+        "primaryTimeframe": "H4",
+        "engineInterval": "4h",
+        "timeframes": [
+          "H4"
+        ],
+        "bias": "both",
+        "sessions": []
+      },
+      "risk": {
+        "riskPerTradePct": 0.5,
+        "zoneWidthPct": 0.18,
+        "minTouches": 2,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Rule confirmation",
+        "confirmation": "Rejection candle",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [],
+      "metadata": {
+        "strategyType": "Support / Resistance Mean Reversion",
+        "confidence": 0.74,
+        "confidenceBand": "medium",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Mean Reversion.",
+        "Entry style: Rule confirmation.",
+        "Stop model: Structural stop.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "No session constraint detected.",
+        "No indicator dependency detected.",
+        "Structural logic suggests a mean-reversion zone model."
+      ]
+    }
+  },
+  {
     "id": "strategy_1775149902564_fpwrbtwf",
     "createdAt": "2026-04-02T17:11:42.564Z",
     "updatedAt": "2026-04-02T17:11:42.564Z",

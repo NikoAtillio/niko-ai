@@ -1,0 +1,21 @@
+{
+  "strategy_id": "RANGE_REVERSION",
+  "example_type": "GOOD",
+  "instrument": "US100",
+  "timeframe": "M1",
+  "dataset": "uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31",
+  "center_timestamp": "2023-05-25 03:55:00",
+  "confidence": 0.74,
+  "description": "Flat regime, resistance touch, bearish rejection wick and follow-through candle.",
+  "sample_timeframe": "Thursday 25 May 2023 03:15 GMT - Thursday 25 May 2023 04:34 GMT",
+  "center_ohlc": {
+    "open": 13800.1,
+    "high": 13801.4,
+    "low": 13799.7,
+    "close": 13799.7
+  },
+  "entry": 13799.7,
+  "sl": 13820.3996,
+  "tp1": 13768.6507,
+  "tp2": 13747.9511
+}
