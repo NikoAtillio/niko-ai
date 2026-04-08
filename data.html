@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data</title>
+  <style>
+    :root {
+      --bg: #eef3ef;
+      --panel: #ffffff;
+      --ink: #132018;
+      --muted: #5f6d64;
+      --line: #d5ddd8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef3ef 55%, #e6ece7 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 12px 16px 48px;
+    }
+
+    .page-nav {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.92));
+      box-shadow: 0 8px 20px rgba(10, 34, 17, 0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 360px);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .page-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .page-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2f855a, #0b7285);
+      box-shadow: 0 0 0 5px rgba(47, 133, 90, 0.18);
+      flex: 0 0 auto;
+    }
+
+    .page-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #143329;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #5f6d64;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-control { justify-self: end; width: 100%; max-width: 360px; }
+
+    .page-nav label {
+      margin: 0 0 5px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .page-nav select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      color: #172018;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    .quick-menu {
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quick-menu a {
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .quick-menu a.active {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 22px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 60%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+    }
+
+    .hero h1 { margin: 0; font-size: 1.8rem; }
+    .hero p { margin: 8px 0 0; max-width: 900px; line-height: 1.5; opacity: 0.94; }
+
+    .panel {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 5px 16px rgba(17, 31, 21, 0.05);
+    }
+
+    .panel h2 { margin: 0 0 8px; color: #23402d; font-size: 1.1rem; }
+    .panel p { margin: 0; color: var(--muted); line-height: 1.5; }
+
+    .grid {
+      margin-top: 14px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    @media (max-width: 760px) {
+      .page-nav { grid-template-columns: 1fr; }
+      .page-nav-control { justify-self: stretch; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="page-nav" aria-label="Primary site navigation">
+      <div class="page-nav-brand">
+        <span class="page-nav-dot" aria-hidden="true"></span>
+        <div>
+          <div class="page-nav-title">Niko AI Lab</div>
+          <div class="page-nav-subtitle">Data & Insights Hub</div>
+        </div>
+      </div>
+      <div class="page-nav-control">
+        <label for="pageSelect">Navigate</label>
+        <select id="pageSelect" onchange="window.location.assign(this.value)">
+          <option value="strategy-lab.html">Strategy Lab</option>
+          <option value="phantom-comparison.html">Strategy Tests</option>
+          <option value="profile.html">My Profile</option>
+          <option value="data.html" selected>Data</option>
+        </select>
+      </div>
+    </section>
+
+    <nav class="quick-menu" aria-label="Workspace sections">
+      <a href="strategy-lab.html">Strategy Lab</a>
+      <a href="phantom-comparison.html">Strategy Tests</a>
+      <a href="profile.html">My Profile</a>
+      <a href="data.html" class="active">Data</a>
+    </nav>
+
+    <section class="hero">
+      <h1>Data</h1>
+      <p>This page is reserved for strategy insights, downloadable strategy packs, current market data APIs, and curated social feeds from analysts and algo commentators.</p>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Strategy Insights</h2>
+        <p>Performance summaries, drawdown context, and comparative diagnostics across strategy families.</p>
+      </article>
+      <article class="panel">
+        <h2>Downloadable Strategies</h2>
+        <p>Community and in-house strategy templates with metadata, tags, and version history.</p>
+      </article>
+      <article class="panel">
+        <h2>Market Data APIs</h2>
+        <p>Live and historical feeds for core instruments, plus quality/latency health indicators.</p>
+      </article>
+      <article class="panel">
+        <h2>Social Feeds</h2>
+        <p>Analyst posts, algo commentary, and market event threads in a filterable stream.</p>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

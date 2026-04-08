@@ -175,6 +175,30 @@
       font-weight: 600;
     }
 
+    .quick-menu {
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quick-menu a {
+      border: 1px solid var(--line);
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .quick-menu a.active {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
     .panel {
       margin-top: 16px;
       background: var(--panel);
@@ -540,17 +564,23 @@
           <div class="page-nav-subtitle">Strategy Design Workspace</div>
         </div>
       </div>
-      <div class="page-nav-control">
+      <div class="page-nav-control" style="display:grid; gap:8px;">
         <label for="pageSelect">Navigate</label>
         <select id="pageSelect" onchange="window.location.assign(this.value)">
-          <option value="index.html">Strategy Research Terminal</option>
-          <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
           <option value="strategy-lab.html" selected>Strategy Lab</option>
-          <option value="payment.html">Payment</option>
-          <option value="admin.html">Admin Panel</option>
+          <option value="phantom-comparison.html">Strategy Tests</option>
+          <option value="profile.html">My Profile</option>
+          <option value="data.html">Data</option>
         </select>
       </div>
     </section>
+
+    <nav class="quick-menu" aria-label="Workspace sections">
+      <a href="strategy-lab.html" class="active">Strategy Lab</a>
+      <a href="phantom-comparison.html">Strategy Tests</a>
+      <a href="profile.html">My Profile</a>
+      <a href="data.html">Data</a>
+    </nav>
 
     <section class="hero">
       <h1>Strategy Lab</h1>
@@ -787,6 +817,7 @@
           </div>
           <div>
             <div class="btn-row" style="margin-top:12px;">
+              <button class="btn" id="saveToProfileBtn" type="button">Save To Profile</button>
               <button class="btn primary" id="useAlgorithmBtn" type="button">Use algorithm</button>
             </div>
           </div>
@@ -805,7 +836,7 @@
         <div class="card">
           <h3>Unlocked editor</h3>
           <div class="schema-actions">
-            <button class="btn primary" id="useAlgorithmBtn" type="button">Unlock schema editor</button>
+            <button class="btn primary" id="unlockSchemaBtn" type="button">Unlock schema editor</button>
             <a class="btn" href="payment.html">Go to payment</a>
           </div>
           <div class="meta" style="margin-top:10px;">After checkout, the dedicated editor page lets the user modify the generated JSON and download a clean execution config.</div>
@@ -816,6 +847,7 @@
 
   <script>
     const pageSelect = document.getElementById('pageSelect');
+    const saveToProfileBtn = document.getElementById('saveToProfileBtn');
     const strategyTemplateInput = document.getElementById('strategyTemplateInput');
     const importTemplateBtn = document.getElementById('importTemplateBtn');
     const theoryInputPane = document.getElementById('theoryInputPane');
@@ -830,6 +862,7 @@
     const proofBtn = document.getElementById('proofBtn');
     const proofTfMode = document.getElementById('proofTfMode');
     const useAlgorithmBtn = document.getElementById('useAlgorithmBtn');
+    const unlockSchemaBtn = document.getElementById('unlockSchemaBtn');
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const confirmationText = document.getElementById('confirmationText');
@@ -1760,10 +1793,17 @@
       renderProofPanel();
       renderExecutionProof();
     });
+    saveToProfileBtn.addEventListener('click', () => {
+      confirmBtn.click();
+      setStatus('Save To Profile', 'Confirming parameters and saving strategy to your profile records.', 'neutral');
+    });
     proofBtn.addEventListener('click', () => {
       generateVisualProof();
     });
     useAlgorithmBtn.addEventListener('click', () => {
+      window.location.href = 'payment.html';
+    });
+    unlockSchemaBtn.addEventListener('click', () => {
       window.location.href = 'payment.html';
     });
     resetBtn.addEventListener('click', () => {

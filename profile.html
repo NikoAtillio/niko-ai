@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile</title>
+  <style>
+    :root {
+      --bg: #eef3ef;
+      --panel: #ffffff;
+      --ink: #132018;
+      --muted: #5f6d64;
+      --line: #d5ddd8;
+      --accent: #0b7285;
+      --accent2: #2f855a;
+      --warn: #b45309;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f8fbf7, #eef3ef 55%, #e6ece7 100%);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 12px 16px 48px;
+    }
+
+    .hero {
+      border-radius: 18px;
+      padding: 22px;
+      color: #eef8f2;
+      background: linear-gradient(135deg, #0f1720, #0b7285 60%, #2f855a 100%);
+      box-shadow: 0 16px 30px rgba(8, 24, 18, 0.18);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      max-width: 900px;
+      line-height: 1.5;
+      opacity: 0.94;
+    }
+
+    .page-nav {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.92));
+      box-shadow: 0 8px 20px rgba(10, 34, 17, 0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 360px);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .page-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .page-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2f855a, #0b7285);
+      box-shadow: 0 0 0 5px rgba(47, 133, 90, 0.18);
+      flex: 0 0 auto;
+    }
+
+    .page-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #143329;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #5f6d64;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-nav-control {
+      justify-self: end;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .page-nav label {
+      margin: 0 0 5px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .page-nav select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      color: #172018;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    .quick-menu {
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quick-menu a {
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .quick-menu a.active {
+      background: linear-gradient(135deg, #0b7285, #2f855a);
+      color: #eef8f2;
+      border-color: transparent;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f0f4f1;
+      color: var(--ink);
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #e4ebe6;
+      border-color: #c0c9c2;
+    }
+
+    .btn.secondary {
+      background: #ffffff;
+      border: 1px solid var(--line);
+    }
+
+    .btn.secondary:hover {
+      background: #f8fbf7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(8, 24, 18, 0.05);
+    }
+
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .section {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin: 16px 0;
+    }
+
+    .section h2 {
+      margin: 0 0 6px;
+      font-size: 1.1rem;
+    }
+
+    .note {
+      margin: 0 0 12px;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: end;
+    }
+
+    .filters label {
+      display: block;
+      font-size: 0.77rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .filters input,
+    .filters select {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 9px;
+      background: #fbfdf9;
+      color: var(--ink);
+      font-size: 0.86rem;
+    }
+
+    .filters .btn {
+      height: 36px;
+      justify-content: center;
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--ink);
+      border-radius: 10px;
+      backdrop-filter: none;
+    }
+
+    .filter-meta {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1050px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #edf1ec;
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #edf3ee;
+      color: #304236;
+      z-index: 1;
+    }
+
+    tbody tr:hover { background: #f7fbf5; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.74rem;
+      border: 1px solid var(--line);
+      background: #f8fbf7;
+      color: var(--muted);
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .split { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      th, td { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="page-nav" aria-label="Primary site navigation">
+      <div class="page-nav-brand">
+        <span class="page-nav-dot" aria-hidden="true"></span>
+        <div>
+          <div class="page-nav-title">Niko AI Lab</div>
+          <div class="page-nav-subtitle">Personal Strategy Workspace</div>
+        </div>
+      </div>
+      <div class="page-nav-control">
+        <label for="pageSelect">Navigate</label>
+        <select id="pageSelect">
+          <option value="strategy-lab.html">Strategy Lab</option>
+          <option value="phantom-comparison.html">Strategy Tests</option>
+          <option value="profile.html" selected>My Profile</option>
+          <option value="data.html">Data</option>
+        </select>
+      </div>
+    </section>
+
+    <nav class="quick-menu" aria-label="Workspace sections">
+      <a href="strategy-lab.html">Strategy Lab</a>
+      <a href="phantom-comparison.html">Strategy Tests</a>
+      <a href="profile.html" class="active">My Profile</a>
+      <a href="data.html">Data</a>
+    </nav>
+
+    <section class="hero">
+      <h1>My Profile</h1>
+      <p>Browse saved strategy runs, inspect imported data and artifacts, and export run history as CSV or JSON.</p>
+      <div class="toolbar">
+        <a class="btn" href="/platform/admin/export/runs.csv">Download Runs CSV</a>
+        <a class="btn" href="/platform/admin/export/runs.json">Download Runs JSON</a>
+        <a class="btn secondary" href="phantom-comparison.html">Open Comparison Dashboard</a>
+        <button class="btn secondary" id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </section>
+
+    <section class="grid" id="summaryGrid"></section>
+
+    <div class="split">
+      <section class="section">
+        <h2>Saved Runs</h2>
+        <p class="note">Each row represents one saved strategy confirmation. Use exports to integrate with other tools.</p>
+        <div class="filters">
+          <div>
+            <label for="marketFilter">Market</label>
+            <select id="marketFilter"><option value="ALL">All Markets</option></select>
+          </div>
+          <div>
+            <label for="strategyFilter">Strategy</label>
+            <input id="strategyFilter" type="text" placeholder="search..." />
+          </div>
+          <div>
+            <label for="fromDateFilter">From</label>
+            <input id="fromDateFilter" type="date" />
+          </div>
+          <div>
+            <label for="toDateFilter">To</label>
+            <input id="toDateFilter" type="date" />
+          </div>
+          <div>
+            <label for="minReturnFilter">Return ≥</label>
+            <input id="minReturnFilter" type="number" placeholder="%" />
+          </div>
+          <button class="btn" id="resetFiltersBtn" type="button">Reset</button>
+        </div>
+        <div class="filter-meta" id="filterMeta"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Market</th>
+                <th>Strategy Name</th>
+                <th>Engine</th>
+                <th>Scenario</th>
+                <th>Return %</th>
+                <th>PF</th>
+                <th>Trades</th>
+                <th>Export</th>
+              </tr>
+            </thead>
+            <tbody id="runsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Uploaded Files</h2>
+        <p class="note">Data imports and strategy templates you've uploaded.</p>
+        <div id="fileLists"></div>
+      </section>
+    </div>
+
+    <section class="section">
+      <h2>Strategy Lab Runs</h2>
+      <p class="note">Recent strategy configurations and test results from the lab.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Strategy Title</th>
+              <th>Market</th>
+              <th>Timeframe</th>
+              <th>Status</th>
+              <th>Test Result</th>
+              <th>Actions</th>
+              <th>Export</th>
+            </tr>
+          </thead>
+          <tbody id="labRunsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const pageSelect = document.getElementById('pageSelect');
+    const marketFilter = document.getElementById('marketFilter');
+    const strategyFilter = document.getElementById('strategyFilter');
+    const fromDateFilter = document.getElementById('fromDateFilter');
+    const toDateFilter = document.getElementById('toDateFilter');
+    const minReturnFilter = document.getElementById('minReturnFilter');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+    const filterMeta = document.getElementById('filterMeta');
+    const runsBody = document.getElementById('runsBody');
+    const fileLists = document.getElementById('fileLists');
+    const labRunsBody = document.getElementById('labRunsBody');
+    const summaryGrid = document.getElementById('summaryGrid');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    let allRuns = [];
+    let loadWarning = '';
+
+    pageSelect.addEventListener('change', () => {
+      window.location.href = pageSelect.value;
+    });
+
+    [marketFilter, strategyFilter, fromDateFilter, toDateFilter, minReturnFilter].forEach(el => {
+      el?.addEventListener('input', applyFilters);
+      el?.addEventListener('change', applyFilters);
+    });
+
+    resetFiltersBtn.addEventListener('click', () => {
+      marketFilter.value = 'ALL';
+      strategyFilter.value = '';
+      fromDateFilter.value = '';
+      toDateFilter.value = '';
+      minReturnFilter.value = '';
+      applyFilters();
+    });
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(text || '').replace(/[&<>"']/g, c => map[c]);
+    }
+
+    function renderSummaryCards(data) {
+      const summaries = (data.runs || []).slice(0, 4).map(r => ({
+        title: r.summary?.strategy || 'Untitled',
+        return: r.summary?.return || '0',
+        pf: r.summary?.profitFactor || '1.0',
+        date: new Date(r.createdAt).toLocaleDateString(),
+      }));
+
+      summaryGrid.innerHTML = summaries.map(s => `
+        <div class="card">
+          <h3>${escapeHtml(s.title)}</h3>
+          <div class="meta">Return: ${s.return}% | PF: ${s.pf}</div>
+          <div class="meta">${s.date}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateMarketFilterOptions(runs) {
+      const markets = new Set(runs.map(r => r.summary?.market).filter(Boolean));
+      const options = Array.from(markets).map(m => `<option value="${m}">${m}</option>`).join('');
+      marketFilter.innerHTML = '<option value="ALL">All Markets</option>' + options;
+    }
+
+    function applyFilters() {
+      const filtered = allRuns.filter(r => {
+        const summary = r.summary || {};
+        if (marketFilter.value !== 'ALL' && summary.market !== marketFilter.value) return false;
+        if (strategyFilter.value && !summary.strategy?.toLowerCase().includes(strategyFilter.value.toLowerCase())) return false;
+        if (fromDateFilter.value && new Date(r.createdAt) < new Date(fromDateFilter.value)) return false;
+        if (toDateFilter.value && new Date(r.createdAt) > new Date(toDateFilter.value)) return false;
+        if (minReturnFilter.value && (summary.return || 0) < parseFloat(minReturnFilter.value)) return false;
+        return true;
+      });
+
+      filterMeta.textContent = `Showing ${filtered.length} of ${allRuns.length} runs`;
+      runsBody.innerHTML = filtered.map(r => {
+        const s = r.summary || {};
+        return `<tr>
+          <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+          <td><span class="pill">${s.market || 'N/A'}</span></td>
+          <td>${escapeHtml(s.strategy || 'Untitled')}</td>
+          <td><span class="pill">${s.engine || 'N/A'}</span></td>
+          <td><span class="pill">${s.scenario || 'N/A'}</span></td>
+          <td>${(s.return || 0).toFixed(2)}%</td>
+          <td>${(s.profitFactor || 1).toFixed(2)}</td>
+          <td>${s.tradeCount || 0}</td>
+          <td><a href="#" onclick="alert('Export coming soon')">↓</a></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderFiles(dirs) {
+      const html = Object.entries(dirs).map(([name, count]) => `
+        <div class="card">
+          <h3>${escapeHtml(name)}</h3>
+          <div class="meta">${count} file(s)</div>
+        </div>
+      `).join('');
+      fileLists.innerHTML = html || '<div class="meta">No files uploaded yet.</div>';
+    }
+
+    function renderLabRuns(runs) {
+      labRunsBody.innerHTML = (runs || []).map(r => `<tr>
+        <td>${r.date || 'N/A'}</td>
+        <td>${escapeHtml(r.title || 'Untitled')}</td>
+        <td>${r.market || 'N/A'}</td>
+        <td>${r.timeframe || 'N/A'}</td>
+        <td>${r.status || 'completed'}</td>
+        <td>${r.testResult || 'pending'}</td>
+        <td><a href="#">view</a></td>
+        <td><a href="#">export</a></td>
+      </tr>`).join('');
+    }
+
+    async function loadOverview() {
+      try {
+        const res = await fetch('/platform/runs');
+        if (!res.ok) throw new Error('Unable to load runs');
+        const data = await res.json();
+        renderSummaryCards(data);
+        allRuns = ((data.runs || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        updateMarketFilterOptions(allRuns);
+        applyFilters();
+        renderFiles(data.directories || {});
+        renderLabRuns(data.labRuns || []);
+      } catch (err) {
+        console.error('Profile load error:', err);
+        summaryGrid.innerHTML = '<div class="card"><div class="meta">Unable to load profile data. Check server connection.</div></div>';
+      }
+    }
+
+    refreshBtn?.addEventListener('click', () => {
+      void loadOverview();
+    });
+
+    loadOverview();
+  </script>
+</body>
+</html>
