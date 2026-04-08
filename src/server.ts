@@ -2813,7 +2813,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		};
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-		const scriptPath = path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py');
+		const scriptPath = path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py');
 		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, 'phantom-v2-validate-'));
 
 		const args = [
