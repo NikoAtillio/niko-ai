@@ -2827,13 +2827,11 @@
     });
 
     function curveColor(label) {
-      const map = {
-        'v1 D (pre-fix)': '#0072B2',
-        'v2 D': '#009E73',
-        'v2 B': '#D55E00',
-        'v2 A': '#CC79A7',
-      };
-      return map[label] || '#FFFFFF';
+      const text = String(label || '').toUpperCase();
+      if (text.includes('SCENARIO A') || /\bP[12]A\b/.test(text) || /\bV[12]A\b/.test(text)) return '#E63946';
+      if (text.includes('SCENARIO B') || /\bP[12]B\b/.test(text) || /\bV[12]B\b/.test(text)) return '#F4D35E';
+      if (text.includes('SCENARIO C') || /\bP[12]C\b/.test(text) || /\bV[12]C\b/.test(text) || /\bV[12]D\b/.test(text)) return '#4EA8DE';
+      return '#FFFFFF';
     }
 
     function renderCurve(periodKey) {
