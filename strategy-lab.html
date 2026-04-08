@@ -126,6 +126,49 @@
       font: inherit;
     }
 
+    select[multiple] {
+      min-height: 112px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px 0;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent2);
+      margin: 0;
+    }
+
+    .checkbox-item label {
+      margin: 0 !important;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: normal;
+      text-transform: none;
+      letter-spacing: normal;
+      user-select: none;
+    }
+
+    input[type="file"] {
+      width: auto;
+      max-width: 100%;
+      padding: 4px 0;
+      background: transparent;
+    }
+
     .page-nav select {
       height: 40px;
       background: #ffffff;
@@ -503,6 +546,7 @@
           <option value="index.html">Strategy Research Terminal</option>
           <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
           <option value="strategy-lab.html" selected>Strategy Lab</option>
+          <option value="payment.html">Payment</option>
           <option value="admin.html">Admin Panel</option>
         </select>
       </div>
@@ -513,19 +557,21 @@
       <p>Translate strategy theory into deterministic rules, preview recognition across multiple timeframes, confirm the parameters, then pass the strategy to the backtest engine.</p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="inputSection">
       <div class="grid-2">
         <div>
           <h2 class="section-title step-heading"><span class="step-badge">1</span><span class="step-title-text">Strategy Theory Input</span></h2>
           <div class="small-note" style="margin-bottom:10px;">Define strategy and market data together below. These inputs are combined for recognition, proof, and backtest preparation.</div>
 
           <div id="theoryInputPane">
-            <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
+            <div style="margin-bottom: 10px;">
               <div>
                 <label class="label" for="strategyTemplateInput">Import strategy template</label>
                 <input id="strategyTemplateInput" type="file" accept=".json,.txt,.md,.yaml,.yml,.csv,.py,.ini,.toml" />
               </div>
-              <button class="btn" id="importTemplateBtn" type="button">Load Template</button>
+              <div class="btn-row" style="margin-top: 8px;">
+                <button class="btn" id="importTemplateBtn" type="button">Load Template</button>
+              </div>
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr auto; gap: 10px; align-items:end; margin-bottom: 10px;">
               <div>
@@ -545,9 +591,9 @@
               <button class="btn" id="applyStarterBtn" type="button">Use Starter</button>
             </div>
             <label class="label" for="strategyText">Describe the strategy in plain English</label>
-            <textarea id="strategyText" class="strategy-text" placeholder="Example: Buy near H4 support when M1 confirms a rejection candle, only during London session, with H1 trend filter and 1.5R target.">Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.</textarea>
+            <textarea id="strategyText" class="strategy-text"></textarea>
             <div style="margin-top:10px;">
-              <label class="label" for="theoryPrimaryTfSelect">Strategy timeframe</label>
+              <label class="label" for="theoryPrimaryTfSelect">Entry Signal TF (strategy)</label>
               <select id="theoryPrimaryTfSelect">
                 <option>H4</option>
                 <option>H1</option>
@@ -574,13 +620,13 @@
                 </select>
               </div>
               <div>
-                <label class="label" for="theoryDatasetFileSelect">Preloaded dataset file (optional)</label>
+                <label class="label" for="theoryDatasetFileSelect">Preloaded dataset facts (optional)</label>
                 <select id="theoryDatasetFileSelect">
                   <option value="">Auto select from market</option>
                 </select>
               </div>
             </div>
-            <div class="small-note">Select your hosted instrument data here. Recognition and proof will run against this dataset, and timeframe is auto-inferred from the strategy text when specified.</div>
+            <div class="small-note">Select your hosted instrument data here. Recognition and proof run against this dataset and respect your selected timeframe controls.</div>
           </div>
 
           <div class="btn-row">
@@ -595,14 +641,14 @@
             <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
           </div>
           <div style="margin-top:12px;" class="muted-box">
-            <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
-            <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
+            <strong style="display:block; margin-bottom:6px; color:#23402d;">Recognition result</strong>
+            <div class="small-note">Recognised values will populate the rest of the lab and stay in place until you press Reset Example or edit a specific control later in the flow.</div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="parametersSection">
       <h2 class="section-title step-heading"><span class="step-badge">2</span><span class="step-title-text">Parameters</span></h2>
       <div class="grid-2">
         <div>
@@ -623,13 +669,28 @@
               </select>
             </div>
             <div>
-              <label class="label" for="primaryTf">Primary TF</label>
+              <label class="label" for="primaryTf">Entry Signal TF</label>
               <select id="primaryTf">
-                <option>H4</option>
-                <option>H1</option>
-                <option>M15</option>
+                <option>M1</option>
                 <option>M5</option>
+                <option>M15</option>
                 <option>M30</option>
+                <option>H1</option>
+                <option>H4</option>
+                <option>D1</option>
+                <option>W1</option>
+                <option>MN1</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="tradeHorizonTf">Trade Outcome Window TF</label>
+              <select id="tradeHorizonTf">
+                <option>M1</option>
+                <option>M5</option>
+                <option>M15</option>
+                <option>M30</option>
+                <option>H1</option>
+                <option selected>H4</option>
                 <option>D1</option>
                 <option>W1</option>
                 <option>MN1</option>
@@ -648,13 +709,25 @@
               <input id="touchCount" type="number" step="1" value="2" />
             </div>
             <div>
-              <label class="label" for="confirmationRule">Confirmation</label>
-              <select id="confirmationRule">
-                <option>Rejection candle</option>
-                <option>Break and retest</option>
-                <option>Momentum close</option>
-                <option>Volume spike</option>
-              </select>
+              <label class="label">Confirmation (select one or more)</label>
+              <div id="confirmationRule" class="checkbox-group">
+                <div class="checkbox-item">
+                  <input type="checkbox" id="conf-rejection" value="Rejection candle" />
+                  <label for="conf-rejection">Rejection candle</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="conf-retest" value="Break and retest" />
+                  <label for="conf-retest">Break and retest</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="conf-momentum" value="Momentum close" />
+                  <label for="conf-momentum">Momentum close</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="conf-volume" value="Volume spike" />
+                  <label for="conf-volume">Volume spike</label>
+                </div>
+              </div>
             </div>
           </div>
           <div class="btn-row">
@@ -674,66 +747,68 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="previewSection">
       <h2 class="section-title step-heading"><span class="step-badge">3</span><span class="step-title-text">Strategy Preview</span></h2>
       <p class="small-note" style="margin-top:0; margin-bottom:10px;">Click <strong>Confirm Parameters</strong> to preview the structured interpretation before continuing to proof and execution.</p>
       <div class="rec-grid" id="summaryCards"></div>
+
+      <div style="margin-top:16px;">
+        <h3 class="section-title step-heading" style="margin-top:0;"><span class="step-badge">4</span><span class="step-title-text">Strategy Recognition Preview</span></h3>
+        <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
+        <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
+          <select id="proofTfMode" style="max-width: 220px;">
+            <option value="lower">Proof timeframe: Lower than execution</option>
+            <option value="base" selected>Proof timeframe: Same as execution</option>
+            <option value="higher">Proof timeframe: Higher than execution</option>
+          </select>
+          <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
+          <button class="btn primary" id="runBtn" type="button">Send to Backtest</button>
+        </div>
+        <div id="proofGrid" class="proof-grid"></div>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2 class="section-title step-heading"><span class="step-badge">4</span><span class="step-title-text">Strategy Recognition Preview</span></h2>
-      <p class="small-note" id="proofSummary">Run recognition, then generate proof to see real chart windows where the detected strategy pattern appears.</p>
-      <div class="btn-row" style="margin-top:0; margin-bottom: 10px;">
-        <select id="proofTfMode" style="max-width: 220px;">
-          <option value="lower">Proof timeframe: Lower than execution</option>
-          <option value="base" selected>Proof timeframe: Same as execution</option>
-          <option value="higher">Proof timeframe: Higher than execution</option>
-        </select>
-        <button class="btn" id="proofBtn" type="button">Generate Visual Proof</button>
-        <button class="btn primary" id="runBtn" type="button">Send to Backtest</button>
-      </div>
-      <div id="proofGrid" class="proof-grid"></div>
-      <div style="margin-top:12px;" class="muted-box">
-        <strong class="step-heading" style="margin-bottom:6px; color:#23402d;"><span class="step-badge">5</span><span class="step-title-text">Execution</span></strong>
+    <section class="panel" id="executionSection">
+      <h2 class="section-title step-heading"><span class="step-badge">5</span><span class="step-title-text">Execution</span></h2>
+      <div class="muted-box">
+        <strong style="display:block; margin-bottom:6px; color:#23402d;">Live Execution</strong>
         <div class="small-note" id="executionProofSummary">Send to Backtest to see live run status and metrics on this page.</div>
         <div id="executionProofCards" class="rec-grid" style="margin-top:10px;"></div>
+        <div id="executionArtifactPreview" style="margin-top:10px;"></div>
+        <div id="executionLogPanel" class="muted-box small-note" style="margin-top:10px; display:none;"></div>
+      </div>
+
+      <div style="margin-top:16px;" class="muted-box">
+        <h3 class="section-title step-heading" style="margin-top:0;"><span class="step-badge">6</span><span class="step-title-text">Summary</span></h3>
+        <div class="grid-2">
+          <div>
+            <div class="status" id="statusPill">Ready for recognition</div>
+            <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
+          </div>
+          <div>
+            <div class="btn-row" style="margin-top:12px;">
+              <button class="btn primary" id="useAlgorithmBtn" type="button">Use algorithm</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="panel">
-      <h2 class="section-title step-heading"><span class="step-badge">6</span><span class="step-title-text">Summary</span></h2>
-      <div class="grid-2">
-        <div class="muted-box">
-          <div class="status" id="statusPill">Ready for recognition</div>
-          <p class="small-note" id="statusText" style="margin:10px 0 0;">The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.</p>
-        </div>
-        <div class="muted-box">
-          <strong style="display:block; margin-bottom:6px; color:#23402d;">Human review gate</strong>
-          <div class="small-note">You should confirm or correct the detected rules before the deterministic backtest is executed. This keeps the system auditable and prevents free-form strategy drift.</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel">
+    <section class="panel" id="schemaSection">
       <h2 class="section-title step-heading"><span class="step-badge">7</span><span class="step-title-text">Structured Strategy Schema</span></h2>
       <div class="grid-2">
         <div class="card">
-          <h3>Recognised Strategy</h3>
-          <div class="value">Support / Resistance Mean Reversion</div>
-          <div class="meta">This is a structured preview of how the lab interprets the strategy theory before execution.</div>
+          <h3>What this does</h3>
+          <div class="meta">The structured schema is the machine-readable version of your strategy. It combines the recognised theory, market, timeframes, risk, and execution rules into a payload that the engine can backtest and report on deterministically.</div>
+          <div class="meta" style="margin-top:10px;">Editing the schema directly is more useful after login or purchase, when you want to fine-tune the code without changing the original strategy notes.</div>
         </div>
         <div class="card">
-          <h3>Backtest Payload</h3>
+          <h3>Unlocked editor</h3>
           <div class="schema-actions">
-            <button class="btn" id="applyConfigBtn" type="button">Apply Config Edits</button>
-            <button class="btn" id="downloadConfigBtn" type="button">Download Config JSON</button>
+            <button class="btn primary" id="useAlgorithmBtn" type="button">Unlock schema editor</button>
+            <a class="btn" href="payment.html">Go to payment</a>
           </div>
-          <textarea class="schema-editor mono" id="schemaPreview" spellcheck="false">{
-  "name": "Support / Resistance Mean Reversion",
-  "market": "BTCUSD",
-  "timeframes": ["H4", "H1", "M15"],
-  "rules": { ... }
-}</textarea>
+          <div class="meta" style="margin-top:10px;">After checkout, the dedicated editor page lets the user modify the generated JSON and download a clean execution config.</div>
         </div>
       </div>
     </section>
@@ -752,10 +827,9 @@
     const resetBtn = document.getElementById('resetBtn');
     const confirmBtn = document.getElementById('confirmBtn');
     const runBtn = document.getElementById('runBtn');
-    const applyConfigBtn = document.getElementById('applyConfigBtn');
-    const downloadConfigBtn = document.getElementById('downloadConfigBtn');
     const proofBtn = document.getElementById('proofBtn');
     const proofTfMode = document.getElementById('proofTfMode');
+    const useAlgorithmBtn = document.getElementById('useAlgorithmBtn');
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const confirmationText = document.getElementById('confirmationText');
@@ -764,13 +838,15 @@
     const proofGrid = document.getElementById('proofGrid');
     const executionProofSummary = document.getElementById('executionProofSummary');
     const executionProofCards = document.getElementById('executionProofCards');
-    const schemaPreview = document.getElementById('schemaPreview');
+    const executionArtifactPreview = document.getElementById('executionArtifactPreview');
+    const executionLogPanel = document.getElementById('executionLogPanel');
     const theoryMarketSelect = document.getElementById('theoryMarketSelect');
     const theoryDatasetFileSelect = document.getElementById('theoryDatasetFileSelect');
     const theoryPrimaryTfSelect = document.getElementById('theoryPrimaryTfSelect');
     const marketSelect = document.getElementById('marketSelect');
     const datasetFileSelect = document.getElementById('datasetFileSelect');
     const primaryTf = document.getElementById('primaryTf');
+    const tradeHorizonTf = document.getElementById('tradeHorizonTf');
     const riskInput = document.getElementById('riskInput');
     const zoneWidth = document.getElementById('zoneWidth');
     const touchCount = document.getElementById('touchCount');
@@ -786,10 +862,12 @@
     let proofIsStale = false;
     let latestExecutionState = null;
     let latestExecutionRunId = '';
+    let latestExecutionSummary = null;
+    let latestExecutionRequest = null;
     let datasetCatalog = [];
     let proofRequestInFlight = false;
 
-    const exampleText = `Support and resistance strategy: detect H4 and H1 zones, require M15 rejection confirmation, trade only in trend direction, place stop beyond the zone, and target 2R.`;
+    const exampleText = `Example: Buy near support when higher timeframe trend agrees, confirm on a lower timeframe rejection, place the stop beyond the swing, and target 2R.`;
     const starterStrategies = {
       'Trend Trading': 'Trend trading strategy: follow the dominant H4 and H1 direction using moving averages, enter on pullback continuation on M15, stop below the pullback swing low, target 2R.',
       'Range Trading': 'Range trading strategy: identify consolidating price between support and resistance on H1, buy near support and sell near resistance with rejection confirmation, stop outside the range, target opposite boundary.',
@@ -899,6 +977,82 @@
       }
     }
 
+    function getSelectedConfirmations() {
+      const checkboxes = Array.from(confirmationRule.querySelectorAll('input[type="checkbox"]:checked'));
+      const selected = checkboxes.map((cb) => String(cb.value || '').trim()).filter(Boolean);
+      return selected.length ? selected : ['Rejection candle'];
+    }
+
+    function setSelectedConfirmations(values) {
+      const normalized = (Array.isArray(values) ? values : [])
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+      const fallback = normalized.length ? normalized : ['Rejection candle'];
+      const allow = new Set(fallback);
+      Array.from(confirmationRule.querySelectorAll('input[type="checkbox"]')).forEach((cb) => {
+        cb.checked = allow.has(String(cb.value));
+      });
+      if (!Array.from(confirmationRule.querySelectorAll('input[type="checkbox"]:checked')).length) {
+        const first = confirmationRule.querySelector('input[type="checkbox"]');
+        if (first) first.checked = true;
+      }
+    }
+
+    function getConfirmationDisplayText() {
+      return getSelectedConfirmations().join(' + ');
+    }
+
+    function formatDatasetFacts(file, symbol) {
+      const tfKey = String(file?.timeframe || '').toUpperCase();
+      const tfMap = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '1h', H4: '4h', D1: '1d', W1: '1wk', MN1: '1mo' };
+      const tfText = tfMap[tfKey] || (tfKey ? tfKey.toLowerCase() : 'data');
+      const sym = String(symbol || '').toUpperCase();
+      return sym ? `${tfText} ${sym}` : tfText;
+    }
+
+    function applyStrategyConfigToInputs(config = {}) {
+      if (config.market) {
+        setSelectIfPresent(marketSelect, config.market);
+        setSelectIfPresent(theoryMarketSelect, config.market);
+      }
+
+      if (config.execution && typeof config.execution === 'object') {
+        syncTimeframeSelects(config.execution.entryTimeframe || config.execution.primaryTimeframe || primaryTf.value);
+        setSelectIfPresent(tradeHorizonTf, config.execution.tradeHorizonTimeframe || config.execution.primaryTimeframe || tradeHorizonTf.value);
+      } else if (config.primaryTimeframe) {
+        syncTimeframeSelects(config.primaryTimeframe);
+        setSelectIfPresent(tradeHorizonTf, config.tradeHorizonTimeframe || config.primaryTimeframe || tradeHorizonTf.value);
+      }
+
+      if (config.metadata && typeof config.metadata === 'object' && typeof config.metadata.dataFile === 'string') {
+        syncDatasetFileOptions();
+        if (Array.from(datasetFileSelect.options).some((opt) => String(opt.value) === config.metadata.dataFile)) {
+          datasetFileSelect.value = config.metadata.dataFile;
+          theoryDatasetFileSelect.value = config.metadata.dataFile;
+        }
+      }
+
+      if (config.risk && typeof config.risk === 'object') {
+        if (Number.isFinite(Number(config.risk.riskPerTradePct))) {
+          riskInput.value = String(config.risk.riskPerTradePct);
+        }
+        if (Number.isFinite(Number(config.risk.zoneWidthPct))) {
+          zoneWidth.value = String(config.risk.zoneWidthPct);
+        }
+        if (Number.isFinite(Number(config.risk.minTouches))) {
+          touchCount.value = String(config.risk.minTouches);
+        }
+      }
+
+      if (config.entry && typeof config.entry === 'object' && typeof config.entry.confirmation === 'string') {
+        const parts = String(config.entry.confirmation)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        setSelectedConfirmations(parts);
+      }
+    }
+
     function syncTimeframeSelects(value, source = null) {
       const nextValue = String(value || '').toUpperCase();
       if (!nextValue) return;
@@ -907,6 +1061,13 @@
       }
       if (source !== theoryPrimaryTfSelect) {
         setSelectIfPresent(theoryPrimaryTfSelect, nextValue);
+      }
+    }
+
+    function scrollToSection(sectionId) {
+      const element = document.getElementById(sectionId);
+      if (element && typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
 
@@ -937,6 +1098,7 @@
         }
 
         latestExecutionState = payload.backtestState || latestExecutionState;
+  latestExecutionSummary = payload.summary || latestExecutionSummary;
         latestExecutionRunId = payload.id || activeRunId || latestExecutionRunId;
         renderExecutionProof();
 
@@ -981,6 +1143,18 @@
       return '1m';
     }
 
+    function mapHorizonTfToLookbackDays(tf) {
+      const key = String(tf || '').toUpperCase();
+      if (key === 'M1' || key === 'M5') return 14;
+      if (key === 'M15' || key === 'M30') return 30;
+      if (key === 'H1') return 45;
+      if (key === 'H4') return 90;
+      if (key === 'D1') return 180;
+      if (key === 'W1') return 365;
+      if (key === 'MN1') return 730;
+      return 90;
+    }
+
     function syncDatasetFileOptions() {
       const symbol = String(marketSelect.value || '').toUpperCase();
       const market = datasetCatalog.find((entry) => String(entry.symbol || '').toUpperCase() === symbol);
@@ -997,9 +1171,8 @@
       }
 
       const rows = market.files.map((file) => {
-        const tf = String(file.timeframe || '').toUpperCase();
         const path = String(file.filePath || '');
-        return `<option value="${escapeHtml(path)}">${escapeHtml(tf)} :: ${escapeHtml(path)}</option>`;
+        return `<option value="${escapeHtml(path)}" title="${escapeHtml(path)}">${escapeHtml(formatDatasetFacts(file, market.symbol))}</option>`;
       });
       datasetFileSelect.innerHTML = `${baseOption}${rows.join('')}`;
       theoryDatasetFileSelect.innerHTML = `${baseOption}${rows.join('')}`;
@@ -1041,15 +1214,18 @@
     }
 
     function buildRequestPayload() {
+      const selectedPrimaryTimeframe = String(theoryPrimaryTfSelect.value || primaryTf.value || 'H4');
+      const selectedHorizonTimeframe = String(tradeHorizonTf.value || selectedPrimaryTimeframe || 'H4');
       return {
         theoryText: strategyText.value,
         templateName: latestRecognition?.name || 'Structured Rule Strategy',
         market: marketSelect.value,
-        primaryTimeframe: primaryTf.value,
+        primaryTimeframe: selectedPrimaryTimeframe,
+        tradeHorizonTimeframe: selectedHorizonTimeframe,
         riskPerTradePct: Number(riskInput.value || 0.5),
         zoneWidthPct: Number(zoneWidth.value || 0.18),
         minTouches: Number(touchCount.value || 2),
-        confirmation: confirmationRule.value,
+        confirmation: getSelectedConfirmations().join(', '),
         dataFile: datasetFileSelect.value || '',
       };
     }
@@ -1065,7 +1241,9 @@
         name: recognition?.name || 'Structured Rule Strategy',
         market: marketSelect.value,
         execution: {
+          entryTimeframe: primaryTf.value,
           primaryTimeframe: primaryTf.value,
+          tradeHorizonTimeframe: tradeHorizonTf.value,
           engineInterval: mapTfToInterval(primaryTf.value),
           timeframes,
           bias: recognition?.bias || 'neutral',
@@ -1079,7 +1257,7 @@
         },
         entry: {
           style: recognition?.entryStyle || 'Rule confirmation',
-          confirmation: confirmationRule.value,
+          confirmation: getConfirmationDisplayText(),
           invalidation: recognition?.rules?.invalidation || 'hard invalidation on rule break',
         },
         exit: {
@@ -1113,18 +1291,12 @@
       }
 
       const width = 560;
-      const height = 200;
-      const padX = 28;
+      const height = 220;
+      const padX = 46;
       const padY = 18;
       const minPrice = Math.min(...windowCandles.map(c => Number(c.low || c.close || 0)));
       const maxPrice = Math.max(...windowCandles.map(c => Number(c.high || c.close || 0)));
       const span = Math.max(1e-9, maxPrice - minPrice);
-
-      const points = windowCandles.map((c, idx) => {
-        const x = padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
-        const y = height - padY - ((Number(c.close || 0) - minPrice) / span) * (height - padY * 2);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      }).join(' ');
 
       let centerIndex = 0;
       let bestDist = Number.POSITIVE_INFINITY;
@@ -1137,7 +1309,9 @@
       });
 
       const markerX = padX + (centerIndex / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
-      const markerY = height - padY - ((Number(windowCandles[centerIndex].close || 0) - minPrice) / span) * (height - padY * 2);
+      const centerCandle = windowCandles[centerIndex];
+      const markerY = height - padY - ((Number(centerCandle.close || 0) - minPrice) / span) * (height - padY * 2);
+      const candleWidth = Math.max(3, Math.min(16, Math.floor((width - padX * 2) / Math.max(8, windowCandles.length))));
 
       const findNearestIndexByTs = (ts) => {
         let best = 0;
@@ -1161,6 +1335,11 @@
         return height - padY - ((Number(price || 0) - minPrice) / span) * (height - padY * 2);
       };
 
+      const yTicks = Array.from({ length: 5 }, (_, idx) => minPrice + (span * idx / 4)).reverse();
+      const xLabels = [0, Math.floor((windowCandles.length - 1) / 2), windowCandles.length - 1]
+        .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
+        .map((idx) => ({ idx, label: new Date(windowCandles[idx].ts).toISOString().slice(5, 16).replace('T', ' ') }));
+
       const overlayMarkup = (Array.isArray(overlays) ? overlays : []).map((ov) => {
         if (!ov || !ov.kind) {
           return '';
@@ -1168,7 +1347,21 @@
 
         if (ov.kind === 'hline' && Number.isFinite(Number(ov.price))) {
           const y = yFromPrice(ov.price);
-          return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" stroke="#b45309" stroke-width="1.2" stroke-dasharray="6 4"></line>`;
+          const label = String(ov.label || '').toLowerCase();
+          let stroke = '#b45309';
+          let strokeWidth = '1.2';
+          if (label.includes('entry')) {
+            stroke = '#2f855a';
+            strokeWidth = '1.4';
+          } else if (label.includes('stop') || label.includes('loss')) {
+            stroke = '#c2410c';
+            strokeWidth = '1.4';
+          } else if (label.includes('profit') || label.includes('target')) {
+            stroke = '#0b7285';
+            strokeWidth = '1.4';
+          }
+          const labelText = label ? `<text x="${width - padX + 6}" y="${y - 2}" font-size="8" fill="${stroke}" font-weight="600">${escapeHtml(ov.label)}</text>` : '';
+          return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-dasharray="6 4"></line>${labelText}`;
         }
 
         if (ov.kind === 'vline' && Number.isFinite(Number(ov.ts))) {
@@ -1212,15 +1405,39 @@
         return '';
       }).join('');
 
+      const candleMarkup = windowCandles.map((c, idx) => {
+        const x = padX + (idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2);
+        const openY = yFromPrice(c.open);
+        const closeY = yFromPrice(c.close);
+        const highY = yFromPrice(c.high);
+        const lowY = yFromPrice(c.low);
+        const bullish = Number(c.close || 0) >= Number(c.open || 0);
+        const bodyTop = Math.min(openY, closeY);
+        const bodyHeight = Math.max(1, Math.abs(closeY - openY));
+        const bodyWidth = idx === centerIndex ? candleWidth + 2 : candleWidth;
+        const bodyX = x - bodyWidth / 2;
+        const color = bullish ? '#2f855a' : '#c2410c';
+        const fill = bullish ? 'rgba(47,133,90,0.28)' : 'rgba(194,65,12,0.28)';
+        return `
+          <line x1="${x}" y1="${highY}" x2="${x}" y2="${lowY}" stroke="${color}" stroke-width="1.2"></line>
+          <rect x="${bodyX.toFixed(2)}" y="${bodyTop.toFixed(2)}" width="${bodyWidth.toFixed(2)}" height="${bodyHeight.toFixed(2)}" fill="${fill}" stroke="${color}" stroke-width="1"></rect>
+        `;
+      }).join('');
+
       return `
         <svg class="proof-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Strategy proof chart window">
           <rect x="0" y="0" width="${width}" height="${height}" fill="#f8fbf9"></rect>
-          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#d6ded8" />
+          ${yTicks.map((tick) => {
+            const y = yFromPrice(tick);
+            return `<g><line x1="${padX}" y1="${y}" x2="${width - 14}" y2="${y}" stroke="#e1e7e2" stroke-width="1" stroke-dasharray="3 4"></line><text x="10" y="${y + 3}" font-size="9" fill="#5b675f">${tick.toFixed(2)}</text></g>`;
+          }).join('')}
+          <line x1="${padX}" y1="${height - padY}" x2="${width - 14}" y2="${height - padY}" stroke="#d6ded8" />
           <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#d6ded8" />
+          ${candleMarkup}
           ${overlayMarkup}
-          <polyline points="${points}" fill="none" stroke="#0b7285" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
           <line x1="${markerX}" y1="${padY}" x2="${markerX}" y2="${height - padY}" stroke="#2f855a" stroke-width="1.4" stroke-dasharray="4 4"></line>
           <circle cx="${markerX}" cy="${markerY}" r="4.2" fill="#2f855a"></circle>
+          ${xLabels.map((label) => `<text x="${padX + (label.idx / Math.max(1, windowCandles.length - 1)) * (width - padX * 2)}" y="${height - 4}" text-anchor="middle" font-size="9" fill="#5b675f">${label.label}</text>`).join('')}
         </svg>
       `;
     }
@@ -1241,18 +1458,26 @@
       proofGrid.innerHTML = proof.examples.map((ex, idx) => {
         const dt = new Date(Number(ex.centerTs || 0));
         const stamp = Number.isFinite(dt.getTime()) ? dt.toISOString() : 'n/a';
+        const direction = String(ex.direction || '').toUpperCase();
+        const centerIndex = Math.max(0, Math.min((ex.window || []).length - 1, Math.floor((ex.window || []).length / 2)));
+        const centerCandle = (ex.window || [])[centerIndex] || {};
+        const windowStart = (ex.window || [])[0]?.ts ? new Date(Number((ex.window || [])[0].ts)).toISOString() : 'n/a';
+        const windowEnd = (ex.window || []).length ? new Date(Number((ex.window || [])[ex.window.length - 1].ts)).toISOString() : 'n/a';
         return `
           <article class="proof-card">
             <header>
               <strong>Example ${idx + 1}: ${escapeHtml(ex.title || 'Pattern example')}</strong>
               <span class="proof-head-meta">
                 <span class="proof-confidence">Confidence ${(Number(ex.confidence || 0) * 100).toFixed(0)}%</span>
+                ${direction ? `<span class="pill">${escapeHtml(direction)}</span>` : ''}
                 <span class="pill">${escapeHtml(String(proof.timeframe || '').toUpperCase())}</span>
               </span>
             </header>
             <div class="body">
               ${renderProofChartSvg(ex.window || [], ex.centerTs, ex.overlays || [])}
+              <div class="zone-row"><span>Data window</span><span class="pill">${escapeHtml(String(ex.window?.length || 0))} candles | ${escapeHtml(windowStart)} → ${escapeHtml(windowEnd)}</span></div>
               <div class="zone-row"><span>Recognition timestamp</span><span class="pill">${escapeHtml(stamp)}</span></div>
+              <div class="zone-row"><span>Center OHLC</span><span class="pill">O ${escapeHtml(Number(centerCandle.open || 0).toFixed(4))} H ${escapeHtml(Number(centerCandle.high || 0).toFixed(4))} L ${escapeHtml(Number(centerCandle.low || 0).toFixed(4))} C ${escapeHtml(Number(centerCandle.close || ex.centerPrice || 0).toFixed(4))}</span></div>
               <div class="zone-row"><span>Center price</span><span class="pill">${escapeHtml(Number(ex.centerPrice || 0).toFixed(4))}</span></div>
               <div class="zone-row"><span>Example confidence</span><span class="pill">${escapeHtml((Number(ex.confidence || 0) * 100).toFixed(0))}%</span></div>
               <div class="small-note">${escapeHtml(ex.rationale || 'Detected by strategy proof scanner.')}</div>
@@ -1267,6 +1492,9 @@
       if (!state) {
         executionProofSummary.textContent = 'Send to Backtest to see live run status and metrics on this page.';
         executionProofCards.innerHTML = '<div class="muted-box small-note">When the backtest runs, this area will show status, metrics, and artifacts.</div>';
+        executionArtifactPreview.innerHTML = '';
+        executionLogPanel.style.display = 'none';
+        executionLogPanel.textContent = '';
         return;
       }
 
@@ -1275,13 +1503,29 @@
       const status = String(state.status || 'queued');
       const startedAt = state.startedAt ? new Date(state.startedAt).toISOString() : 'n/a';
       const endedAt = state.endedAt ? new Date(state.endedAt).toISOString() : 'n/a';
+      const summary = latestExecutionSummary || {};
+      const request = latestExecutionRequest || {};
+      const totalReturnText = Number.isFinite(Number(metrics.totalReturnPct)) ? `${Number(metrics.totalReturnPct).toFixed(2)}%` : 'Pending';
+      const finalCapitalText = Number.isFinite(Number(metrics.finalCapital)) ? Number(metrics.finalCapital).toFixed(2) : 'Pending';
+      const totalTradesText = Number.isFinite(Number(metrics.totalTrades)) ? Number(metrics.totalTrades).toFixed(0) : 'Pending';
+      const winRateText = Number.isFinite(Number(metrics.winRatePct)) ? `${Number(metrics.winRatePct).toFixed(2)}%` : 'Pending';
+      const drawdownText = Number.isFinite(Number(metrics.maxDrawdownPct)) ? `${Number(metrics.maxDrawdownPct).toFixed(2)}%` : 'Pending';
+      const actionText = [
+        `Market ${String(summary.market || request.market || marketSelect.value || 'n/a').toUpperCase()}`,
+        `Entry TF ${String(summary.entryTimeframe || request.entryTimeframe || primaryTf.value || 'n/a').toUpperCase()}`,
+        `Outcome TF ${String(summary.tradeHorizonTimeframe || request.tradeHorizonTimeframe || tradeHorizonTf.value || 'n/a').toUpperCase()}`,
+        `Engine interval ${String(summary.interval || request.interval || mapTfToInterval(primaryTf.value) || 'n/a')}`,
+      ].join(' | ');
+      const riskDecimal = Number(summary.risk ?? request.risk ?? NaN);
+      const riskText = Number.isFinite(riskDecimal) ? `${(riskDecimal * 100).toFixed(2)}%` : 'n/a';
 
       executionProofSummary.textContent = `Run ${latestExecutionRunId || 'n/a'} is ${status}. ${status === 'running' ? 'Metrics update live while the engine executes.' : 'Final metrics are shown below.'}`;
       executionProofCards.innerHTML = [
+        { title: 'Requested Action', value: actionText, meta: `Lookback ${String(summary.lookbackDays || request.lookbackDays || 'n/a')}d | Risk ${riskText} | Strategy ${String(summary.strategyId || request.strategyId || confirmedStrategyId || 'n/a')}` },
         { title: 'Run Status', value: status, meta: `Started: ${startedAt} | Ended: ${endedAt}` },
-        { title: 'Return / Capital', value: `${Number(metrics.totalReturnPct ?? 0).toFixed(2)}% / ${Number(metrics.finalCapital ?? 0).toFixed(2)}`, meta: 'Live engine output from the backtest runner.' },
-        { title: 'Trades / Win Rate', value: `${Number(metrics.totalTrades ?? 0).toFixed(0)} / ${Number(metrics.winRatePct ?? 0).toFixed(2)}%`, meta: 'Execution proof of trade generation and outcomes.' },
-        { title: 'Max Drawdown', value: `${Number(metrics.maxDrawdownPct ?? 0).toFixed(2)}%`, meta: 'Risk control outcome from the full test.' },
+        { title: 'Return / Capital', value: `${totalReturnText} / ${finalCapitalText}`, meta: 'Live engine output from the backtest runner.' },
+        { title: 'Trades / Win Rate', value: `${totalTradesText} / ${winRateText}`, meta: 'Execution proof of trade generation and outcomes.' },
+        { title: 'Max Drawdown', value: drawdownText, meta: 'Risk control outcome from the full test.' },
         { title: 'Artifacts', value: String(artifacts.length), meta: artifacts.length ? artifacts.join(', ') : 'No artifacts reported yet.' },
       ].map((card) => `
         <div class="card">
@@ -1290,6 +1534,30 @@
           <div class="meta">${escapeHtml(card.meta)}</div>
         </div>
       `).join('');
+
+      const pngArtifacts = artifacts.filter((name) => /\.png$/i.test(String(name)));
+      if (pngArtifacts.length) {
+        executionArtifactPreview.innerHTML = `
+          <div class="small-note" style="margin-bottom:6px;"><strong>Execution charts</strong></div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+            ${pngArtifacts.map((name) => {
+              const src = `/backtest/artifacts/${encodeURIComponent(String(name))}?t=${Date.now()}`;
+              return `<div class="muted-box" style="padding:8px;"><div class="small-note" style="margin-bottom:6px;">${escapeHtml(String(name))}</div><img src="${src}" alt="${escapeHtml(String(name))}" style="width:100%; height:auto; border:1px solid #d6ded8; border-radius:8px; background:#fff;" /></div>`;
+            }).join('')}
+          </div>
+        `;
+      } else {
+        executionArtifactPreview.innerHTML = '<div class="small-note">Execution charts will appear here when the backtest emits image artifacts.</div>';
+      }
+
+      const logLines = Array.isArray(state.logs) ? state.logs.slice(-8) : [];
+      if (logLines.length) {
+        executionLogPanel.style.display = '';
+        executionLogPanel.innerHTML = `<strong style="display:block; margin-bottom:6px; color:#23402d;">Latest engine logs</strong><pre style="margin:0; white-space:pre-wrap; line-height:1.35; font-family:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;">${escapeHtml(logLines.join('\n'))}</pre>`;
+      } else {
+        executionLogPanel.style.display = 'none';
+        executionLogPanel.textContent = '';
+      }
     }
 
     async function generateVisualProof() {
@@ -1341,13 +1609,16 @@
     function renderPreview() {
       const market = marketSelect.value;
       const tf = primaryTf.value;
+      const horizonTf = tradeHorizonTf.value;
       const risk = Number(riskInput.value || 0.5);
       const width = Number(zoneWidth.value || 0.18);
       const touches = Number(touchCount.value || 2);
-      const conf = confirmationRule.value;
+      const conf = getConfirmationDisplayText();
       const recognition = latestRecognition;
 
-      const timeframeText = recognition?.timeframes?.length ? recognition.timeframes.join(' -> ') : `${tf} -> H1 -> M15`;
+      const recognitionTimeframes = (recognition?.timeframes || []).map((t) => String(t || '').toUpperCase()).filter(Boolean);
+      const hierarchy = [String(tf || '').toUpperCase(), ...recognitionTimeframes.filter((t) => t !== String(tf || '').toUpperCase())];
+      const timeframeText = hierarchy.length ? hierarchy.join(' -> ') : `${tf} -> H1 -> M15`;
       const sessionText = recognition?.sessions?.length ? recognition.sessions.join(', ') : 'None detected';
       const indicatorText = recognition?.indicators?.length ? recognition.indicators.join(', ') : 'None detected';
       const confidenceText = recognition ? `${(Number(recognition.confidence || 0) * 100).toFixed(0)}% (${recognition.confidenceBand || 'medium'})` : 'Pending';
@@ -1358,14 +1629,15 @@
         { title: 'Detected Strategy Type', value: recognition?.strategyType || 'Pending recognition', meta: recognition?.name || 'The lab will infer the strategy archetype from the provided text or template.' },
         { title: 'Confidence', value: confidenceText, meta: recognition ? 'Composite confidence based on archetype, entry, stop, target, sessions, and indicators.' : 'Run recognition to score the strategy.', style: confidenceClass },
         { title: 'Timeframe Hierarchy', value: timeframeText, meta: 'Higher timeframe defines structure; lower timeframe confirms entries.' },
-        { title: 'Entry Style', value: recognition?.entryStyle || 'Pending', meta: 'Detected entry trigger such as rejection, retest, crossover, or momentum close.' },
+        { title: 'Trade Outcome Window', value: String(horizonTf || tf).toUpperCase(), meta: 'Timeframe window where trade outcomes are expected to play out.' },
+        { title: 'Entry Style', value: recognition?.entryStyle || 'Pending', meta: 'Derived from the strategy text in Section 1 (trigger family).' },
         { title: 'Stop Model', value: recognition?.stopStyle || 'Pending', meta: 'Detected invalidation model such as ATR, swing structure, or zone boundary.' },
         { title: 'Target Model', value: recognition?.targetStyle || 'Pending', meta: recognition?.objective || 'Detected profit-taking logic and objective.' },
-        { title: 'Sessions / Filters', value: sessionText, meta: indicatorText },
+        { title: 'Sessions / Filters', value: sessionText, meta: `Indicators from strategy text: ${indicatorText}` },
         { title: 'Dataset Source', value: selectedDataset, meta: 'Uploaded market/timeframe file used for deterministic test datasets.' },
         { title: 'Suggested Risk', value: `${risk.toFixed(2)}%`, meta: `Template value: ${recognition?.rules?.riskPerTradePct ?? risk.toFixed(2)}%` },
         { title: 'Zone Width / Touches', value: `${width.toFixed(2)}% / ${touches}`, meta: `Template suggests ${recognition?.rules?.minTouches ?? touches} minimum touches.` },
-        { title: 'Confirmation Rule', value: recognition?.rules?.confirmation || conf, meta: 'Entry only executes when the confirmation condition is satisfied.' },
+        { title: 'Confirmation Rule(s)', value: conf, meta: 'Directly controlled by the multi-select confirmation list in Section 2.' },
       ];
 
       summaryCards.innerHTML = cards.map(card => `
@@ -1377,9 +1649,8 @@
       `).join('');
 
       const previewConfig = latestStrategyConfig || buildPreviewStrategyConfig();
-      schemaPreview.value = JSON.stringify(previewConfig, null, 2);
 
-      confirmationText.textContent = `We detected ${recognition?.strategyType || 'a structured strategy'} on ${market} using ${tf} as the primary execution timeframe. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
+      confirmationText.textContent = `We detected ${recognition?.strategyType || 'a structured strategy'} on ${market} using ${tf} for entry signals and ${String(horizonTf || tf).toUpperCase()} for trade outcome timing. Suggested zone width is ${width.toFixed(2)}% with ${touches} touch requirement and ${conf.toLowerCase()} confirmation. Does this match your intended strategy?`;
     }
 
     async function importStrategyTemplate() {
@@ -1406,15 +1677,19 @@
         proofIsStale = false;
         const normalized = payload.normalized || {};
         strategyText.value = normalized.theoryText || templateText;
-        marketSelect.value = normalized.market || marketSelect.value;
-        theoryMarketSelect.value = marketSelect.value;
-        syncDatasetFileOptions();
-        datasetFileSelect.value = normalized.dataFile || datasetFileSelect.value;
-        syncTimeframeSelects(normalized.primaryTimeframe || primaryTf.value);
-        riskInput.value = String(normalized.riskPerTradePct ?? riskInput.value);
-        zoneWidth.value = String(normalized.zoneWidthPct ?? zoneWidth.value);
-        touchCount.value = String(normalized.minTouches ?? touchCount.value);
-        confirmationRule.value = normalized.confirmation || confirmationRule.value;
+        strategyText.placeholder = exampleText;
+        applyStrategyConfigToInputs({
+          market: normalized.market || marketSelect.value,
+          primaryTimeframe: normalized.primaryTimeframe || primaryTf.value,
+          tradeHorizonTimeframe: normalized.tradeHorizonTimeframe || normalized.primaryTimeframe || tradeHorizonTf.value,
+          metadata: { dataFile: normalized.dataFile || '' },
+          risk: {
+            riskPerTradePct: normalized.riskPerTradePct,
+            zoneWidthPct: normalized.zoneWidthPct,
+            minTouches: normalized.minTouches,
+          },
+          entry: { confirmation: normalized.confirmation },
+        });
         confirmedStrategyId = '';
         activeRunId = '';
         needsReconfirm = true;
@@ -1428,6 +1703,7 @@
 
     async function recogniseStrategy() {
       try {
+        const selectedPrimaryTimeframe = String(theoryPrimaryTfSelect.value || primaryTf.value || 'H4');
         const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/recognize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1442,6 +1718,8 @@
         if (payload.recognition?.primaryTimeframe) {
           syncTimeframeSelects(String(payload.recognition.primaryTimeframe));
         }
+        applyStrategyConfigToInputs(payload.strategyConfig || {});
+        syncTimeframeSelects(selectedPrimaryTimeframe);
         latestProof = null;
         proofIsStale = false;
         invalidateConfirmation(false);
@@ -1453,6 +1731,7 @@
           `Recognised ${rec.strategyType || 'a structured strategy'} on ${rec.market || marketSelect.value}. Confidence ${(Number(rec.confidence || 0) * 100).toFixed(0)}%.`,
           'success',
         );
+        scrollToSection('parametersSection');
       } catch (error) {
         setStatus('Recognition failed', (error && error.message) ? error.message : 'Unable to recognise strategy', 'error');
       }
@@ -1484,6 +1763,9 @@
     proofBtn.addEventListener('click', () => {
       generateVisualProof();
     });
+    useAlgorithmBtn.addEventListener('click', () => {
+      window.location.href = 'payment.html';
+    });
     resetBtn.addEventListener('click', () => {
       stopRunStatusPolling();
       activeRunId = '';
@@ -1495,15 +1777,17 @@
       confirmedStrategyId = '';
       needsReconfirm = true;
       strategyTemplateInput.value = '';
-      strategyText.value = exampleText;
+      strategyText.value = '';
+      strategyText.placeholder = exampleText;
       marketSelect.value = 'BTCUSD';
       theoryMarketSelect.value = 'BTCUSD';
       primaryTf.value = 'H4';
       theoryPrimaryTfSelect.value = 'H4';
+      tradeHorizonTf.value = 'H4';
       riskInput.value = '0.50';
       zoneWidth.value = '0.18';
       touchCount.value = '2';
-      confirmationRule.value = 'Rejection candle';
+      setSelectedConfirmations(['Rejection candle']);
       setStatus('Ready for recognition', 'The lab will extract rule blocks, suggested parameters, and timeframe hierarchy before any backtest runs.' );
       renderPreview();
       renderProofPanel();
@@ -1535,7 +1819,7 @@
           `Strategy confirmed and saved with id ${confirmedStrategyId || 'unknown'}. Ready for deterministic backtest queueing.`,
           'success',
         );
-        await generateVisualProof();
+          scrollToSection('previewSection');
       } catch (error) {
         setStatus('Confirmation failed', (error && error.message) ? error.message : 'Unable to confirm strategy', 'error');
       }
@@ -1564,12 +1848,24 @@
         }
 
         const riskPct = Number(riskInput.value || 0.5);
+        const lookbackDays = mapHorizonTfToLookbackDays(tradeHorizonTf.value);
+        latestExecutionRequest = {
+          strategyId: confirmedStrategyId,
+          market: marketSelect.value,
+          entryTimeframe: primaryTf.value,
+          tradeHorizonTimeframe: tradeHorizonTf.value,
+          interval: mapTfToInterval(primaryTf.value),
+          lookbackDays,
+          risk: riskPct / 100,
+        };
         const { response, payload } = await fetchJsonWithFallback('/platform/strategy-lab/backtest-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             strategyId: confirmedStrategyId,
             interval: mapTfToInterval(primaryTf.value),
+            tradeHorizonTimeframe: tradeHorizonTf.value,
+            lookbackDays,
             capital: 10000,
             risk: riskPct / 100,
           }),
@@ -1580,6 +1876,7 @@
 
         activeRunId = payload.queuedRun?.id || '';
         latestExecutionRunId = activeRunId;
+        latestExecutionSummary = payload.queuedRun?.summary || latestExecutionSummary;
         latestExecutionState = {
           status: payload.autoStart?.started ? 'running' : 'queued',
           startedAt: new Date().toISOString(),
@@ -1597,12 +1894,13 @@
             : `Queued run ${activeRunId}. ${payload.autoStart?.error || ''}`,
           payload.autoStart?.started ? 'success' : 'warning',
         );
+        scrollToSection('executionSection');
       } catch (error) {
         setStatus('Queue failed', (error && error.message) ? error.message : 'Unable to queue backtest request', 'error');
       }
     });
 
-    [marketSelect, primaryTf, theoryPrimaryTfSelect, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
+    [marketSelect, primaryTf, tradeHorizonTf, theoryPrimaryTfSelect, riskInput, zoneWidth, touchCount, confirmationRule].forEach(el => {
       el.addEventListener('input', () => {
         latestStrategyConfig = null;
         invalidateConfirmation(false);
@@ -1704,77 +2002,25 @@
       }
     });
 
-    applyConfigBtn.addEventListener('click', () => {
-      try {
-        const parsed = JSON.parse(schemaPreview.value);
-        if (!parsed || typeof parsed !== 'object') {
-          throw new Error('Config must be a JSON object');
-        }
-
-        latestStrategyConfig = parsed;
-
-        if (typeof parsed.market === 'string') {
-          setSelectIfPresent(marketSelect, parsed.market);
-          setSelectIfPresent(theoryMarketSelect, parsed.market);
-        }
-
-        if (parsed.execution && typeof parsed.execution === 'object') {
-          syncTimeframeSelects(parsed.execution.primaryTimeframe);
-        }
-
-        if (parsed.metadata && typeof parsed.metadata === 'object' && typeof parsed.metadata.dataFile === 'string') {
-          syncDatasetFileOptions();
-          if (Array.from(datasetFileSelect.options).some((opt) => String(opt.value) === parsed.metadata.dataFile)) {
-            datasetFileSelect.value = parsed.metadata.dataFile;
-          }
-        }
-
-        if (parsed.risk && typeof parsed.risk === 'object') {
-          if (Number.isFinite(Number(parsed.risk.riskPerTradePct))) {
-            riskInput.value = String(parsed.risk.riskPerTradePct);
-          }
-          if (Number.isFinite(Number(parsed.risk.zoneWidthPct))) {
-            zoneWidth.value = String(parsed.risk.zoneWidthPct);
-          }
-          if (Number.isFinite(Number(parsed.risk.minTouches))) {
-            touchCount.value = String(parsed.risk.minTouches);
-          }
-        }
-
-        if (parsed.entry && typeof parsed.entry === 'object' && typeof parsed.entry.confirmation === 'string') {
-          setSelectIfPresent(confirmationRule, parsed.entry.confirmation);
-        }
-
-        confirmedStrategyId = '';
-        needsReconfirm = true;
-        renderPreview();
-        renderExecutionProof();
-        setStatus('Config applied', 'Schema edits were applied to the active strategy inputs. Re-confirm before queueing.', 'success');
-      } catch (error) {
-        setStatus('Config invalid', (error && error.message) ? error.message : 'Schema JSON is invalid.', 'error');
+    strategyText.addEventListener('focus', () => {
+      if (!strategyText.value) {
+        strategyText.placeholder = '';
       }
     });
 
-    downloadConfigBtn.addEventListener('click', () => {
-      const config = latestStrategyConfig || buildPreviewStrategyConfig();
-      const blob = new Blob([`${JSON.stringify(config, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      const safeName = String(config.name || 'strategy').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      anchor.href = url;
-      anchor.download = `${safeName || 'strategy'}-config.json`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      setStatus('Config exported', 'Downloaded strategy config JSON for execution and versioning.', 'success');
+    strategyText.addEventListener('blur', () => {
+      if (!strategyText.value) {
+        strategyText.placeholder = exampleText;
+      }
     });
 
     pageSelect.addEventListener('change', () => {
       window.location.href = pageSelect.value;
     });
 
-    strategyText.value = exampleText;
+    strategyText.value = '';
+    strategyText.placeholder = exampleText;
+    setSelectedConfirmations(['Rejection candle']);
     activateTheoryTab('input');
     theoryPrimaryTfSelect.value = primaryTf.value;
     void loadDatasetCatalog();
