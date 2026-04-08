@@ -182,6 +182,19 @@ def get_nearby_zone(price: float, ts, zone_ts, zone_px,
         return z_price, z_dir
     return None, None
 
+
+def apply_execution_adjustment(price: float, direction: str, side: str,
+                               spread_bps: float, slippage_bps: float) -> float:
+    px = float(price)
+    if not np.isfinite(px) or px <= 0:
+        return px
+    half_spread = max(0.0, float(spread_bps)) / 20000.0
+    slippage = max(0.0, float(slippage_bps)) / 10000.0
+    adj = px * (half_spread + slippage)
+    if side == 'entry':
+        return px + adj if direction == 'long' else px - adj
+    return px - adj if direction == 'long' else px + adj
+
 # ══════════════════════════════════════════════════════════════════════════════
 # BACKTEST ENGINE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -198,6 +211,9 @@ def run_scenario(
     cooldown_min: int = 20,
     lockout_min: int = 60,
     conf_tol: float = 0.002,
+    spread_bps: float = 0.0,
+    slippage_bps: float = 0.0,
+    commission_per_trade: float = 0.0,
     label: str = '',
 ) -> pd.DataFrame:
 
@@ -212,6 +228,9 @@ def run_scenario(
     vol_filter   = cfg['vol_filter']
     timeout_bars = cfg['timeout_bars']
     use_m1       = cfg['entry_tf'] == 'm1'
+    spread_bps = max(0.0, float(spread_bps))
+    slippage_bps = max(0.0, float(slippage_bps))
+    commission_per_trade = max(0.0, float(commission_per_trade))
 
     c_idx = candles.index.values
     c_c   = candles['close'].values
@@ -250,10 +269,15 @@ def run_scenario(
                 hit_stop = True
 
             if hit_tp or hit_stop:
-                exit_px = p['tp'] if hit_tp else p['stop']
-                pnl = ((exit_px - p['entry']) * p['qty']
+                exit_signal_px = p['tp'] if hit_tp else p['stop']
+                exit_px = apply_execution_adjustment(
+                    exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
+                )
+                gross_pnl = ((exit_px - p['entry']) * p['qty']
                        if p['dir'] == 'long'
                        else (p['entry'] - exit_px) * p['qty'])
+                fees = commission_per_trade
+                pnl = gross_pnl - fees
                 capital += pnl
                 win = pnl > 0
                 if not win:
@@ -261,12 +285,24 @@ def run_scenario(
                 reason = ('tp' if hit_tp
                           else ('timeout' if timeout_bars and (bar_i - p['bar_i']) >= timeout_bars
                                 else 'stop'))
+                risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
+                r_value = pnl / risk_cash
                 results.append({
                     'entry_ts' : p['entry_ts'],
                     'exit_ts'  : ts,
                     'dir'      : p['dir'],
                     'entry'    : p['entry'],
                     'exit'     : exit_px,
+                    'entry_price': p['entry'],
+                    'exit_price': exit_px,
+                    'entry_signal_price': p['entry_signal'],
+                    'exit_signal_price': exit_signal_px,
+                    'stop_price': p['stop_initial'],
+                    'stop_price_initial': p['stop_initial'],
+                    'stop_price_exit': p['stop'],
+                    'initial_risk_price': p['initial_risk_price'],
+                    'r_value': r_value,
+                    'fees': fees,
                     'pnl'      : pnl,
                     'win'      : win,
                     'exit_reason': reason,
@@ -330,32 +366,56 @@ def run_scenario(
         # ── size & enter ──────────────────────────────────────────────────
         stop_dist = atr_stop * atr_h4_v
         risk_amt  = capital * risk_pct
-        qty       = risk_amt / stop_dist if stop_dist > 0 else 0
         stop_px   = price - stop_dist if z_dir == 'long' else price + stop_dist
         tp_px     = price + 2 * stop_dist if z_dir == 'long' else price - 2 * stop_dist
+        entry_exec = apply_execution_adjustment(price, z_dir, 'entry', spread_bps, slippage_bps)
+        initial_risk_price = abs(entry_exec - stop_px)
+        if initial_risk_price <= 0:
+            initial_risk_price = stop_dist if stop_dist > 0 else 1e-9
+        qty = risk_amt / initial_risk_price if initial_risk_price > 0 else 0
 
         positions.append({
             'dir'     : z_dir,
-            'entry'   : price,
+            'entry_signal': price,
+            'entry'   : entry_exec,
             'entry_ts': ts,
             'bar_i'   : bar_i,
             'stop'    : stop_px,
+            'stop_initial': stop_px,
             'tp'      : tp_px,
             'qty'     : qty,
+            'initial_risk_price': initial_risk_price,
             'atr_e'   : atr_h4_v,
         })
         zone_lock[lock_key] = ts + np.timedelta64(lockout_min, 'm')
 
     # ── close any remaining open positions at last bar ────────────────────
     for p in positions:
-        exit_px = c_c[-1]
-        pnl = ((exit_px - p['entry']) * p['qty']
+        exit_signal_px = c_c[-1]
+        exit_px = apply_execution_adjustment(
+            exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
+        )
+        gross_pnl = ((exit_px - p['entry']) * p['qty']
                if p['dir'] == 'long'
                else (p['entry'] - exit_px) * p['qty'])
+        fees = commission_per_trade
+        pnl = gross_pnl - fees
         capital += pnl
+        risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
+        r_value = pnl / risk_cash
         results.append({
             'entry_ts': p['entry_ts'], 'exit_ts': c_idx[-1],
             'dir': p['dir'], 'entry': p['entry'], 'exit': exit_px,
+            'entry_price': p['entry'],
+            'exit_price': exit_px,
+            'entry_signal_price': p['entry_signal'],
+            'exit_signal_price': exit_signal_px,
+            'stop_price': p['stop_initial'],
+            'stop_price_initial': p['stop_initial'],
+            'stop_price_exit': p['stop'],
+            'initial_risk_price': p['initial_risk_price'],
+            'r_value': r_value,
+            'fees': fees,
             'pnl': pnl, 'win': pnl > 0, 'exit_reason': 'eod', 'qty': p['qty'],
         })
 
@@ -446,6 +506,9 @@ def main():
     parser.add_argument('--h4',       required=True,  help='Path to H4 CSV')
     parser.add_argument('--scenario', default='ALL',  help=f'{ENGINE_VERSION}A | {ENGINE_VERSION}B | {ENGINE_VERSION}C | A | B | C | D | ALL')
     parser.add_argument('--capital',  type=float, default=10_000)
+    parser.add_argument('--spread-bps', type=float, default=0.0, help='Round-trip spread in bps (applied as half per side)')
+    parser.add_argument('--slippage-bps', type=float, default=0.0, help='Adverse slippage per side in bps')
+    parser.add_argument('--commission-per-trade', type=float, default=0.0, help='Fixed commission in account currency per closed trade')
     args = parser.parse_args()
 
     print("Loading data...")
@@ -494,6 +557,9 @@ def main():
             cooldown_min=DEFAULTS['cooldown_min'],
             lockout_min=DEFAULTS['lockout_min'],
             conf_tol=DEFAULTS['conf_tol'],
+            spread_bps=args.spread_bps,
+            slippage_bps=args.slippage_bps,
+            commission_per_trade=args.commission_per_trade,
             label=f"Scenario {sc_id}  |  {cfg['entry_tf'].upper()} entry  |  risk={cfg['risk_pct']*100:.2f}%",
             **arrays,
         )

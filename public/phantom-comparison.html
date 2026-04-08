@@ -743,6 +743,18 @@
           <label for="withdrawalPctInput">Monthly Withdrawal %</label>
           <input id="withdrawalPctInput" type="number" min="0" max="100" step="1" value="0" />
         </div>
+        <div>
+          <label for="spreadBpsInput">Execution: Spread (bps)</label>
+          <input id="spreadBpsInput" type="number" min="0" step="0.1" value="0" />
+        </div>
+        <div>
+          <label for="slippageBpsInput">Execution: Slippage (bps)</label>
+          <input id="slippageBpsInput" type="number" min="0" step="0.1" value="0" />
+        </div>
+        <div>
+          <label for="commissionPerTradeInput">Execution: Commission / trade (£)</label>
+          <input id="commissionPerTradeInput" type="number" min="0" step="0.01" value="0" />
+        </div>
       </div>
 
       <div class="curve-nav">
@@ -918,6 +930,9 @@
     const startCapitalInput = document.getElementById('startCapitalInput');
     const riskMultiplierInput = document.getElementById('riskMultiplierInput');
     const withdrawalPctInput = document.getElementById('withdrawalPctInput');
+    const spreadBpsInput = document.getElementById('spreadBpsInput');
+    const slippageBpsInput = document.getElementById('slippageBpsInput');
+    const commissionPerTradeInput = document.getElementById('commissionPerTradeInput');
 
     let curveData = null;
     let preloadedCatalog = [];
@@ -2068,6 +2083,9 @@
           scenario: 'ALL',
           engineVersion: String(phantomEngineSelect?.value || 'p1').toLowerCase(),
           capital: Number(startCapitalInput.value || 5000),
+          spreadBps: Number(spreadBpsInput?.value || 0),
+          slippageBps: Number(slippageBpsInput?.value || 0),
+          commissionPerTrade: Number(commissionPerTradeInput?.value || 0),
         }),
       });
 

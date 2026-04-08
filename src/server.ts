@@ -2828,6 +2828,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const capital = toNumber(req.body?.capital, 5_000);
 		const scenario = String(req.body?.scenario || 'ALL').toUpperCase();
 		const engineVersion = String(req.body?.engineVersion || 'p1').toLowerCase() === 'p2' ? 'p2' : 'p1';
+		const spreadBps = Math.max(0, toNumber(req.body?.spreadBps, 0));
+		const slippageBps = Math.max(0, toNumber(req.body?.slippageBps, 0));
+		const commissionPerTrade = Math.max(0, toNumber(req.body?.commissionPerTrade, 0));
 
 		const dataFiles = {
 			m1: resolveMarketTimeframeFile(symbol, '1m'),
@@ -2847,7 +2850,8 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
 			];
 		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
-		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, 'phantom-v2-validate-'));
+		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${engineVersion}-validate-`;
+		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, artifactPrefix));
 
 		const args = [
 			'-u',
@@ -2858,6 +2862,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--h4', dataFiles.h4,
 			'--scenario', scenario,
 			'--capital', String(capital),
+			'--spread-bps', String(spreadBps),
+			'--slippage-bps', String(slippageBps),
+			'--commission-per-trade', String(commissionPerTrade),
 		];
 
 		const stdout = await new Promise<string>((resolve, reject) => {
@@ -2893,6 +2900,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			ok: true,
 			symbol,
 			capital,
+			spreadBps,
+			slippageBps,
+			commissionPerTrade,
 			engineVersion,
 			scenario,
 			dataFiles,
