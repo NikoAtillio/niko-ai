@@ -532,7 +532,7 @@
                 <div class="panel-body stack">
                     <div class="field">
                         <label>Trades File</label>
-                        <input id="tradesFileInput" placeholder="/Users/.../phantom_backtest_trades.csv">
+                        <input id="tradesFileInput" placeholder="/Users/.../backtest_artifacts/phantom-eurusd-p1-validate-3Kh9Ab/phantom_p1_trades_P1A.csv">
                     </div>
                     <button class="btn-secondary" id="loadTradesBtn">Overlay Trades</button>
                     <div class="table-wrap">
@@ -1386,7 +1386,20 @@ async function loadTrades() {
     renderAnalytics();
     renderChart();
 
-    const inferredReport = tradesFileInput.value.trim().replace('phantom_backtest_trades.csv', 'phantom_backtest_report.md');
+    const inferReportPath = (tradesPath) => {
+        const value = String(tradesPath || '').trim();
+        if (!value) return '';
+        if (value.includes('phantom_backtest_trades.csv')) {
+            return value.replace('phantom_backtest_trades.csv', 'phantom_backtest_report.md');
+        }
+        const match = value.match(/^(.*)\/(phantom_[^/]+)_trades_([^/]+)\.csv$/i);
+        if (match) {
+            return `${match[1]}/${match[2]}_report_${match[3]}.md`;
+        }
+        return value.replace(/\.csv$/i, '.md');
+    };
+
+    const inferredReport = inferReportPath(tradesFileInput.value);
     if (inferredReport.endsWith('.md')) {
         const reportRes = await fetch('/platform/report?reportFile=' + encodeURIComponent(inferredReport));
         const reportData = await reportRes.json();

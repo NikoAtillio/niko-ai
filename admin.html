@@ -492,9 +492,14 @@
           meta: 'Files present in the uploads directory.',
         },
         {
-          title: 'Artifacts',
+          title: 'Active Artifacts',
           value: data.directories?.backtest_artifacts?.entries?.length || 0,
-          meta: 'Generated charts, CSVs, and reports from runs.',
+          meta: 'Instrument-labeled active runs used by the app.',
+        },
+        {
+          title: 'Archived Artifacts',
+          value: data.directories?.backtest_artifacts_archive?.entries?.length || 0,
+          meta: 'Older duplicate runs moved out of the active path.',
         },
         {
           title: 'History Store',
