@@ -134,6 +134,30 @@
             font-weight: 600;
         }
 
+        .quick-menu {
+            margin: 0 0 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .quick-menu a {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-0);
+            border-radius: 999px;
+            padding: 7px 12px;
+            text-decoration: none;
+            font-size: 0.86rem;
+            font-weight: 600;
+        }
+
+        .quick-menu a.active {
+            background: linear-gradient(135deg, #00d4aa, #3b82f6);
+            color: #051019;
+            border-color: transparent;
+        }
+
         .layout {
             margin-top: 18px;
             display: grid;
@@ -427,13 +451,20 @@
         <div class="page-nav-control">
             <label for="pageSelect">Navigate</label>
             <select id="pageSelect" onchange="window.location.assign(this.value)">
-                <option value="index.html" selected>Strategy Research Terminal</option>
-                <option value="phantom-comparison.html">Strategy Comparison Dashboard</option>
                 <option value="strategy-lab.html">Strategy Lab</option>
-                <option value="admin.html">Admin Panel</option>
+                <option value="phantom-comparison.html">Strategy Tests</option>
+                <option value="profile.html">My Profile</option>
+                <option value="data.html" selected>Data</option>
             </select>
         </div>
     </section>
+
+    <nav class="quick-menu" aria-label="Workspace sections">
+        <a href="strategy-lab.html">Strategy Lab</a>
+        <a href="phantom-comparison.html">Strategy Tests</a>
+        <a href="profile.html">My Profile</a>
+        <a href="data.html" class="active">Data</a>
+    </nav>
 
     <section class="hero">
         <h1>Strategy Research Terminal</h1>

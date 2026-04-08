@@ -32,6 +32,8 @@ const DEFAULT_DATA_FILES: Record<string, string> = {
 	NAS100: '/Users/niko/Downloads/NAS100_M1_202404010105_202603302033.csv',
 };
 
+fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+
 const DEFAULT_DATASET_SYMBOL_ALIASES: Record<string, string> = {
 	BTC: 'BTCUSD',
 	XAU: 'XAUUSD',
@@ -1002,6 +1004,8 @@ function resolveMarketTimeframeFile(symbolInput: string, timeframeInput: string)
 }
 
 interface PhantomV2ScenarioSummary {
+	version: string;
+	scenarioKey: string;
 	scenario: string;
 	label: string;
 	trades: number;
@@ -1024,7 +1028,20 @@ interface PhantomV2ValidationResult {
 	stdout: string;
 }
 
-function parsePhantomV2ValidationOutput(stdout: string): PhantomV2ScenarioSummary[] {
+function normalizePhantomScenario(rawScenario: string, engineVersion: string): { version: string; scenarioKey: string; scenario: string } {
+	const version = String(engineVersion || 'p1').toLowerCase() === 'p2' ? 'p2' : 'p1';
+	let token = String(rawScenario || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+	token = token.replace(/^P[12]/, '');
+	if (token === 'D') token = 'C';
+	if (!['A', 'B', 'C'].includes(token)) token = 'B';
+	return {
+		version,
+		scenarioKey: token,
+		scenario: `${version}${token}`,
+	};
+}
+
+function parsePhantomV2ValidationOutput(stdout: string, engineVersion: string): PhantomV2ScenarioSummary[] {
 	const blocks = [...stdout.matchAll(/=+\n\s*(.+?)\n=+\n([\s\S]*?)(?=\n=+\n\s*.+?\n=+|\n\n=== v5\.0 → v5\.1 COMPARISON ===|$)/g)];
 	return blocks.map((match) => {
 		const label = match[1].trim();
@@ -1034,10 +1051,13 @@ function parsePhantomV2ValidationOutput(stdout: string): PhantomV2ScenarioSummar
 			if (!found) return Number.NaN;
 			return Number(String(found).replace(/,/g, ''));
 		};
-		const scenario = (label.match(/Scenario\s+([DAB])/i)?.[1] || 'B').toUpperCase();
+		const rawScenario = label.match(/Scenario\s+([A-Za-z0-9.]+)/i)?.[1] || '';
+		const normalizedScenario = normalizePhantomScenario(rawScenario, engineVersion);
 		return {
-			scenario,
-			label,
+			version: normalizedScenario.version,
+			scenarioKey: normalizedScenario.scenarioKey,
+			scenario: normalizedScenario.scenario,
+			label: normalizedScenario.scenario.toUpperCase(),
 			trades: getNumber(/Trades\s*:\s*(\d+)/),
 			winRatePct: getNumber(/Win %\s*:\s*([\d.]+)%/),
 			profitFactor: getNumber(/PF\s*:\s*([\d.]+)/),
@@ -1064,11 +1084,14 @@ function bucketLabelFromDate(dateText: string): string {
 	return `${startYear}-${String(startYear + 1).slice(-2)}`;
 }
 
-function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[]): Record<string, unknown> {
+function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
 
 	for (const summary of summaries) {
-		const tradeFile = path.join(workingDir, `phantom_v5_1_trades_${summary.scenario}.csv`);
+		const preferredTradeFile = path.join(workingDir, `phantom_${engineVersion.toLowerCase()}_trades_${summary.scenario.toUpperCase()}.csv`);
+		const legacyScenario = summary.scenarioKey === 'C' ? 'D' : summary.scenarioKey;
+		const legacyTradeFile = path.join(workingDir, `phantom_v5_1_trades_${legacyScenario}.csv`);
+		const tradeFile = fileExists(preferredTradeFile) ? preferredTradeFile : legacyTradeFile;
 		if (!fileExists(tradeFile)) {
 			continue;
 		}
@@ -1119,9 +1142,9 @@ function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number,
 		for (const [bucket, points] of groupedPoints.entries()) {
 			periods[bucket] = periods[bucket] || [];
 			periods[bucket].push({
-				version: 'v2',
+				version: summary.version,
 				scenario: summary.scenario,
-				label: `v2 ${summary.scenario}`,
+				label: summary.scenario.toUpperCase(),
 				trades: points.length,
 				points,
 			});
@@ -1131,7 +1154,7 @@ function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number,
 	return {
 		startCapital: capital,
 		market: symbol,
-		sourceType: 'live v2 validation',
+		sourceType: `live ${engineVersion.toLowerCase()} validation`,
 		timeframe: 'multi-timeframe',
 		sourceFile: workingDir,
 		periods,
@@ -2804,6 +2827,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
 		const scenario = String(req.body?.scenario || 'ALL').toUpperCase();
+		const engineVersion = String(req.body?.engineVersion || 'p1').toLowerCase() === 'p2' ? 'p2' : 'p1';
 
 		const dataFiles = {
 			m1: resolveMarketTimeframeFile(symbol, '1m'),
@@ -2813,7 +2837,16 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		};
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-		const scriptPath = path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py');
+		const scriptCandidates = engineVersion === 'p2'
+			? [
+				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
+				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py'),
+			]
+			: [
+				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_p1.py'),
+				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
+			];
+		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
 		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, 'phantom-v2-validate-'));
 
 		const args = [
@@ -2852,14 +2885,15 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			});
 		});
 
-		const summaries = parsePhantomV2ValidationOutput(stdout);
+		const summaries = parsePhantomV2ValidationOutput(stdout, engineVersion);
 		const best = pickBestPhantomV2Summary(summaries);
-		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries);
+		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries, engineVersion);
 
 		res.json({
 			ok: true,
 			symbol,
 			capital,
+			engineVersion,
 			scenario,
 			dataFiles,
 			workingDir,

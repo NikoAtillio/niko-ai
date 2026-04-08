@@ -1,20 +1,19 @@
 """
-PHANTOM v5.1 — Multi-Timeframe US100 Backtest Engine
-=====================================================
+PHANTOM p1 - Multi-Timeframe US100 Backtest Engine
+===================================================
 Scenarios
-  D  : M5 entry | risk=0.40% | score≥3 | no timeout
-  B  : M5 entry | risk=0.70% | score≥3 | no timeout
-  A  : M1 entry | risk=0.35% | score≥5 | vol filter | no timeout
-
-Changes vs v5.0
-  • D: risk_pct 0.70% → 0.40%  (DD was -17%, now -3%)
-  • B: timeout removed           (65% of trades were timing out)
-  • A: score threshold 4→5, volume filter added, M1 low-TF score ≥2
+    p1C : M5 entry | risk=0.40% | score>=3 | no timeout
+    p1B : M5 entry | risk=0.70% | score>=3 | no timeout
+    p1A : M1 entry | risk=0.35% | score>=5 | vol filter | no timeout
 
 Usage
-  python phantom_v5_1.py --m1 path/M1.csv --m5 path/M5.csv \
-                          --h1 path/H1.csv --h4 path/H4.csv \
-                          [--scenario D] [--capital 10000]
+    python phantom_p1.py --m1 path/M1.csv --m5 path/M5.csv \
+                                             --h1 path/H1.csv --h4 path/H4.csv \
+                                             [--scenario p1A] [--capital 10000]
+
+Notes
+    - Legacy aliases are still accepted: A/B/C/D.
+    - D is mapped to C for backward compatibility.
 """
 
 import argparse
@@ -25,6 +24,8 @@ import numpy as np
 import pandas as pd
 
 warnings.filterwarnings('ignore')
+
+ENGINE_VERSION = 'p1'
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIG — edit these or pass via CLI
@@ -40,7 +41,7 @@ DEFAULTS = {
 }
 
 SCENARIOS = {
-    'D': dict(
+    'C': dict(
         entry_tf    = 'm5',
         risk_pct    = 0.004,
         atr_stop    = 1.8,
@@ -403,28 +404,47 @@ def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float,
     print(f"  Skipped     : {skipped}")
 
 
+def canonicalize_scenario(raw: str) -> str:
+    token = str(raw or '').strip().upper().replace('.', '')
+    token = token.replace(ENGINE_VERSION.upper(), '')
+    alias_map = {
+        'A': 'A',
+        'B': 'B',
+        'C': 'C',
+        'D': 'C',
+    }
+    normalized = alias_map.get(token, token)
+    if normalized not in SCENARIOS:
+        raise ValueError(f"Unknown scenario '{raw}'. Use p1A | p1B | p1C | ALL")
+    return normalized
+
+
+def scenario_id(letter: str) -> str:
+    return f"{ENGINE_VERSION.upper()}{letter}"
+
+
 def print_comparison():
-    print("\n\n=== v5.0 → v5.1 COMPARISON ===")
-    print(f"{'Scen':<6} {'Old PF':>8} {'New PF':>8} {'Old DD':>9} {'New DD':>9} {'Old Ret':>9} {'New Ret':>9}")
+    print(f"\n\n=== {ENGINE_VERSION.upper()} SCENARIO SNAPSHOT ===")
+    print(f"{'Scen':<8} {'PF':>8} {'Max DD':>10} {'Net Ret':>10}")
     rows = [
-        ('D', '1.514', '1.319', '-17.34%', '-3.03%',  '+68.65%', '+28.21%'),
-        ('B', '1.253', '1.308', '-13.22%', '-5.24%',  '+38.81%', '+53.61%'),
-        ('A', '0.985', '1.450', '-26.12%', '-3.79%',  '-18.97%', '+41.55%'),
+        (scenario_id('A'), '1.450', '-3.79%', '+41.55%'),
+        (scenario_id('B'), '1.308', '-5.24%', '+53.61%'),
+        (scenario_id('C'), '1.319', '-3.03%', '+28.21%'),
     ]
     for r in rows:
-        print(f"  {r[0]:<4} {r[1]:>8} {r[2]:>8} {r[3]:>9} {r[4]:>9} {r[5]:>9} {r[6]:>9}")
+        print(f"  {r[0]:<8} {r[1]:>8} {r[2]:>10} {r[3]:>10}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
-    parser = argparse.ArgumentParser(description='Phantom v5.1 Backtest')
+    parser = argparse.ArgumentParser(description=f'Phantom {ENGINE_VERSION} Backtest')
     parser.add_argument('--m1',       required=True,  help='Path to M1 CSV')
     parser.add_argument('--m5',       required=True,  help='Path to M5 CSV')
     parser.add_argument('--h1',       required=True,  help='Path to H1 CSV')
     parser.add_argument('--h4',       required=True,  help='Path to H4 CSV')
-    parser.add_argument('--scenario', default='ALL',  help='D | B | A | ALL')
+    parser.add_argument('--scenario', default='ALL',  help=f'{ENGINE_VERSION}A | {ENGINE_VERSION}B | {ENGINE_VERSION}C | A | B | C | D | ALL')
     parser.add_argument('--capital',  type=float, default=10_000)
     args = parser.parse_args()
 
@@ -457,16 +477,14 @@ def main():
         m1_rsi=m1['rsi'].values,
     )
 
-    scenarios_to_run = (
-        list(SCENARIOS.keys()) if args.scenario.upper() == 'ALL'
-        else [args.scenario.upper()]
-    )
+    scenarios_to_run = list(SCENARIOS.keys()) if args.scenario.upper() == 'ALL' else [canonicalize_scenario(args.scenario)]
 
     results = {}
     for sc in scenarios_to_run:
         cfg = SCENARIOS[sc]
+        sc_id = scenario_id(sc)
         candles = m1 if cfg['entry_tf'] == 'm1' else m5
-        print(f"\nRunning Scenario {sc}...")
+        print(f"\nRunning Scenario {sc_id}...")
         df_r = run_scenario(
             candles=candles,
             zone_ts=zone_ts, zone_px=zone_px,
@@ -476,12 +494,12 @@ def main():
             cooldown_min=DEFAULTS['cooldown_min'],
             lockout_min=DEFAULTS['lockout_min'],
             conf_tol=DEFAULTS['conf_tol'],
-            label=f"Scenario {sc}  |  {cfg['entry_tf'].upper()} entry  |  risk={cfg['risk_pct']*100:.2f}%",
+            label=f"Scenario {sc_id}  |  {cfg['entry_tf'].upper()} entry  |  risk={cfg['risk_pct']*100:.2f}%",
             **arrays,
         )
-        results[sc] = df_r
+        results[sc_id] = df_r
         if df_r is not None and len(df_r):
-            out = f'phantom_v5_1_trades_{sc}.csv'
+            out = f'phantom_{ENGINE_VERSION}_trades_{sc_id}.csv'
             df_r.to_csv(out, index=False)
             print(f"  Trades saved → {out}")
 

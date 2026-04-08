@@ -1,0 +1,3548 @@
+[
+  {
+    "id": "run_1775666707129_yvhbzybv",
+    "createdAt": "2026-04-08T16:45:07.129Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:45:07.125Z",
+      "datasetTitle": "Imported market data for 9 years 3 months for BTCUSD",
+      "market": "BTCUSD",
+      "periodKey": "LIVE P2 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom V2 • Scenario A",
+        "avgRet": 11.505967697684705,
+        "compoundedProfit": 575.298384884235,
+        "compounded": 5575.298384884235,
+        "worstDD": -2.5486847738855727,
+        "avgWin": 42.2,
+        "avgPf": 1.324,
+        "yearly": [
+          {
+            "period": "P2A",
+            "ret": 11.505967697684705,
+            "endCap": 5575.298384884235,
+            "endProfit": 575.298384884235,
+            "ddPct": -2.5486847738855727,
+            "ddPrice": 127.43423869427863,
+            "win": 42.2,
+            "pf": 1.324
+          },
+          {
+            "period": "P2B",
+            "ret": 10.927247927491246,
+            "endCap": 5546.362396374562,
+            "endProfit": 546.3623963745622,
+            "ddPct": -4.942934429395622,
+            "ddPrice": 247.1467214697811,
+            "win": 40.3,
+            "pf": 1.197
+          },
+          {
+            "period": "P2C",
+            "ret": 6.210317684085442,
+            "endCap": 5310.515884204272,
+            "endProfit": 310.51588420427197,
+            "ddPct": -2.836032389016707,
+            "ddPrice": 141.80161945083535,
+            "win": 40.3,
+            "pf": 1.201
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom V2 • Scenario A",
+          "avgRet": 11.505967697684705,
+          "avgPf": 1.324,
+          "worstDD": -2.5486847738855727,
+          "compounded": 5575.298384884235
+        },
+        {
+          "label": "Phantom V2 • Scenario B",
+          "avgRet": 10.927247927491246,
+          "avgPf": 1.197,
+          "worstDD": -4.942934429395622,
+          "compounded": 5546.362396374562
+        },
+        {
+          "label": "Phantom V2 • Scenario C",
+          "avgRet": 6.210317684085442,
+          "avgPf": 1.201,
+          "worstDD": -2.836032389016707,
+          "compounded": 5310.515884204272
+        }
+      ],
+      "note": "Live p2 validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2026-01-01 to 2026-04-08. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1775666635796_gxrs5u6y",
+    "createdAt": "2026-04-08T16:43:55.796Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:43:55.790Z",
+      "datasetTitle": "Imported market data for 9 years 3 months for BTCUSD",
+      "market": "BTCUSD",
+      "periodKey": "LIVE P1 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom V1 • Scenario A",
+        "avgRet": 11.505967697684705,
+        "compoundedProfit": 575.298384884235,
+        "compounded": 5575.298384884235,
+        "worstDD": -2.5486847738855727,
+        "avgWin": 42.2,
+        "avgPf": 1.324,
+        "yearly": [
+          {
+            "period": "P1A",
+            "ret": 11.505967697684705,
+            "endCap": 5575.298384884235,
+            "endProfit": 575.298384884235,
+            "ddPct": -2.5486847738855727,
+            "ddPrice": 127.43423869427863,
+            "win": 42.2,
+            "pf": 1.324
+          },
+          {
+            "period": "P1B",
+            "ret": 10.927247927491246,
+            "endCap": 5546.362396374562,
+            "endProfit": 546.3623963745622,
+            "ddPct": -4.942934429395622,
+            "ddPrice": 247.1467214697811,
+            "win": 40.3,
+            "pf": 1.197
+          },
+          {
+            "period": "P1C",
+            "ret": 6.210317684085442,
+            "endCap": 5310.515884204272,
+            "endProfit": 310.51588420427197,
+            "ddPct": -2.836032389016707,
+            "ddPrice": 141.80161945083535,
+            "win": 40.3,
+            "pf": 1.201
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom V1 • Scenario A",
+          "avgRet": 11.505967697684705,
+          "avgPf": 1.324,
+          "worstDD": -2.5486847738855727,
+          "compounded": 5575.298384884235
+        },
+        {
+          "label": "Phantom V1 • Scenario B",
+          "avgRet": 10.927247927491246,
+          "avgPf": 1.197,
+          "worstDD": -4.942934429395622,
+          "compounded": 5546.362396374562
+        },
+        {
+          "label": "Phantom V1 • Scenario C",
+          "avgRet": 6.210317684085442,
+          "avgPf": 1.201,
+          "worstDD": -2.836032389016707,
+          "compounded": 5310.515884204272
+        }
+      ],
+      "note": "Live p1 validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2026-01-01 to 2026-04-08. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1775665806884_34pp7ayj",
+    "createdAt": "2026-04-08T16:30:06.884Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:30:06.876Z",
+      "datasetTitle": "Imported market data for 3 years 1 month for US100",
+      "market": "Imported market",
+      "periodKey": "ALL",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "p2-B",
+        "label": "Phantom V2 • Scenario B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "p2-B",
+          "label": "Phantom V2 • Scenario B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "p2-A",
+          "label": "Phantom V2 • Scenario A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "p1-C",
+          "label": "Phantom V1 • Scenario C",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "p2-C",
+          "label": "Phantom V2 • Scenario C",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom V1/V2 comparison data."
+    }
+  },
+  {
+    "id": "run_1775665783486_ih1zjql4",
+    "createdAt": "2026-04-08T16:29:43.486Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:29:43.477Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "p2-B",
+        "label": "Phantom V2 • Scenario B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "p2-B",
+          "label": "Phantom V2 • Scenario B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "p2-A",
+          "label": "Phantom V2 • Scenario A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "p1-C",
+          "label": "Phantom V1 • Scenario C",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "p2-C",
+          "label": "Phantom V2 • Scenario C",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom V1/V2 comparison data."
+    }
+  },
+  {
+    "id": "run_1775665019352_opnu1hoz",
+    "createdAt": "2026-04-08T16:16:59.352Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:16:59.341Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775665015498_8e4j31oq",
+    "createdAt": "2026-04-08T16:16:55.498Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:16:55.478Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664899167_apvj64h0",
+    "createdAt": "2026-04-08T16:14:59.167Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:14:58.931Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664857270_6i58l741",
+    "createdAt": "2026-04-08T16:14:17.270Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:14:17.155Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664799842_peqru6ib",
+    "createdAt": "2026-04-08T16:13:19.842Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:13:19.818Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664777936_6lgzeqap",
+    "createdAt": "2026-04-08T16:12:57.936Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:12:57.924Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664765068_74yy0zay",
+    "createdAt": "2026-04-08T16:12:45.068Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:12:45.047Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664611987_096rejln",
+    "createdAt": "2026-04-08T16:10:11.987Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:10:11.937Z",
+      "datasetTitle": "Imported market data for 3 years 1 month for US100",
+      "market": "Imported market",
+      "periodKey": "ALL",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.801299999999976,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -7.82626053275346,
+        "compounded": 13729.26777462836,
+        "compoundedProfit": 8729.26777462836,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61370000000025,
+            "endCap": 7680.685000000012,
+            "endProfit": 2680.685000000012,
+            "ddPct": -4.2935302056045,
+            "ddPrice": 214.67651028022502,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.06939999999986,
+            "endCap": 7403.469999999993,
+            "endProfit": 2403.469999999993,
+            "ddPct": -7.82626053275346,
+            "ddPrice": 391.313026637673,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.720799999999826,
+            "endCap": 6036.039999999992,
+            "endProfit": 1036.0399999999918,
+            "ddPct": -5.67916582415306,
+            "ddPrice": 283.95829120765296,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.801299999999976,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -7.82626053275346,
+          "compounded": 13729.26777462836,
+          "compoundedProfit": 8729.26777462836,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61370000000025,
+              "endCap": 7680.685000000012,
+              "endProfit": 2680.685000000012,
+              "ddPct": -4.2935302056045,
+              "ddPrice": 214.67651028022502,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.06939999999986,
+              "endCap": 7403.469999999993,
+              "endProfit": 2403.469999999993,
+              "ddPct": -7.82626053275346,
+              "ddPrice": 391.313026637673,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.720799999999826,
+              "endCap": 6036.039999999992,
+              "endProfit": 1036.0399999999918,
+              "ddPct": -5.67916582415306,
+              "ddPrice": 283.95829120765296,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89720000000002,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.6608179381129946,
+          "compounded": 11910.707825706113,
+          "compoundedProfit": 6910.707825706113,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.552299999999896,
+              "endCap": 7077.614999999995,
+              "endProfit": 2077.6149999999952,
+              "ddPct": -3.6608179381129946,
+              "ddPrice": 183.04089690564973,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.52540000000029,
+              "endCap": 6976.270000000014,
+              "endProfit": 1976.270000000014,
+              "ddPct": -2.895794392060489,
+              "ddPrice": 144.78971960302445,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.613899999999852,
+              "endCap": 6030.694999999992,
+              "endProfit": 1030.6949999999924,
+              "ddPct": -3.574478832291282,
+              "ddPrice": 178.7239416145641,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.844133333333357,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.514581120214252,
+          "compounded": 8995.20872417712,
+          "compoundedProfit": 3995.2087241771205,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.213900000000013,
+              "endCap": 6410.695000000001,
+              "endProfit": 1410.6950000000006,
+              "ddPct": -2.473019853387997,
+              "ddPrice": 123.65099266939986,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.619999999999955,
+              "endCap": 6280.999999999997,
+              "endProfit": 1280.9999999999973,
+              "ddPct": -4.514581120214252,
+              "ddPrice": 225.72905601071258,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.6985000000001,
+              "endCap": 5584.925000000005,
+              "endProfit": 584.9250000000047,
+              "ddPct": -3.2799721281387306,
+              "ddPrice": 163.99860640693652,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": -22.08993333333329,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -43.80960000000004,
+          "compounded": 2207.1748078256073,
+          "compoundedProfit": -2792.8251921743927,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": -2.69469999999985,
+              "endCap": 4865.265000000008,
+              "endProfit": -134.7349999999924,
+              "ddPct": -14.409236016624918,
+              "ddPrice": 720.4618008312459,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": -21.001399999999983,
+              "endCap": 3949.9300000000007,
+              "endProfit": -1050.0699999999993,
+              "ddPct": -30.442465319327063,
+              "ddPrice": 1522.123265966353,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -42.573700000000024,
+              "endCap": 2871.3149999999987,
+              "endProfit": -2128.6850000000013,
+              "ddPct": -43.80960000000004,
+              "ddPrice": 2190.480000000002,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664493850_rsxcxuwh",
+    "createdAt": "2026-04-08T16:08:13.850Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:08:13.748Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664084253_51o6na4a",
+    "createdAt": "2026-04-08T16:01:24.253Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:01:24.228Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664024012_kc19wb6k",
+    "createdAt": "2026-04-08T16:00:24.012Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:00:23.992Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775664017958_xq17zz3r",
+    "createdAt": "2026-04-08T16:00:17.958Z",
+    "summary": {
+      "generatedAt": "2026-04-08T16:00:17.937Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  },
+  {
+    "id": "run_1775663981286_c08znv51",
+    "createdAt": "2026-04-08T15:59:41.286Z",
+    "summary": {
+      "generatedAt": "2026-04-08T15:59:41.185Z",
+      "datasetTitle": "Imported market data for X for Y",
+      "market": "Imported market",
+      "periodKey": "",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "key": "v2-B",
+        "label": "v2 B",
+        "avgRet": 40.800000000000004,
+        "avgPf": 1.2426666666666666,
+        "avgWin": 40.46666666666666,
+        "worstDD": -8,
+        "compounded": 13728.901737720003,
+        "compoundedProfit": 8728.901737720003,
+        "yearly": [
+          {
+            "period": "2023-24",
+            "ret": 53.61,
+            "endCap": 7680.5,
+            "endProfit": 2680.5,
+            "ddPct": -5.24,
+            "ddPrice": 262,
+            "win": 43.1,
+            "pf": 1.308
+          },
+          {
+            "period": "2024-25",
+            "ret": 48.07,
+            "endCap": 7403.500000000001,
+            "endProfit": 2403.500000000001,
+            "ddPct": -8,
+            "ddPrice": 400,
+            "win": 40,
+            "pf": 1.289
+          },
+          {
+            "period": "2025-26",
+            "ret": 20.72,
+            "endCap": 6036,
+            "endProfit": 1036,
+            "ddPct": -6.26,
+            "ddPrice": 313,
+            "win": 38.3,
+            "pf": 1.131
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "key": "v2-B",
+          "label": "v2 B",
+          "avgRet": 40.800000000000004,
+          "avgPf": 1.2426666666666666,
+          "avgWin": 40.46666666666666,
+          "worstDD": -8,
+          "compounded": 13728.901737720003,
+          "compoundedProfit": 8728.901737720003,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 53.61,
+              "endCap": 7680.5,
+              "endProfit": 2680.5,
+              "ddPct": -5.24,
+              "ddPrice": 262,
+              "win": 43.1,
+              "pf": 1.308
+            },
+            {
+              "period": "2024-25",
+              "ret": 48.07,
+              "endCap": 7403.500000000001,
+              "endProfit": 2403.500000000001,
+              "ddPct": -8,
+              "ddPrice": 400,
+              "win": 40,
+              "pf": 1.289
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.72,
+              "endCap": 6036,
+              "endProfit": 1036,
+              "ddPct": -6.26,
+              "ddPrice": 313,
+              "win": 38.3,
+              "pf": 1.131
+            }
+          ]
+        },
+        {
+          "key": "v2-A",
+          "label": "v2 A",
+          "avgRet": 33.89666666666667,
+          "avgPf": 1.3346666666666664,
+          "avgWin": 41.4,
+          "worstDD": -3.79,
+          "compounded": 11910.521838075,
+          "compoundedProfit": 6910.521838074999,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 41.55,
+              "endCap": 7077.5,
+              "endProfit": 2077.5,
+              "ddPct": -3.79,
+              "ddPrice": 189.50000000000003,
+              "win": 43.2,
+              "pf": 1.45
+            },
+            {
+              "period": "2024-25",
+              "ret": 39.53,
+              "endCap": 6976.5,
+              "endProfit": 1976.5,
+              "ddPct": -3.24,
+              "ddPrice": 162.00000000000003,
+              "win": 40.9,
+              "pf": 1.352
+            },
+            {
+              "period": "2025-26",
+              "ret": 20.61,
+              "endCap": 6030.5,
+              "endProfit": 1030.5,
+              "ddPct": -3.67,
+              "ddPrice": 183.49999999999997,
+              "win": 40.1,
+              "pf": 1.202
+            }
+          ]
+        },
+        {
+          "key": "v1-D",
+          "label": "v1 D",
+          "avgRet": 32.196666666666665,
+          "avgPf": 0.7253333333333334,
+          "avgWin": 29.933333333333326,
+          "worstDD": -21.11,
+          "compounded": 10530.961301119998,
+          "compoundedProfit": 5530.961301119998,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 60.64,
+              "endCap": 8032,
+              "endProfit": 3032,
+              "ddPct": -5.34,
+              "ddPrice": 267,
+              "win": 32.3,
+              "pf": 0.958
+            },
+            {
+              "period": "2024-25",
+              "ret": 46.38,
+              "endCap": 7319,
+              "endProfit": 2319,
+              "ddPct": -14.66,
+              "ddPrice": 733,
+              "win": 34.9,
+              "pf": 0.798
+            },
+            {
+              "period": "2025-26",
+              "ret": -10.43,
+              "endCap": 4478.5,
+              "endProfit": -521.5,
+              "ddPct": -21.11,
+              "ddPrice": 1055.5,
+              "win": 22.6,
+              "pf": 0.42
+            }
+          ]
+        },
+        {
+          "key": "v2-D",
+          "label": "v2 D",
+          "avgRet": 21.843333333333334,
+          "avgPf": 1.2473333333333334,
+          "avgWin": 40.46666666666666,
+          "worstDD": -4.62,
+          "compounded": 8995.0559017,
+          "compoundedProfit": 3995.0559016999996,
+          "yearly": [
+            {
+              "period": "2023-24",
+              "ret": 28.21,
+              "endCap": 6410.5,
+              "endProfit": 1410.5,
+              "ddPct": -3.03,
+              "ddPrice": 151.49999999999997,
+              "win": 43.1,
+              "pf": 1.319
+            },
+            {
+              "period": "2024-25",
+              "ret": 25.62,
+              "endCap": 6281,
+              "endProfit": 1281,
+              "ddPct": -4.62,
+              "ddPrice": 231,
+              "win": 40,
+              "pf": 1.288
+            },
+            {
+              "period": "2025-26",
+              "ret": 11.7,
+              "endCap": 5585,
+              "endProfit": 585,
+              "ddPct": -3.62,
+              "ddPrice": 181.00000000000003,
+              "win": 38.3,
+              "pf": 1.135
+            }
+          ]
+        }
+      ],
+      "note": "Model uses scenario settings: start £5,000, risk x1.00, no monthly withdrawals (full compounding). End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file."
+    }
+  }
+]

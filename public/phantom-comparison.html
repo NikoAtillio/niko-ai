@@ -124,6 +124,30 @@
       font-weight: 600;
     }
 
+    .quick-menu {
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quick-menu a {
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .quick-menu a.active {
+      background: linear-gradient(135deg, #005f73, #2a9d8f);
+      color: #ecf8f2;
+      border-color: transparent;
+    }
+
     @media (max-width: 760px) {
       .page-nav {
         grid-template-columns: 1fr;
@@ -633,16 +657,23 @@
       <div class="page-nav-control">
         <label for="pageSelect">Navigate</label>
         <select id="pageSelect" onchange="window.location.assign(this.value)">
-          <option value="index.html">Strategy Research Terminal</option>
-          <option value="phantom-comparison.html" selected>Strategy Comparison Dashboard</option>
           <option value="strategy-lab.html">Strategy Lab</option>
-          <option value="admin.html">Admin Panel</option>
+          <option value="phantom-comparison.html" selected>Strategy Tests</option>
+          <option value="profile.html">My Profile</option>
+          <option value="data.html">Data</option>
         </select>
       </div>
     </section>
 
+    <nav class="quick-menu" aria-label="Workspace sections">
+      <a href="strategy-lab.html">Strategy Lab</a>
+      <a href="phantom-comparison.html" class="active">Strategy Tests</a>
+      <a href="profile.html">My Profile</a>
+      <a href="data.html">Data</a>
+    </nav>
+
     <section class="hero">
-      <h1>Strategy Comparison Dashboard</h1>
+      <h1>Strategy Tests</h1>
       <p>Interactive cross-comparison across imported test periods. Adjust scenario settings, inspect curve behaviour, compare strategy outcomes, and review modelled recommendations.</p>
     </section>
 
@@ -668,6 +699,11 @@
             <label for="preloadedMarketSelect">Instrument</label>
             <select id="preloadedMarketSelect">
               <option value="">Loading instruments...</option>
+            </select>
+            <label for="phantomEngineSelect" style="margin-top:8px;">Strategy</label>
+            <select id="phantomEngineSelect">
+              <option value="p1" selected>Phantom V1</option>
+              <option value="p2">Phantom V2</option>
             </select>
           </div>
           <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
@@ -732,12 +768,11 @@
           <div class="periods" id="periodChecks"></div>
         </div>
         <div>
-          <label for="versionFilter">Version</label>
+          <label for="versionFilter">Strategy</label>
           <select id="versionFilter">
             <option value="ALL">All</option>
-            <option value="v1">v1</option>
-            <option value="v2">v2</option>
-            <option value="v3">v3</option>
+            <option value="p1">Phantom V1</option>
+            <option value="p2">Phantom V2</option>
           </select>
         </div>
         <div>
@@ -831,28 +866,7 @@
   </div>
 
   <script>
-    const rows = [
-      // 2023-24
-      { period:'2023-24', version:'v1', scenario:'D', strategyLabel:'H1+H4 Confluence (pre-fix)', entryTf:'M1', trades:226, winRate:32.3, profitFactor:0.958, netReturn:60.64, maxDD:-5.34, expectancy:26.83, finalCapital:16064.23, status:'Completed' },
-      { period:'2023-24', version:'v2', scenario:'D', strategyLabel:'v5.1 M5 risk 0.40%', entryTf:'M5', trades:1220, winRate:43.1, profitFactor:1.319, netReturn:28.21, maxDD:-3.03, expectancy:2.31, finalCapital:12821.39, status:'Completed' },
-      { period:'2023-24', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1220, winRate:43.1, profitFactor:1.308, netReturn:53.61, maxDD:-5.24, expectancy:4.39, finalCapital:15361.37, status:'Completed' },
-      { period:'2023-24', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1004, winRate:43.2, profitFactor:1.450, netReturn:41.55, maxDD:-3.79, expectancy:4.14, finalCapital:14155.23, status:'Completed' },
-      { period:'2023-24', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-
-      // 2024-25
-      { period:'2024-25', version:'v1', scenario:'D', strategyLabel:'H1+H4 Confluence (pre-fix)', entryTf:'M1', trades:289, winRate:34.9, profitFactor:0.798, netReturn:46.38, maxDD:-14.66, expectancy:16.05, finalCapital:14637.65, status:'Completed' },
-      { period:'2024-25', version:'v2', scenario:'D', strategyLabel:'v5.1 M5 risk 0.40%', entryTf:'M5', trades:1197, winRate:40.0, profitFactor:1.288, netReturn:25.62, maxDD:-4.62, expectancy:2.14, finalCapital:12562.00, status:'Completed' },
-      { period:'2024-25', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1197, winRate:40.0, profitFactor:1.289, netReturn:48.07, maxDD:-8.00, expectancy:4.02, finalCapital:14806.94, status:'Completed' },
-      { period:'2024-25', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1185, winRate:40.9, profitFactor:1.352, netReturn:39.53, maxDD:-3.24, expectancy:3.34, finalCapital:13952.54, status:'Completed' },
-      { period:'2024-25', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-
-      // 2025-26
-      { period:'2025-26', version:'v1', scenario:'D', strategyLabel:'H1+H4 Confluence (pre-fix)', entryTf:'M1', trades:230, winRate:22.6, profitFactor:0.420, netReturn:-10.43, maxDD:-21.11, expectancy:-4.53, finalCapital:8957.22, status:'Completed' },
-      { period:'2025-26', version:'v2', scenario:'D', strategyLabel:'v5.1 M5 risk 0.40%', entryTf:'M5', trades:1194, winRate:38.3, profitFactor:1.135, netReturn:11.70, maxDD:-3.62, expectancy:0.98, finalCapital:11169.85, status:'Completed' },
-      { period:'2025-26', version:'v2', scenario:'B', strategyLabel:'v5.1 M5 risk 0.70%', entryTf:'M5', trades:1194, winRate:38.3, profitFactor:1.131, netReturn:20.72, maxDD:-6.26, expectancy:1.74, finalCapital:12072.08, status:'Completed' },
-      { period:'2025-26', version:'v2', scenario:'A', strategyLabel:'v5.1 M1 risk 0.35% vol filter', entryTf:'M1', trades:1161, winRate:40.1, profitFactor:1.202, netReturn:20.61, maxDD:-3.67, expectancy:1.78, finalCapital:12061.39, status:'Completed' },
-      { period:'2025-26', version:'v3', scenario:'A', strategyLabel:'1H zones score>=5', entryTf:'M1', trades:null, winRate:null, profitFactor:null, netReturn:null, maxDD:null, expectancy:null, finalCapital:null, status:'Not completed' },
-    ];
+    const rows = [];
 
     const state = {
       sortKey: 'netReturn',
@@ -887,6 +901,7 @@
     const datasetTitle = document.getElementById('datasetTitle');
     const datasetSubtitle = document.getElementById('datasetSubtitle');
     const preloadedMarketSelect = document.getElementById('preloadedMarketSelect');
+    const phantomEngineSelect = document.getElementById('phantomEngineSelect');
     const loadPreloadedBtn = document.getElementById('loadPreloadedBtn');
     const preloadedSummary = document.getElementById('preloadedSummary');
     const zoomInBtn = document.getElementById('zoomInBtn');
@@ -947,9 +962,35 @@
     scenarios.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s;
-      opt.textContent = s;
+      opt.textContent = formatScenarioLabel(s);
       scenarioFilter.appendChild(opt);
     });
+
+    function getScenarioLetter(rawScenario) {
+      const text = String(rawScenario || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!text) return '';
+      const last = text[text.length - 1];
+      if (last === 'D') return 'C';
+      if (last === 'A' || last === 'B' || last === 'C') return last;
+      return '';
+    }
+
+    function formatVersionLabel(version) {
+      const v = String(version || '').trim().toLowerCase();
+      if (v === 'p1' || v === 'v1') return 'Phantom V1';
+      if (v === 'p2' || v === 'v2') return 'Phantom V2';
+      if (v === 'v4') return 'Phantom V4';
+      return String(version || 'Unknown');
+    }
+
+    function formatScenarioLabel(scenario) {
+      const letter = getScenarioLetter(scenario);
+      return letter ? `Scenario ${letter}` : String(scenario || 'Scenario N/A');
+    }
+
+    function formatStrategyBadge(version, scenario) {
+      return `${formatVersionLabel(version)} • ${formatScenarioLabel(scenario)}`;
+    }
 
     function fmt(v, d=2) {
       if (v === null || v === undefined || Number.isNaN(v)) return 'N/A';
@@ -1574,10 +1615,13 @@
       };
 
       const periodFromName = inferYearBucketFromFilename(fileName);
-      const scenarioFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])([ABCD])(?:[^A-Za-z0-9]|$)/i);
-      const scenarioFromName = scenarioFromNameMatch ? scenarioFromNameMatch[1].toUpperCase() : '';
-      const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
-      const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'v2';
+      const scenarioFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[12][ABC]|[ABCD])(?:[^A-Za-z0-9]|$)/i);
+      const scenarioFromNameRaw = scenarioFromNameMatch ? scenarioFromNameMatch[1].toUpperCase() : '';
+      const scenarioFromName = scenarioFromNameRaw.endsWith('D')
+        ? `${scenarioFromNameRaw.slice(0, -1)}C`
+        : scenarioFromNameRaw;
+      const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[12]|v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
+      const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'p1';
 
       let parsedRows = 0;
       let cumulativeCapital = out.startCapital;
@@ -1604,7 +1648,7 @@
 
       const period = periodFromName || bucketLabelFromDate(firstDate) || 'Imported';
       const version = versionFromName;
-      const scenario = scenarioFromName || 'B';
+      const scenario = scenarioFromName || 'P1B';
       const label = `${labelStem} (${version} ${scenario})`;
 
       out.periods[period] = [{ version, scenario, label, trades: points.length, points }];
@@ -2022,6 +2066,7 @@
         body: JSON.stringify({
           symbol,
           scenario: 'ALL',
+          engineVersion: String(phantomEngineSelect?.value || 'p1').toLowerCase(),
           capital: Number(startCapitalInput.value || 5000),
         }),
       });
@@ -2270,12 +2315,13 @@
       if (validationSummary) {
         const { startCapital } = getScenarioSettings();
         const rangeLabel = formatRangeLabel(getDateFilterRange());
+        const currentVersion = String(validationSummary.engineVersion || 'p1').toLowerCase();
         return getLiveValidationRangeSummaries().map((summary) => ({
           period: rangeLabel,
-          version: 'v2',
+          version: currentVersion,
           scenario: summary.scenario,
-          strategyLabel: summary.label,
-          entryTf: summary.scenario === 'A' ? 'M1' : 'M5',
+          strategyLabel: formatStrategyBadge(currentVersion, summary.scenario),
+          entryTf: String(summary.scenario || '').toUpperCase().endsWith('A') ? 'M1' : 'M5',
           trades: summary.trades,
           winRate: summary.winRatePct,
           profitFactor: summary.profitFactor,
@@ -2375,22 +2421,22 @@
         <div class="metric-card">
           <h3>Best Return</h3>
           <div class="value">${fmt(bestReturn.netReturn)}%</div>
-          <div class="meta">${bestReturn.period} | ${bestReturn.version}-${bestReturn.scenario}</div>
+          <div class="meta">${bestReturn.period} | ${formatStrategyBadge(bestReturn.version, bestReturn.scenario)}</div>
         </div>
         <div class="metric-card">
           <h3>Best Profit Factor</h3>
           <div class="value">${fmt(bestPF.profitFactor, 3)}</div>
-          <div class="meta">${bestPF.period} | ${bestPF.version}-${bestPF.scenario}</div>
+          <div class="meta">${bestPF.period} | ${formatStrategyBadge(bestPF.version, bestPF.scenario)}</div>
         </div>
         <div class="metric-card">
           <h3>Best Drawdown Control</h3>
           <div class="value">${fmt(bestDD.maxDD)}%</div>
-          <div class="meta">${bestDD.period} | ${bestDD.version}-${bestDD.scenario} | £${fmt(bestDDMoney,2)}</div>
+          <div class="meta">${bestDD.period} | ${formatStrategyBadge(bestDD.version, bestDD.scenario)} | £${fmt(bestDDMoney,2)}</div>
         </div>
         <div class="metric-card">
           <h3>Worst Return</h3>
           <div class="value">${fmt(worst.netReturn)}%</div>
-          <div class="meta">${worst.period} | ${worst.version}-${worst.scenario}</div>
+          <div class="meta">${worst.period} | ${formatStrategyBadge(worst.version, worst.scenario)}</div>
         </div>
       `;
     }
@@ -2414,7 +2460,7 @@
 
       barsEl.innerHTML = sorted.map(r => {
         const width = (Math.abs(r[metric]) / max) * 100;
-        const label = `${r.period} ${r.version}-${r.scenario}`;
+        const label = `${r.period} ${formatStrategyBadge(r.version, r.scenario)}`;
         const val = metric === 'profitFactor' ? fmt(r[metric], 3) : fmt(r[metric]);
         return `
           <div class="bar-row">
@@ -2430,8 +2476,8 @@
       bodyEl.innerHTML = data.map(r => `
         <tr>
           <td>${r.period}</td>
-          <td>${r.version}</td>
-          <td>${r.scenario}</td>
+          <td>${formatVersionLabel(r.version)}</td>
+          <td>${formatScenarioLabel(r.scenario)}</td>
           <td>${r.strategyLabel}</td>
           <td>${r.entryTf}</td>
           <td>${r.trades ?? 'N/A'}</td>
@@ -2513,9 +2559,10 @@
         const summaries = getLiveValidationRangeSummaries();
         const best = summaries[0] || null;
         const rangeLabel = formatRangeLabel(getDateFilterRange());
+        const currentVersion = String(validationSummary.engineVersion || 'p1').toLowerCase();
 
         if (!best) {
-          recCards.innerHTML = '<div class="rec-card"><h4>No Validation</h4><div class="rec-sub">No live v2 result was returned.</div></div>';
+          recCards.innerHTML = `<div class="rec-card"><h4>No Validation</h4><div class="rec-sub">No live ${currentVersion} result was returned.</div></div>`;
           recRows.innerHTML = '';
           recNote.textContent = 'Unable to build a live validation summary for the currently loaded data.';
           latestResultsSummary = null;
@@ -2527,13 +2574,13 @@
         recCards.innerHTML = `
           <div class="rec-card">
             <h4>Recommended Strategy</h4>
-            <div class="rec-big">${best.label}</div>
-            <div class="rec-sub">Best live v2 validation across the loaded market files.</div>
+            <div class="rec-big">${formatStrategyBadge(currentVersion, best.scenario)}</div>
+            <div class="rec-sub">Best live ${currentVersion} validation across the loaded market files.</div>
           </div>
           <div class="rec-card">
             <h4>Net Return</h4>
             <div class="rec-big">${best.netReturnPct.toFixed(2)}%</div>
-            <div class="rec-sub">Scenario ${best.scenario} on ${validationSummary.symbol}</div>
+            <div class="rec-sub">${formatScenarioLabel(best.scenario)} on ${validationSummary.symbol}</div>
           </div>
           <div class="rec-card">
             <h4>Final Capital</h4>
@@ -2549,7 +2596,7 @@
 
         recRows.innerHTML = summaries.map((summary) => `
           <tr>
-            <td>${summary.scenario}</td>
+            <td>${formatStrategyBadge(validationSummary.engineVersion || 'p1', summary.scenario)}</td>
             <td>${validationSummary.symbol}</td>
             <td>${summary.netReturnPct.toFixed(2)}%</td>
             <td>£${summary.finalCapital.toFixed(2)}</td>
@@ -2561,18 +2608,18 @@
           </tr>
         `).join('');
 
-        recNote.textContent = `Live v2 validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.`;
+        recNote.textContent = `Live ${currentVersion} validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.`;
 
         latestResultsSummary = {
           generatedAt: new Date().toISOString(),
           datasetTitle: datasetTitle.textContent || 'Imported market data',
           market: validationSummary.symbol,
-          periodKey: 'LIVE V2 VALIDATION',
+          periodKey: `LIVE ${currentVersion.toUpperCase()} VALIDATION`,
           startCapital: validationSummary.capital,
           riskMultiplier: Number(riskMultiplierInput.value || 1),
           withdrawalPct: Number(withdrawalPctInput.value || 0),
           best: {
-            label: best.label,
+            label: formatStrategyBadge(currentVersion, best.scenario),
             avgRet: best.netReturnPct,
             compoundedProfit: best.finalCapital - validationSummary.capital,
             compounded: best.finalCapital,
@@ -2591,7 +2638,7 @@
             })),
           },
           candidates: summaries.map((summary) => ({
-            label: summary.label,
+            label: formatStrategyBadge(currentVersion, summary.scenario),
             avgRet: summary.netReturnPct,
             avgPf: summary.profitFactor,
             worstDD: summary.maxDrawdownPct,
@@ -2645,7 +2692,7 @@
 
           return {
             key,
-            label: `${arrOrd[0].version} ${arrOrd[0].scenario}`,
+            label: formatStrategyBadge(arrOrd[0].version, arrOrd[0].scenario),
             avgRet,
             avgPf,
             avgWin,
@@ -2682,7 +2729,7 @@
       }
 
       const best = candidates[0];
-      recHeading.textContent = `Recommended Strategy (Stored Benchmark Matrix, Modelled at £${startCapital.toLocaleString()} Start)`;
+      recHeading.textContent = `Recommended Strategy (Computed from Current Comparison Data, Modelled at £${startCapital.toLocaleString()} Start)`;
       recCards.innerHTML = `
         <div class="rec-card">
           <h4>Recommended Strategy</h4>
@@ -2723,7 +2770,7 @@
       const withdrawalText = withdrawalPct > 0
         ? `monthly withdrawal ${withdrawalPct.toFixed(0)}% of each month's positive profit`
         : 'no monthly withdrawals (full compounding)';
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. This recommendation table is a stored benchmark comparison matrix (v1/v2/v3), not a recomputation from the imported file.`;
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom V1/V2 comparison data.`;
 
       latestResultsSummary = {
         generatedAt: new Date().toISOString(),
@@ -2800,8 +2847,8 @@
         : [curveData.periods[periodKey] || []];
       const sourceSeries = sourceGroups
         .flat()
-        .filter(s => s.version !== 'v4' && Array.isArray(s.points) && s.points.length);
-      const isLiveValidation = String(curveData.sourceType || '').toLowerCase().includes('live v2 validation');
+        .filter(s => !['v3', 'v4'].includes(String(s.version || '').toLowerCase()) && Array.isArray(s.points) && s.points.length);
+      const isLiveValidation = String(curveData.sourceType || '').toLowerCase().includes('live p');
       const dateRange = getDateFilterRange();
       const seriesList = periodKey === 'ALL'
         ? Array.from(sourceSeries.reduce((map, series) => {
@@ -3153,40 +3200,35 @@
           ? ((s.finalCapital / startCapital) * 100).toFixed(1)
           : s.finalCapital.toFixed(2);
         const finalText = curveMode.value === 'normalized' ? finalVal : `£${finalVal}`;
-        return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${s.label} | trades ${s.trades} | final ${finalText} | withdrawn £${(s.withdrawnTotal || 0).toFixed(0)}</span>`;
+        const legendLabel = s.version && s.scenario
+          ? formatStrategyBadge(s.version, s.scenario)
+          : s.label;
+        return `<span class="curve-chip"><span class="dot" style="background:${curveColor(s.label)}"></span>${legendLabel} | trades ${s.trades} | final ${finalText} | withdrawn £${(s.withdrawnTotal || 0).toFixed(0)}</span>`;
       }).join('');
 
       const periodLabel = periodKey === 'ALL' ? 'all loaded periods' : `year ${periodKey}`;
       const rangeLabel = formatRangeLabel(dateRange);
       curveNote.textContent = `Showing ${periodLabel} for ${rangeLabel} with £${startCapital.toLocaleString()} starting capital, risk at x${riskMultiplier.toFixed(2)}, and monthly withdrawal at ${withdrawalPct.toFixed(0)}% of each month's positive profit.`;
       if (isLiveValidation) {
-        curveNote.textContent = `Live PHANTOM validation curves for ${curveData.market} (${rangeLabel}). Displaying raw strategy equity outputs (A/B/D) from hosted M1/M5/H1/H4 data.`;
+        curveNote.textContent = `Live PHANTOM validation curves for ${curveData.market} (${rangeLabel}). Displaying raw strategy equity outputs (A/B/C) from hosted M1/M5/H1/H4 data.`;
       }
     }
 
     async function initCurves() {
-      try {
-        const res = await fetch('./phantom-curves.json', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        curveData = await res.json();
-        updateDatasetMeta(curveData);
-        syncDateInputsFromCurveData(curveData, true);
-        resetCurveView();
-        const keys = Object.keys(curveData.periods || {});
-        curveYearSelect.innerHTML = ['ALL', ...keys].map(k => `<option value="${k}">${k === 'ALL' ? 'All loaded periods' : k}</option>`).join('');
-        if (!keys.length) {
-          curveNote.textContent = 'No period data found in phantom-curves.json.';
-          return;
-        }
-        curveYearSelect.value = 'ALL';
-        renderCurve(curveYearSelect.value);
-      } catch (err) {
-        curveNote.textContent = `Could not load phantom-curves.json (${err.message}). Run this page from a local server/preview and ensure the JSON file exists in public/.`;
-      }
+      curveData = null;
+      validationSummary = null;
+      curveYearSelect.innerHTML = '<option value="ALL">All loaded periods</option>';
+      curveYearSelect.value = 'ALL';
+      curveSvg.innerHTML = '';
+      curveLegend.innerHTML = '';
+      curveNote.textContent = 'No strategy data loaded yet. Upload data or load a preloaded market to begin.';
+      datasetTitle.textContent = 'No dataset loaded';
+      datasetSubtitle.textContent = 'Strategy results appear only after you load uploaded data or run preloaded market validation.';
     }
 
     async function loadSelectedPreloadedMarket() {
       const symbol = preloadedMarketSelect.value;
+      const engineVersion = String(phantomEngineSelect?.value || 'p1').toLowerCase();
       if (!symbol) {
         setDataDropStatus('Select a preloaded instrument first.', true);
         return;
@@ -3194,8 +3236,8 @@
 
       try {
         enableMarketChartMode(false);
-        setDataDropStatus(`Loading PHANTOM scenario set (A/B/D) for ${symbol}...`);
-        preloadedSummary.textContent = `Loading PHANTOM scenario set (A/B/D) for ${symbol}... please wait.`;
+        setDataDropStatus(`Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${symbol}...`);
+        preloadedSummary.textContent = `Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${symbol}... please wait.`;
         validationSummary = await validateCurrentDataset({ market: symbol });
 
         if (!validationSummary?.curveData || !validationSummary?.summaries?.length) {
@@ -3212,7 +3254,7 @@
         render();
         renderCurve(curveYearSelect.value);
 
-        preloadedSummary.textContent = `${symbol} loaded with live PHANTOM v2 scenario validation (A/B/D) from hosted M1/M5/H1/H4 data.`;
+        preloadedSummary.textContent = `${symbol} loaded with live PHANTOM ${(validationSummary?.engineVersion || engineVersion).toUpperCase()} scenario validation (A/B/C) from hosted M1/M5/H1/H4 data.`;
         setDataDropStatus(`✓ ${symbol} scenario set loaded. Strategy chart ready.`);
       } catch (error) {
         validationSummary = null;
@@ -3325,7 +3367,8 @@
 
         let validationFailed = false;
         try {
-          setDataDropStatus(`Loading PHANTOM scenario set (A/B/D) for ${curveData.market}...`);
+          const engineVersion = String(phantomEngineSelect?.value || 'p1').toLowerCase();
+          setDataDropStatus(`Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${curveData.market}...`);
           validationSummary = await validateCurrentDataset(curveData);
           if (validationSummary?.curveData && validationSummary?.summaries?.length) {
             curveData = validationSummary.curveData;
@@ -3338,12 +3381,12 @@
           } else {
             validationFailed = true;
             validationSummary = null;
-            curveNote.textContent = 'Loaded imported data, but no live v2 scenario summary was returned.';
+            curveNote.textContent = 'Loaded imported data, but no live validation scenario summary was returned.';
           }
         } catch (validationError) {
           validationFailed = true;
           validationSummary = null;
-          curveNote.textContent = `Loaded imported data, but live v2 validation failed: ${validationError.message}`;
+          curveNote.textContent = `Loaded imported data, but live validation failed: ${validationError.message}`;
         }
 
         render();
@@ -3351,7 +3394,8 @@
         if (validationFailed) {
           setDataDropStatus(`Loaded ${files.length} file${files.length > 1 ? 's' : ''}, but live validation failed. See curve note for details.`, true);
         } else {
-          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and PHANTOM scenario set (A/B/D).`);
+          const loadedVersion = String(validationSummary?.engineVersion || phantomEngineSelect?.value || 'p1').toLowerCase().toUpperCase();
+          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and PHANTOM ${loadedVersion} scenario set (A/B/C).`);
         }
         dataFileInput.value = '';
       } catch (err) {
