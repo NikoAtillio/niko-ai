@@ -13,6 +13,7 @@ from matplotlib.patches import Rectangle
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / 'generated_examples'
+DATA_ROOT = ROOT / 'data'
 
 
 @dataclass
@@ -336,11 +337,11 @@ def run() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     datasets = [
-        ('US100', ROOT / 'uploads/datasets/US100/US100.cash_M1_2023.05.24-2026.03.31'),
-        ('US100', ROOT / 'uploads/datasets/US100/US100.cash_H1_2021.01.21-2026.03.31'),
-        ('EURUSD', ROOT / 'uploads/datasets/EURUSD/EURUSD_M5_2012.07.27-2026.03.31'),
-        ('BTCUSD', ROOT / 'uploads/datasets/BTCUSD/BTCUSD_M1_202404030428_202503311047.csv'),
-        ('XAUUSD', ROOT / 'uploads/datasets/XAUUSD/XAUUSD_M1_2023.03.13-2026.03.31'),
+        ('US100', DATA_ROOT / 'US100/US100.cash_M1_2023.05.24-2026.03.31'),
+        ('US100', DATA_ROOT / 'US100/US100.cash_H1_2021.01.21-2026.03.31'),
+        ('EURUSD', DATA_ROOT / 'EURUSD/EURUSD_M5_2012.07.27-2026.03.31'),
+        ('BTCUSD', DATA_ROOT / 'BTCUSD/BTCUSD_M1_2024.04.06-2026.03.31'),
+        ('XAUUSD', DATA_ROOT / 'XAUUSD/XAUUSD_M1_2023.03.13-2026.03.31'),
     ]
 
     scanners: List[Tuple[str, Callable[[pd.DataFrame, str, str, str], Optional[ExampleHit]]]] = [

@@ -21,9 +21,11 @@ const RUN_HISTORY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_runs.json');
 const STRATEGY_LIBRARY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_library.json');
 const RUN_HISTORY_LIMIT = 100;
 const STRATEGY_LIBRARY_LIMIT = 250;
+const ARCHIVE_ARTIFACT_DIR = path.join(WORKSPACE_ROOT, 'backtest_artifacts_archive');
 const ADMIN_SCAN_DIRS = [
 	UPLOADS_DIR,
 	ARTIFACT_DIR,
+	ARCHIVE_ARTIFACT_DIR,
 	RUN_HISTORY_DIR,
 ];
 
