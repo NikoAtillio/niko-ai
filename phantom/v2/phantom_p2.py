@@ -510,16 +510,35 @@ def run_scenario(
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
 
-            # Check stop
+            # PHASE 1: Minimum 2-hour hold time filter
+            # Prevent stop exits on trades held <2h. Data showed these trades are -22% to -36% WR.
+            # Short trades get stopped before trailing stop has time to activate.
+            hold_bars = bar_i - p['entry_bar']
+            hold_hours = hold_bars / (60 / 5) if hold_bars > 0 else 0  # Assuming M5 bars = 5min each
+            min_hold_bars = 24  # 2 hours * 60 min / 5 min per bar = 24 bars
+
+            # Check stop (with 2h minimum hold time filter)
+            # Only exit on stop if: hold time >= 2h, OR trade is already profitable
+            allow_stop_exit = hold_bars >= min_hold_bars
+            if not allow_stop_exit:
+                # Allow stop exit even under 2h if we're at/past BE or in profit
+                current_r = (
+                    (price - p['entry']) / p['initial_risk_price']
+                    if p['dir'] == 'long'
+                    else (p['entry'] - price) / p['initial_risk_price']
+                )
+                if current_r >= 0.0:  # At or in profit
+                    allow_stop_exit = True
+
             if p['dir'] == 'long':
-                if low <= p['stop']:
+                if allow_stop_exit and low <= p['stop']:
                     exit_signal_px = p['stop']
                     exit_reason = 'stop'
                 elif high >= p['tp']:
                     exit_signal_px = p['tp']
                     exit_reason = 'tp'
             else:
-                if high >= p['stop']:
+                if allow_stop_exit and high >= p['stop']:
                     exit_signal_px = p['stop']
                     exit_reason = 'stop'
                 elif low <= p['tp']:
@@ -706,7 +725,9 @@ def run_scenario(
                     continue
 
             # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
-            # High confidence = session peak + cluster 2-3 + regime aligned
+            # PHASE 1 OPTIMIZATION: Flatten confidence to 1.0x
+            # (User data showed 0.5x outperforms 1.5x, likely due to inverted clustering logic)
+            # All entries now use 1.0x position sizing regardless of confidence conditions.
             cluster_count = cluster.count_in_window(ts_pd)
             in_peak_session = (
                 inst_cfg['session_start'] <= ts_pd.hour < inst_cfg['session_end']
@@ -714,21 +735,17 @@ def run_scenario(
             )
             high_confidence = (
                 in_peak_session
-                and 1 <= cluster_count <= 2   # 2nd or 3rd entry in window = sweet spot
-                and regime_mult == 1.0         # with-trend
+                and 1 <= cluster_count <= 2
+                and regime_mult == 1.0
             )
             low_confidence = (
                 not in_peak_session
-                or cluster_count == 0          # first entry in window (unconfirmed)
-                or regime_mult < 1.0           # counter-trend
+                or cluster_count == 0
+                or regime_mult < 1.0
             )
 
-            if high_confidence:
-                conf_mult = DEFAULTS['confidence_mult']   # 1.5x
-            elif low_confidence:
-                conf_mult = DEFAULTS['confidence_min']    # 0.5x
-            else:
-                conf_mult = 1.0
+            # PHASE 1: All entries now 1.0x (flat sizing)
+            conf_mult = 1.0
 
             # ── Position sizing ───────────────────────────────────────────
             stop_dist  = atr_stop * atr_h4_v
