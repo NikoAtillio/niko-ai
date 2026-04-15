@@ -837,6 +837,14 @@ function canonicalizeDatasetSymbol(input: string): string {
 	return symbol;
 }
 
+function mapSymbolToPhantomP2Instrument(symbolInput: string): 'XAU' | 'US100' | 'BTC' {
+	const symbol = canonicalizeDatasetSymbol(symbolInput);
+	if (symbol.startsWith('XAU')) return 'XAU';
+	if (symbol.startsWith('US100') || symbol.startsWith('NAS100')) return 'US100';
+	if (symbol.startsWith('BTC')) return 'BTC';
+	throw new Error(`Unsupported symbol for Phantom p2 instrument mapping: ${symbolInput}`);
+}
+
 function guessSymbolFromPath(filePath: string): string {
 	const base = path.basename(filePath);
 	const baseNoExt = base.replace(/\.[^.]+$/, '');
@@ -1088,12 +1096,18 @@ function bucketLabelFromDate(dateText: string): string {
 
 function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
+	const p2Instrument = engineVersion.toLowerCase() === 'p2' ? mapSymbolToPhantomP2Instrument(symbol) : null;
 
 	for (const summary of summaries) {
 		const preferredTradeFile = path.join(workingDir, `phantom_${engineVersion.toLowerCase()}_trades_${summary.scenario.toUpperCase()}.csv`);
+		const preferredTradeFileWithInstrument = p2Instrument
+			? path.join(workingDir, `phantom_${engineVersion.toLowerCase()}_trades_${p2Instrument}_${summary.scenario.toUpperCase()}.csv`)
+			: '';
 		const legacyScenario = summary.scenarioKey === 'C' ? 'D' : summary.scenarioKey;
 		const legacyTradeFile = path.join(workingDir, `phantom_v5_1_trades_${legacyScenario}.csv`);
-		const tradeFile = fileExists(preferredTradeFile) ? preferredTradeFile : legacyTradeFile;
+		const tradeFile = fileExists(preferredTradeFileWithInstrument)
+			? preferredTradeFileWithInstrument
+			: (fileExists(preferredTradeFile) ? preferredTradeFile : legacyTradeFile);
 		if (!fileExists(tradeFile)) {
 			continue;
 		}
@@ -2839,7 +2853,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			m5: resolveMarketTimeframeFile(symbol, '5m'),
 			h1: resolveMarketTimeframeFile(symbol, '1h'),
 			h4: resolveMarketTimeframeFile(symbol, '4h'),
+			daily: resolveMarketTimeframeFile(symbol, '1d'),
 		};
+		const p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
 		const scriptCandidates = engineVersion === 'p2'
@@ -2869,14 +2885,24 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--commission-per-trade', String(commissionPerTrade),
 		];
 
+		if (engineVersion === 'p2') {
+			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily);
+		}
+
 		const stdout = await new Promise<string>((resolve, reject) => {
 			const proc = spawn(pythonExec, args, {
 				cwd: workingDir,
 				env: { ...process.env, PYTHONUNBUFFERED: '1' },
 			});
+			const validationTimeoutMs = 180_000;
 
 			let output = '';
 			let errorOutput = '';
+			let timedOut = false;
+			const timeoutHandle = setTimeout(() => {
+				timedOut = true;
+				proc.kill('SIGTERM');
+			}, validationTimeoutMs);
 
 			proc.stdout.on('data', (chunk) => {
 				output += chunk.toString();
@@ -2886,6 +2912,11 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			});
 			proc.on('error', reject);
 			proc.on('close', (code) => {
+				clearTimeout(timeoutHandle);
+				if (timedOut) {
+					reject(new Error('Validation timed out after 180 seconds. Try a single scenario or retry.'));
+					return;
+				}
 				if (code !== 0) {
 					reject(new Error(errorOutput || output || `PHANTOM v2 validation exited with code ${code}`));
 					return;

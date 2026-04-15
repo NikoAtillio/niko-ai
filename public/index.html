@@ -656,7 +656,7 @@
                         <div class="split">
                             <div class="field">
                                 <label>Starting Capital</label>
-                                <input id="settingCapital" type="number" value="10000" min="1000" step="100">
+                                <input id="settingCapital" type="number" value="5000" min="1000" step="100">
                             </div>
                             <div class="field">
                                 <label>Risk % / Trade</label>
@@ -1047,7 +1047,7 @@ function loadSettings() {
 
 function saveSettings() {
     const payload = {
-        capital: Number(settingCapital.value || 10000),
+        capital: Number(settingCapital.value || 5000),
         riskPct: Number(settingRiskPct.value || 0.5),
         feePct: Number(settingFeePct.value || 0.02),
         ftmoMode: settingFtmoMode.value || 'off',
@@ -1058,7 +1058,7 @@ function saveSettings() {
 }
 
 function resetSettings() {
-    settingCapital.value = 10000;
+    settingCapital.value = 5000;
     settingRiskPct.value = 0.5;
     settingFeePct.value = 0.02;
     settingFtmoMode.value = 'off';

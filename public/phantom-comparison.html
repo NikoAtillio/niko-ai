@@ -1278,19 +1278,32 @@
       return `${base}${path}`;
     }
 
+    function withTimeout(init, timeoutMs = 200000) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      const merged = { ...(init || {}), signal: controller.signal };
+      return { merged, clear: () => clearTimeout(id) };
+    }
+
     async function fetchApiJson(path, init) {
       let lastError = null;
 
       for (const base of apiBaseCandidates) {
         const url = buildApiUrl(base, path);
         try {
-          const response = await fetch(url, init);
+          const { merged, clear } = withTimeout(init);
+          const response = await fetch(url, merged);
+          clear();
           const payload = await parseJsonResponse(response);
           if (!response.ok) {
             throw new Error(payload.error || `Request failed (${response.status})`);
           }
           return { payload, response, url };
         } catch (error) {
+          if (error?.name === 'AbortError') {
+            lastError = new Error('Validation request timed out. PHANTOM run took too long. Try again or switch scenario/engine.');
+            continue;
+          }
           lastError = error;
         }
       }
@@ -1463,7 +1476,7 @@
         throw new Error(`No hosted files found for ${symbol}.`);
       }
 
-      const out = { startCapital: 10000, market: market.symbol, periods: {} };
+      const out = { startCapital: 5000, market: market.symbol, periods: {} };
       let loadedSeries = 0;
 
       for (const file of market.files) {
