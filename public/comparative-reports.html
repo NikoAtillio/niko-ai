@@ -82,7 +82,7 @@
       display: block;
     }
 
-    .page-nav select, .controls select, .admin-form input {
+    .page-nav select, .controls select, .admin-form input, .admin-form select {
       width: 100%;
       height: 40px;
       border: 1px solid #c9d3ca;
@@ -91,6 +91,13 @@
       color: #172018;
       padding: 8px 10px;
       font-weight: 600;
+    }
+
+    .admin-form select[multiple] {
+      min-height: 132px;
+      height: auto;
+      font-weight: 500;
+      padding: 6px 8px;
     }
 
     .quick-menu { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
@@ -302,6 +309,7 @@
       border-radius: 10px;
       background: #f8fbf8;
       padding: 10px;
+      position: relative;
     }
 
     #growthChart {
@@ -331,6 +339,29 @@
     }
 
     .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .chart-note {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(18, 27, 36, 0.62);
+      color: #e9f4ee;
+      border: 1px solid rgba(156, 212, 189, 0.22);
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 0.77rem;
+      line-height: 1.35;
+      display: none;
+      min-width: 145px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+      backdrop-filter: blur(1.5px);
+      z-index: 5;
+    }
 
     .empty, .error {
       margin-top: 10px;
@@ -400,39 +431,26 @@
       </div>
 
       <form id="reportAdminForm" class="admin-form">
-        <h3>Add Saved Comparative Report</h3>
-        <p>Register a new generated report JSON so it appears in this dropdown for future analysis.</p>
+        <h3>Saved Strategy Comparison</h3>
+        <p>Select one or more saved strategy reports, then load or save this selection to your profile.</p>
         <div class="admin-grid">
           <div>
-            <label for="newReportTitle">Title</label>
-            <input id="newReportTitle" type="text" placeholder="Example: Phantom P3 Branch Competition" required />
+            <label for="strategySelect">Strategies</label>
+            <select id="strategySelect" multiple></select>
           </div>
           <div>
-            <label for="newReportId">ID (optional)</label>
-            <input id="newReportId" type="text" placeholder="auto-generated-from-title" />
+            <label for="windowStartInput">Window Start (optional)</label>
+            <input id="windowStartInput" type="date" />
           </div>
           <div>
-            <label for="newReportDataFile">Report Data JSON Path</label>
-            <input id="newReportDataFile" type="text" placeholder="backtest_artifacts/.../dashboard_data.json" required />
+            <label for="windowEndInput">Window End (optional)</label>
+            <input id="windowEndInput" type="date" />
           </div>
           <div>
-            <label for="newReportDescription">Description (optional)</label>
-            <input id="newReportDescription" type="text" placeholder="Short report note" />
+            <button id="loadReportBtn" type="button">Load</button>
           </div>
           <div>
-            <label for="newReportWindowStart">Window Start (optional)</label>
-            <input id="newReportWindowStart" type="text" placeholder="YYYY-MM-DD" />
-          </div>
-          <div>
-            <label for="newReportWindowEnd">Window End (optional)</label>
-            <input id="newReportWindowEnd" type="text" placeholder="YYYY-MM-DD" />
-          </div>
-          <div>
-            <label for="newReportGeneratedAt">Generated At (optional)</label>
-            <input id="newReportGeneratedAt" type="text" placeholder="2026-04-16T00:00:00Z" />
-          </div>
-          <div>
-            <button id="saveReportBtn" type="submit">Save Report</button>
+            <button id="saveReportBtn" type="submit">Save To Profile</button>
           </div>
         </div>
       </form>
@@ -469,12 +487,18 @@
     ];
 
     const state = {
-      reports: [],
-      selectedReportId: '',
+      availableReports: [],
+      savedSets: [],
+      reportDataById: {},
+      selectedSetId: '',
+      selectedReportIds: [],
       reportData: null,
       selectedMode: 'full',
-      selectedBranch: 'p2_filter_test3',
-      activeTab: 'overview'
+      selectedBranch: '',
+      activeTab: 'overview',
+      windowStart: '',
+      windowEnd: '',
+      branchLabels: {}
     };
 
     const reportSelect = document.getElementById('reportSelect');
@@ -486,14 +510,11 @@
     const reportTitle = document.getElementById('reportTitle');
     const reportMeta = document.getElementById('reportMeta');
     const reportAdminForm = document.getElementById('reportAdminForm');
+    const strategySelect = document.getElementById('strategySelect');
+    const loadReportBtn = document.getElementById('loadReportBtn');
     const saveReportBtn = document.getElementById('saveReportBtn');
-    const newReportTitle = document.getElementById('newReportTitle');
-    const newReportId = document.getElementById('newReportId');
-    const newReportDataFile = document.getElementById('newReportDataFile');
-    const newReportDescription = document.getElementById('newReportDescription');
-    const newReportWindowStart = document.getElementById('newReportWindowStart');
-    const newReportWindowEnd = document.getElementById('newReportWindowEnd');
-    const newReportGeneratedAt = document.getElementById('newReportGeneratedAt');
+    const windowStartInput = document.getElementById('windowStartInput');
+    const windowEndInput = document.getElementById('windowEndInput');
 
     function fmtCurrency(n) {
       const v = Number(n || 0);
@@ -524,6 +545,42 @@
 
     function clearAlerts() {
       alerts.innerHTML = '';
+    }
+
+    function getSelectedStrategyIdsFromUi() {
+      return Array.from(strategySelect.selectedOptions || [])
+        .map((option) => String(option.value || '').trim())
+        .filter(Boolean);
+    }
+
+    function getReportById(reportId) {
+      return state.availableReports.find((report) => report.id === reportId) || null;
+    }
+
+    function getBranchLabel(branchKey) {
+      return state.branchLabels[branchKey] || BRANCH_LABELS[branchKey] || branchKey;
+    }
+
+    function getBranchColor(branchKey) {
+      const parts = String(branchKey || '').split('::');
+      const rawBranch = parts.length > 1 ? parts[1] : branchKey;
+      if (BRANCH_COLORS[rawBranch]) {
+        return BRANCH_COLORS[rawBranch];
+      }
+      const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6', '#84cc16'];
+      let hash = 0;
+      for (let idx = 0; idx < String(branchKey).length; idx += 1) {
+        hash = ((hash << 5) - hash) + String(branchKey).charCodeAt(idx);
+        hash |= 0;
+      }
+      return palette[Math.abs(hash) % palette.length];
+    }
+
+    function parseMonthToDate(monthToken) {
+      const token = String(monthToken || '').trim();
+      if (!token) return null;
+      const dt = new Date(`${token}-01T00:00:00Z`);
+      return Number.isNaN(dt.getTime()) ? null : dt;
     }
 
     function getSummaryRows() {
@@ -560,21 +617,25 @@
     }
 
     function renderReportHeader() {
-      const report = state.reports.find((r) => r.id === state.selectedReportId);
-      if (!report) {
+      const set = state.savedSets.find((item) => item.id === state.selectedSetId);
+      if (!set) {
         reportTitle.textContent = 'No report selected';
         reportMeta.textContent = '';
         return;
       }
 
-      reportTitle.textContent = report.title;
+      reportTitle.textContent = set.name;
       const windows = (state.reportData && state.reportData.windows) || [];
       const modeWindow = windows.find((w) => w.mode === state.selectedMode);
       const windowText = modeWindow
         ? `${modeWindow.start_date || modeWindow.startDate} to ${modeWindow.end_date || modeWindow.endDate} (${modeWindow.timescale_months || modeWindow.timescaleMonths} months)`
-        : `${report.windowStart || '-'} to ${report.windowEnd || '-'}`;
+        : `${state.windowStart || '-'} to ${state.windowEnd || '-'}`;
 
-      reportMeta.textContent = `${report.description || ''} | ${state.selectedMode.toUpperCase()} window: ${windowText}`;
+      const strategyNames = (set.reportIds || [])
+        .map((reportId) => getReportById(reportId)?.title || reportId)
+        .join(' + ');
+
+      reportMeta.textContent = `${strategyNames} | ${state.selectedMode.toUpperCase()} window: ${windowText}`;
     }
 
     function renderOverview() {
@@ -588,7 +649,7 @@
       const best = summary.slice().sort((a, b) => Number(b.net_return_pct) - Number(a.net_return_pct))[0];
       const cards = `
         <div class="cards">
-          <div class="card"><h3>Best Final Equity</h3><div class="value">${fmtCurrency(best.final_equity_gbp)}</div><div class="meta">${BRANCH_LABELS[best.branch] || best.branch}</div></div>
+          <div class="card"><h3>Best Final Equity</h3><div class="value">${fmtCurrency(best.final_equity_gbp)}</div><div class="meta">${escapeHtml(getBranchLabel(best.branch))}</div></div>
           <div class="card"><h3>Best Net Return</h3><div class="value">${fmtPct(best.net_return_pct)}</div><div class="meta">Start ${fmtCurrency(best.start_cap_gbp)}</div></div>
           <div class="card"><h3>Max Drawdown</h3><div class="value">${Number(best.max_dd_pct).toFixed(2)}%</div><div class="meta">${fmtCurrency(Math.abs(best.max_dd_amt_gbp))} worst drop</div></div>
           <div class="card"><h3>Branches Compared</h3><div class="value">${summary.length}</div><div class="meta">Saved report set</div></div>
@@ -599,7 +660,7 @@
         const hl = highlights.find((h) => h.branch === r.branch) || {};
         return `
           <tr>
-            <td><span class="branch-pill" style="background:${BRANCH_COLORS[r.branch] || '#486'}">${escapeHtml(BRANCH_LABELS[r.branch] || r.branch)}</span></td>
+            <td><span class="branch-pill" style="background:${getBranchColor(r.branch)}">${escapeHtml(getBranchLabel(r.branch))}</span></td>
             <td class="num">${fmtCurrency(r.start_cap_gbp)}</td>
             <td class="num">${fmtCurrency(r.final_equity_gbp)}</td>
             <td class="num good">${fmtCurrency(r.net_pnl_gbp)}</td>
@@ -641,16 +702,37 @@
         return;
       }
 
-      const allPoints = [];
-      branches.forEach((branch) => {
-        modeMonthly[branch].forEach((point) => {
-          allPoints.push({ branch, month: point.month, y: Number(point.month_end_equity_gbp || 0) });
-        });
-      });
-      const months = Array.from(new Set(allPoints.map((p) => p.month))).sort();
-      const ys = allPoints.map((p) => p.y);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
+      const seriesList = branches.map((branch) => {
+        const rows = (modeMonthly[branch] || [])
+          .map((point) => ({
+            branch,
+            month: String(point.month || ''),
+            equity: Number(point.month_end_equity_gbp || 0)
+          }))
+          .filter((point) => point.month && Number.isFinite(point.equity))
+          .sort((a, b) => a.month.localeCompare(b.month));
+        return {
+          branch,
+          label: getBranchLabel(branch),
+          color: getBranchColor(branch),
+          rows
+        };
+      }).filter((series) => series.rows.length);
+
+      if (!seriesList.length) {
+        view.innerHTML = '<div class="empty">No valid equity points were found for this mode.</div>';
+        return;
+      }
+
+      const allPoints = seriesList.flatMap((series) => series.rows);
+      const months = Array.from(new Set(allPoints.map((point) => point.month))).sort();
+      const monthIndex = new Map(months.map((month, idx) => [month, idx]));
+      const ys = allPoints.map((point) => point.equity);
+      const minRaw = Math.min(...ys);
+      const maxRaw = Math.max(...ys);
+      const yBuffer = Math.max(5, (maxRaw - minRaw) * 0.08);
+      const minY = minRaw - yBuffer;
+      const maxY = maxRaw + yBuffer;
 
       const width = 1200;
       const height = 360;
@@ -663,39 +745,154 @@
         return pad.top + (1 - ((val - minY) / span)) * plotH;
       };
 
-      const lines = branches.map((branch) => {
-        const map = new Map(modeMonthly[branch].map((r) => [r.month, Number(r.month_end_equity_gbp || 0)]));
-        const d = months.map((m, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(map.get(m) || minY).toFixed(1)}`).join(' ');
-        return `<path d="${d}" fill="none" stroke="${BRANCH_COLORS[branch] || '#ccc'}" stroke-width="2.3" />`;
+      const drawPoints = [];
+      const lines = seriesList.map((series) => {
+        const d = series.rows.map((point, idx) => {
+          const monthIdx = monthIndex.get(point.month);
+          if (monthIdx === undefined) return '';
+          const px = xAt(monthIdx);
+          const py = yAt(point.equity);
+          drawPoints.push({
+            px,
+            py,
+            month: point.month,
+            equity: point.equity,
+            branch: series.branch,
+            label: series.label,
+            color: series.color
+          });
+          return `${idx === 0 ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`;
+        }).filter(Boolean).join(' ');
+        return `<path d="${d}" fill="none" stroke="${series.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" />`;
       }).join('');
 
-      const xTicks = [0, Math.floor(months.length / 2), months.length - 1]
-        .filter((v, i, arr) => arr.indexOf(v) === i)
-        .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 9}" fill="#cfe3d3" font-size="11" text-anchor="middle">${months[idx]}</text>`)
+      const yTicks = Array.from({ length: 7 }, (_, idx) => {
+        const ratio = idx / 6;
+        const yValue = minY + ((1 - ratio) * (maxY - minY));
+        const gy = pad.top + (ratio * plotH);
+        return {
+          yValue,
+          gy
+        };
+      });
+
+      const yGrid = yTicks.map((tick) => `<line x1="${pad.left}" y1="${tick.gy.toFixed(1)}" x2="${width - pad.right}" y2="${tick.gy.toFixed(1)}" stroke="rgba(255,255,255,0.14)" />`).join('');
+      const yLabels = yTicks.map((tick) => `<text x="${pad.left - 8}" y="${(tick.gy + 4).toFixed(1)}" text-anchor="end" fill="rgba(238,248,242,0.85)" font-size="11">£${Math.round(tick.yValue).toLocaleString('en-GB')}</text>`).join('');
+
+      const xTickIndexes = [0, Math.floor(months.length / 3), Math.floor((months.length * 2) / 3), months.length - 1]
+        .filter((idx, pos, arr) => idx >= 0 && idx < months.length && arr.indexOf(idx) === pos);
+
+      const xTicks = xTickIndexes
+        .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 9}" fill="rgba(238,248,242,0.9)" font-size="11" text-anchor="middle">${months[idx]}</text>`)
         .join('');
 
-      const yTicks = [0, 0.5, 1].map((t) => {
-        const yv = minY + (maxY - minY) * (1 - t);
-        return `<text x="10" y="${(pad.top + t * plotH + 4).toFixed(1)}" fill="#cfe3d3" font-size="11">${Math.round(yv).toLocaleString('en-GB')}</text>`;
+      const xGrid = xTickIndexes
+        .map((idx) => `<line x1="${xAt(idx).toFixed(1)}" y1="${pad.top}" x2="${xAt(idx).toFixed(1)}" y2="${height - pad.bottom}" stroke="rgba(255,255,255,0.1)" />`)
+        .join('');
+
+      const legend = seriesList.map((series) => {
+        const finalPoint = series.rows[series.rows.length - 1];
+        return `
+        <span class="legend-chip"><span class="dot" style="background:${series.color}"></span>${escapeHtml(series.label)} | final ${fmtCurrency(finalPoint.equity)}</span>
+      `;
       }).join('');
 
-      const legend = branches.map((b) => `
-        <span class="legend-chip"><span class="dot" style="background:${BRANCH_COLORS[b] || '#ccc'}"></span>${escapeHtml(BRANCH_LABELS[b] || b)}</span>
-      `).join('');
+      const note = `Hover the chart to inspect each branch's monthly equity. ${months[0]} to ${months[months.length - 1]} (${months.length} months).`;
 
       view.innerHTML = `
         <div class="chart-wrap">
           <svg id="growthChart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="Growth chart">
+            <defs>
+              <clipPath id="growthPlotClip">
+                <rect x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" />
+              </clipPath>
+            </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent"></rect>
+            ${yGrid}
+            ${xGrid}
             <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#5a7980" stroke-opacity="0.6" />
             <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#5a7980" stroke-opacity="0.6" />
-            ${lines}
+            <g clip-path="url(#growthPlotClip)">${lines}</g>
             ${xTicks}
-            ${yTicks}
+            ${yLabels}
+            <line id="growthCrossV" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
+            <line id="growthCrossH" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.55)" stroke-dasharray="4 4" style="display:none" />
+            <circle id="growthCrossDot" cx="0" cy="0" r="4" fill="#ffffff" stroke="#0f1720" stroke-width="1.2" style="display:none" />
           </svg>
+          <div class="chart-tooltip" id="growthTooltip"></div>
           <div class="legend">${legend}</div>
+          <div class="chart-note">${escapeHtml(note)}</div>
         </div>
       `;
+
+      const growthChart = document.getElementById('growthChart');
+      const growthTooltip = document.getElementById('growthTooltip');
+      const growthCrossV = document.getElementById('growthCrossV');
+      const growthCrossH = document.getElementById('growthCrossH');
+      const growthCrossDot = document.getElementById('growthCrossDot');
+      if (!growthChart || !growthTooltip || !growthCrossV || !growthCrossH || !growthCrossDot) {
+        return;
+      }
+
+      const chartRect = growthChart.getBoundingClientRect();
+
+      function hideGrowthCrosshair() {
+        growthCrossV.style.display = 'none';
+        growthCrossH.style.display = 'none';
+        growthCrossDot.style.display = 'none';
+        growthTooltip.style.display = 'none';
+      }
+
+      growthChart.onmouseleave = hideGrowthCrosshair;
+      growthChart.onmousemove = (event) => {
+        if (!drawPoints.length) return;
+
+        const svgPoint = growthChart.createSVGPoint();
+        svgPoint.x = event.clientX;
+        svgPoint.y = event.clientY;
+        const local = svgPoint.matrixTransform(growthChart.getScreenCTM().inverse());
+        const mx = Math.min(width - pad.right, Math.max(pad.left, local.x));
+        const my = Math.min(height - pad.bottom, Math.max(pad.top, local.y));
+
+        let nearest = drawPoints[0];
+        let bestScore = Number.POSITIVE_INFINITY;
+        for (const point of drawPoints) {
+          const dx = Math.abs(point.px - mx);
+          const dy = Math.abs(point.py - my);
+          const score = dy + (dx * 0.22);
+          if (score < bestScore) {
+            bestScore = score;
+            nearest = point;
+          }
+        }
+
+        growthCrossV.setAttribute('x1', nearest.px);
+        growthCrossV.setAttribute('x2', nearest.px);
+        growthCrossV.setAttribute('y1', pad.top);
+        growthCrossV.setAttribute('y2', height - pad.bottom);
+        growthCrossH.setAttribute('x1', pad.left);
+        growthCrossH.setAttribute('x2', width - pad.right);
+        growthCrossH.setAttribute('y1', nearest.py);
+        growthCrossH.setAttribute('y2', nearest.py);
+        growthCrossDot.setAttribute('cx', nearest.px);
+        growthCrossDot.setAttribute('cy', nearest.py);
+
+        growthCrossV.style.display = 'block';
+        growthCrossH.style.display = 'block';
+        growthCrossDot.style.display = 'block';
+
+        growthTooltip.innerHTML = `
+          <div><strong>${escapeHtml(nearest.label)}</strong></div>
+          <div>${escapeHtml(nearest.month)}</div>
+          <div>${escapeHtml(fmtCurrency(nearest.equity))}</div>
+        `;
+        growthTooltip.style.display = 'block';
+
+        const tx = event.clientX - chartRect.left + 12;
+        const ty = event.clientY - chartRect.top - 12;
+        growthTooltip.style.left = `${Math.min(tx, chartRect.width - 170)}px`;
+        growthTooltip.style.top = `${Math.max(ty, 8)}px`;
+      };
     }
 
     function renderMonthly() {
@@ -785,7 +982,7 @@
         const h = highlights.find((x) => x.branch === r.branch) || {};
         return `
           <tr>
-            <td><span class="branch-pill" style="background:${BRANCH_COLORS[r.branch] || '#486'}">${escapeHtml(BRANCH_LABELS[r.branch] || r.branch)}</span></td>
+            <td><span class="branch-pill" style="background:${getBranchColor(r.branch)}">${escapeHtml(getBranchLabel(r.branch))}</span></td>
             <td class="num">${fmtCurrency(r.start_cap_gbp)}</td>
             <td class="num">${fmtCurrency(r.final_equity_gbp)}</td>
             <td class="num good">${fmtCurrency(r.net_pnl_gbp)}</td>
@@ -869,103 +1066,374 @@
       }
 
       branchSelect.innerHTML = branches.map((branch) => {
-        const label = BRANCH_LABELS[branch] || branch;
+        const label = getBranchLabel(branch);
         const selected = branch === state.selectedBranch ? 'selected' : '';
         return `<option value="${branch}" ${selected}>${escapeHtml(label)}</option>`;
       }).join('');
     }
 
-    async function loadReportList() {
-      const res = await fetch('/platform/comparative-reports');
-      if (!res.ok) {
-        throw new Error(`Failed to load report list: ${res.status}`);
-      }
-      const data = await res.json();
-      state.reports = Array.isArray(data.reports) ? data.reports : [];
-
-      if (!state.reports.length) {
-        reportSelect.innerHTML = '<option value="">No reports available</option>';
-        state.selectedReportId = '';
-        return;
+    function refreshModeOptions() {
+      const windows = Array.isArray(state.reportData && state.reportData.windows) ? state.reportData.windows : [];
+      const modes = windows.map((entry) => String(entry.mode || '').trim()).filter(Boolean);
+      const uniqueModes = Array.from(new Set(modes.length ? modes : ['full']));
+      if (!uniqueModes.includes(state.selectedMode)) {
+        state.selectedMode = uniqueModes[0] || 'full';
       }
 
-      reportSelect.innerHTML = state.reports.map((report, idx) => {
-        const selected = idx === 0 ? 'selected' : '';
-        const suffix = report.hasData ? '' : ' (missing data)';
-        return `<option value="${report.id}" ${selected}>${escapeHtml(report.title + suffix)}</option>`;
+      modeSelect.innerHTML = uniqueModes.map((mode) => {
+        const selected = mode === state.selectedMode ? 'selected' : '';
+        return `<option value="${mode}" ${selected}>${escapeHtml(String(mode).toUpperCase())}</option>`;
       }).join('');
-
-      state.selectedReportId = reportSelect.value || state.reports[0].id;
     }
 
-    async function loadSelectedReport() {
-      if (!state.selectedReportId) {
-        state.reportData = null;
-        renderView();
-        return;
+    function applyWindowFilterRows(rows, startDate, endDate) {
+      const startMs = startDate ? startDate.getTime() : null;
+      const endMs = endDate ? endDate.getTime() : null;
+      return rows.filter((row) => {
+        const monthDate = parseMonthToDate(row.month);
+        if (!monthDate) return false;
+        const monthMs = monthDate.getTime();
+        if (startMs !== null && monthMs < startMs) return false;
+        if (endMs !== null && monthMs > endMs) return false;
+        return true;
+      });
+    }
+
+    function deriveSeriesRowsAndStats(rows) {
+      const sorted = rows
+        .map((row) => ({
+          month: String(row.month || ''),
+          monthly_pnl_gbp: Number(row.monthly_pnl_gbp || 0),
+          month_end_equity_gbp: Number(row.month_end_equity_gbp || 0),
+          worst_intramonth_dd_amt_gbp: Number(row.worst_intramonth_dd_amt_gbp || 0),
+          worst_intramonth_dd_pct: Number(row.worst_intramonth_dd_pct || 0)
+        }))
+        .filter((row) => row.month)
+        .sort((a, b) => a.month.localeCompare(b.month));
+
+      if (!sorted.length) {
+        return null;
       }
 
-      const res = await fetch(`/platform/comparative-reports/${encodeURIComponent(state.selectedReportId)}`);
+      let rollingPeak = sorted[0].month_end_equity_gbp;
+      const normalizedRows = sorted.map((row) => {
+        rollingPeak = Math.max(rollingPeak, row.month_end_equity_gbp);
+        const ddAmt = row.month_end_equity_gbp - rollingPeak;
+        const ddPct = rollingPeak ? (ddAmt / rollingPeak) * 100 : 0;
+        return {
+          ...row,
+          month_end_drawdown_amt_gbp: ddAmt,
+          month_end_drawdown_pct: ddPct
+        };
+      });
+
+      const first = normalizedRows[0];
+      const last = normalizedRows[normalizedRows.length - 1];
+      const startCap = first.month_end_equity_gbp - first.monthly_pnl_gbp;
+      const netPnl = last.month_end_equity_gbp - startCap;
+      const netReturn = startCap ? (netPnl / startCap) * 100 : 0;
+      const ddAmounts = normalizedRows.map((row) => row.month_end_drawdown_amt_gbp);
+      const ddPercents = normalizedRows.map((row) => row.month_end_drawdown_pct);
+      const monthPnls = normalizedRows.map((row) => row.monthly_pnl_gbp);
+      const bestMonth = normalizedRows.reduce((best, row) => row.monthly_pnl_gbp > best.monthly_pnl_gbp ? row : best, normalizedRows[0]);
+      const worstMonth = normalizedRows.reduce((worst, row) => row.monthly_pnl_gbp < worst.monthly_pnl_gbp ? row : worst, normalizedRows[0]);
+      const positiveMonths = monthPnls.filter((value) => value > 0).length;
+      const negativeMonths = monthPnls.filter((value) => value < 0).length;
+      const flatMonths = monthPnls.length - positiveMonths - negativeMonths;
+
+      return {
+        rows: normalizedRows.map((row) => ({
+          month: row.month,
+          monthly_pnl_gbp: Number(row.monthly_pnl_gbp.toFixed(2)),
+          month_end_equity_gbp: Number(row.month_end_equity_gbp.toFixed(2)),
+          month_end_drawdown_amt_gbp: Number(row.month_end_drawdown_amt_gbp.toFixed(2)),
+          month_end_drawdown_pct: Number(row.month_end_drawdown_pct.toFixed(3)),
+          worst_intramonth_dd_amt_gbp: Number(row.worst_intramonth_dd_amt_gbp.toFixed(2)),
+          worst_intramonth_dd_pct: Number(row.worst_intramonth_dd_pct.toFixed(3))
+        })),
+        summary: {
+          start_cap_gbp: Number(startCap.toFixed(2)),
+          final_equity_gbp: Number(last.month_end_equity_gbp.toFixed(2)),
+          net_pnl_gbp: Number(netPnl.toFixed(2)),
+          net_return_pct: Number(netReturn.toFixed(2)),
+          max_dd_amt_gbp: Number(Math.min(...ddAmounts).toFixed(2)),
+          max_dd_pct: Number(Math.min(...ddPercents).toFixed(3)),
+          months: normalizedRows.length
+        },
+        highlight: {
+          positive_month_ratio_pct: normalizedRows.length ? Number(((positiveMonths / normalizedRows.length) * 100).toFixed(1)) : 0,
+          best_month_pnl_gbp: Number(bestMonth.monthly_pnl_gbp.toFixed(2)),
+          worst_month_pnl_gbp: Number(worstMonth.monthly_pnl_gbp.toFixed(2)),
+          positive_months: positiveMonths,
+          negative_months: negativeMonths,
+          flat_months: flatMonths
+        }
+      };
+    }
+
+    function buildMergedReportData(reportIds, windowStart, windowEnd) {
+      const startDate = parseMonthToDate(windowStart);
+      const endDate = parseMonthToDate(windowEnd);
+      const windowsMap = new Map();
+      const monthly = {};
+      const summary = [];
+      const highlights = [];
+      state.branchLabels = {};
+
+      for (const reportId of reportIds) {
+        const reportMeta = getReportById(reportId);
+        const reportPayload = state.reportDataById[reportId];
+        const reportData = reportPayload && reportPayload.data;
+        if (!reportMeta || !reportData || !reportData.monthly) {
+          continue;
+        }
+
+        const reportWindows = Array.isArray(reportData.windows) ? reportData.windows : [];
+        reportWindows.forEach((windowRow) => {
+          const mode = String(windowRow.mode || '').trim();
+          if (!mode) return;
+          if (!windowsMap.has(mode)) {
+            windowsMap.set(mode, {
+              mode,
+              start_date: windowRow.start_date || windowRow.startDate || null,
+              end_date: windowRow.end_date || windowRow.endDate || null,
+              timescale_months: Number(windowRow.timescale_months || windowRow.timescaleMonths || 0)
+            });
+          }
+        });
+
+        for (const [mode, modeRows] of Object.entries(reportData.monthly || {})) {
+          if (!modeRows || typeof modeRows !== 'object') continue;
+          if (!monthly[mode]) monthly[mode] = {};
+
+          for (const [branch, rows] of Object.entries(modeRows)) {
+            if (!Array.isArray(rows) || !rows.length) continue;
+            const filteredRows = applyWindowFilterRows(rows, startDate, endDate);
+            const derived = deriveSeriesRowsAndStats(filteredRows);
+            if (!derived) continue;
+
+            const branchKey = `${reportId}::${branch}`;
+            const branchLabel = `${reportMeta.title} / ${BRANCH_LABELS[branch] || branch}`;
+            state.branchLabels[branchKey] = branchLabel;
+            monthly[mode][branchKey] = derived.rows;
+            summary.push({
+              branch: branchKey,
+              mode,
+              ...derived.summary
+            });
+            highlights.push({
+              branch: branchKey,
+              mode,
+              ...derived.highlight
+            });
+          }
+        }
+      }
+
+      const windows = Array.from(windowsMap.values()).map((windowRow) => {
+        const modeRows = monthly[windowRow.mode] || {};
+        const allMonths = Object.values(modeRows)
+          .flatMap((rows) => Array.isArray(rows) ? rows.map((row) => String(row.month || '')) : [])
+          .filter(Boolean)
+          .sort();
+        const start = allMonths.length ? `${allMonths[0]}-01` : windowRow.start_date;
+        const end = allMonths.length ? `${allMonths[allMonths.length - 1]}-01` : windowRow.end_date;
+        return {
+          ...windowRow,
+          start_date: start,
+          end_date: end,
+          timescale_months: allMonths.length || windowRow.timescale_months
+        };
+      });
+
+      return {
+        windows,
+        summary,
+        highlights,
+        monthly
+      };
+    }
+
+    async function ensureReportDataLoaded(reportId) {
+      if (state.reportDataById[reportId]) {
+        return state.reportDataById[reportId];
+      }
+
+      const res = await fetch(`/platform/comparative-reports/${encodeURIComponent(reportId)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `Failed: ${res.status}` }));
-        throw new Error(err.error || `Failed to load report ${state.selectedReportId}`);
+        throw new Error(err.error || `Failed to load report ${reportId}`);
       }
 
       const payload = await res.json();
-      const data = payload.data || {};
-      state.reportData = data;
+      state.reportDataById[reportId] = payload;
+      return payload;
+    }
 
-      const windows = Array.isArray(data.windows) ? data.windows : [];
-      const modes = windows.map((w) => w.mode).filter(Boolean);
-      if (!modes.length) {
-        modeSelect.innerHTML = '<option value="full">full</option>';
-        state.selectedMode = 'full';
-      } else {
-        if (!modes.includes(state.selectedMode)) {
-          state.selectedMode = modes[0];
-        }
-        modeSelect.innerHTML = modes.map((mode) => {
-          const selected = mode === state.selectedMode ? 'selected' : '';
-          return `<option value="${mode}" ${selected}>${escapeHtml(mode.toUpperCase())}</option>`;
-        }).join('');
+    function populateStrategyOptions() {
+      if (!state.availableReports.length) {
+        strategySelect.innerHTML = '<option value="" disabled>No strategy reports available</option>';
+        return;
       }
 
+      strategySelect.innerHTML = state.availableReports.map((report) => {
+        const suffix = report.hasData ? '' : ' (missing data)';
+        return `<option value="${report.id}">${escapeHtml(report.title + suffix)}</option>`;
+      }).join('');
+    }
+
+    function populateSavedSetOptions() {
+      if (!state.savedSets.length) {
+        reportSelect.innerHTML = '<option value="">No saved profile sets</option>';
+        state.selectedSetId = '';
+        return;
+      }
+
+      reportSelect.innerHTML = state.savedSets.map((set, idx) => {
+        const selected = idx === 0 ? 'selected' : '';
+        return `<option value="${set.id}" ${selected}>${escapeHtml(set.name)}</option>`;
+      }).join('');
+      state.selectedSetId = reportSelect.value;
+    }
+
+    function applySetToInputs(set) {
+      if (!set) return;
+      state.selectedSetId = set.id;
+      state.selectedReportIds = Array.isArray(set.reportIds) ? set.reportIds.slice() : [];
+      state.windowStart = String(set.windowStart || '');
+      state.windowEnd = String(set.windowEnd || '');
+
+      Array.from(strategySelect.options).forEach((option) => {
+        option.selected = state.selectedReportIds.includes(option.value);
+      });
+      windowStartInput.value = state.windowStart;
+      windowEndInput.value = state.windowEnd;
+    }
+
+    function getCurrentSetName(reportIds) {
+      const names = reportIds
+        .map((reportId) => getReportById(reportId)?.title || reportId)
+        .filter(Boolean);
+      return names.join(' + ') || 'Saved Strategy Comparison';
+    }
+
+    async function loadAvailableReports() {
+      const res = await fetch('/platform/comparative-reports');
+      if (!res.ok) {
+        throw new Error(`Failed to load comparative reports: ${res.status}`);
+      }
+      const data = await res.json();
+      state.availableReports = Array.isArray(data.reports) ? data.reports : [];
+      populateStrategyOptions();
+
+      if (!state.availableReports.length) {
+        setInfo('No comparative report files are registered yet.');
+      }
+    }
+
+    async function loadProfileSets() {
+      const res = await fetch('/platform/comparative-profile/sets');
+      if (!res.ok) {
+        throw new Error(`Failed to load profile sets: ${res.status}`);
+      }
+      const data = await res.json();
+      state.savedSets = Array.isArray(data.sets) ? data.sets : [];
+
+      if (!state.savedSets.length && state.availableReports.length) {
+        const preferredReport = state.availableReports.find((report) => report.hasData) || state.availableReports[0];
+        state.savedSets = [{
+          id: 'default-live-selection',
+          name: getCurrentSetName([preferredReport.id]),
+          reportIds: [preferredReport.id],
+          windowStart: '',
+          windowEnd: ''
+        }];
+      }
+
+      populateSavedSetOptions();
+      const selected = state.savedSets.find((set) => set.id === state.selectedSetId) || state.savedSets[0] || null;
+      if (selected) {
+        applySetToInputs(selected);
+      }
+    }
+
+    async function rebuildMergedData() {
+      const selectedIds = getSelectedStrategyIdsFromUi();
+      state.selectedReportIds = selectedIds;
+      state.windowStart = String(windowStartInput.value || '').trim();
+      state.windowEnd = String(windowEndInput.value || '').trim();
+
+      if (!selectedIds.length) {
+        state.reportData = null;
+        modeSelect.innerHTML = '<option value="full">FULL</option>';
+        branchSelect.innerHTML = '<option value="">No branches</option>';
+        renderView();
+        setInfo('Select at least one strategy report, then click Load.');
+        return;
+      }
+
+      for (const reportId of selectedIds) {
+        await ensureReportDataLoaded(reportId);
+      }
+
+      state.reportData = buildMergedReportData(selectedIds, state.windowStart, state.windowEnd);
+      refreshModeOptions();
       refreshBranchOptions();
       renderView();
     }
 
-    async function createComparativeReport(payload) {
-      const res = await fetch('/platform/comparative-reports', {
+    async function saveCurrentSetToProfile() {
+      const selectedIds = getSelectedStrategyIdsFromUi();
+      if (!selectedIds.length) {
+        throw new Error('Select at least one strategy before saving to profile.');
+      }
+
+      const payload = {
+        id: state.selectedSetId && state.selectedSetId !== 'default-live-selection' ? state.selectedSetId : '',
+        name: getCurrentSetName(selectedIds),
+        reportIds: selectedIds,
+        windowStart: String(windowStartInput.value || '').trim(),
+        windowEnd: String(windowEndInput.value || '').trim()
+      };
+
+      const res = await fetch('/platform/comparative-profile/sets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || `Failed to save report: ${res.status}`);
+        throw new Error(data.error || `Failed to save profile set: ${res.status}`);
       }
-      return data;
+
+      await loadProfileSets();
+      if (data.set && data.set.id) {
+        state.selectedSetId = data.set.id;
+        reportSelect.value = data.set.id;
+      }
+      setInfo('Strategy comparison saved to profile.');
     }
 
-    function resetAdminForm() {
-      newReportTitle.value = '';
-      newReportId.value = '';
-      newReportDataFile.value = '';
-      newReportDescription.value = '';
-      newReportWindowStart.value = '';
-      newReportWindowEnd.value = '';
-      newReportGeneratedAt.value = '';
-    }
+    loadReportBtn.addEventListener('click', async () => {
+      clearAlerts();
+      try {
+        await rebuildMergedData();
+      } catch (error) {
+        setError((error && error.message) || 'Unable to load selected strategy reports.');
+      }
+    });
 
     reportSelect.addEventListener('change', async () => {
-      state.selectedReportId = reportSelect.value;
+      state.selectedSetId = reportSelect.value;
+      const selected = state.savedSets.find((set) => set.id === state.selectedSetId);
+      if (!selected) return;
+
+      applySetToInputs(selected);
+      clearAlerts();
       try {
-        await loadSelectedReport();
+        await rebuildMergedData();
       } catch (error) {
-        state.reportData = null;
-        setError((error && error.message) || 'Unable to load selected report.');
-        renderView();
+        setError((error && error.message) || 'Unable to load selected saved report set.');
       }
     });
 
@@ -980,38 +1448,24 @@
       renderView();
     });
 
+    windowStartInput.addEventListener('change', () => {
+      if (!state.selectedReportIds.length) return;
+      void rebuildMergedData();
+    });
+
+    windowEndInput.addEventListener('change', () => {
+      if (!state.selectedReportIds.length) return;
+      void rebuildMergedData();
+    });
+
     reportAdminForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearAlerts();
-
-      const title = String(newReportTitle.value || '').trim();
-      const dataFile = String(newReportDataFile.value || '').trim();
-      if (!title || !dataFile) {
-        setError('Title and report data JSON path are required.');
-        return;
-      }
-
-      const payload = {
-        id: String(newReportId.value || '').trim(),
-        title,
-        dataFile,
-        description: String(newReportDescription.value || '').trim(),
-        windowStart: String(newReportWindowStart.value || '').trim(),
-        windowEnd: String(newReportWindowEnd.value || '').trim(),
-        generatedAt: String(newReportGeneratedAt.value || '').trim()
-      };
-
       try {
         saveReportBtn.disabled = true;
-        const result = await createComparativeReport(payload);
-        await loadReportList();
-        state.selectedReportId = (result && result.report && result.report.id) || state.selectedReportId;
-        reportSelect.value = state.selectedReportId;
-        await loadSelectedReport();
-        resetAdminForm();
-        setInfo('Comparative report saved and loaded successfully.');
+        await saveCurrentSetToProfile();
       } catch (error) {
-        setError((error && error.message) || 'Unable to save comparative report.');
+        setError((error && error.message) || 'Unable to save strategy comparison to profile.');
       } finally {
         saveReportBtn.disabled = false;
       }
@@ -1020,8 +1474,9 @@
     async function init() {
       buildTabs();
       try {
-        await loadReportList();
-        await loadSelectedReport();
+        await loadAvailableReports();
+        await loadProfileSets();
+        await rebuildMergedData();
       } catch (error) {
         setError((error && error.message) || 'Failed to initialize comparative reports page.');
       }

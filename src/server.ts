@@ -25,6 +25,7 @@ const RUN_HISTORY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_runs.json');
 const STRATEGY_LIBRARY_FILE = path.join(RUN_HISTORY_DIR, 'strategy_library.json');
 const COMPARATIVE_REPORTS_FILE = path.join(DATA_ROOT, 'config', 'comparative-reports.json');
 const APP_COMPARATIVE_REPORTS_FILE = path.join(WORKSPACE_ROOT, 'config', 'comparative-reports.json');
+const COMPARATIVE_PROFILE_SETS_FILE = path.join(RUN_HISTORY_DIR, 'comparative_profile_sets.json');
 const RUN_HISTORY_LIMIT = 100;
 const STRATEGY_LIBRARY_LIMIT = 250;
 const ARCHIVE_ARTIFACT_DIR = path.join(DATA_ROOT, 'backtest_artifacts_archive');
@@ -283,6 +284,16 @@ interface ComparativeReportRecord {
 
 interface ComparativeReportManifest {
 	reports: ComparativeReportRecord[];
+}
+
+interface ComparativeProfileSetRecord {
+	id: string;
+	name: string;
+	reportIds: string[];
+	windowStart?: string;
+	windowEnd?: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 const MAX_LOG_LINES = 2000;
@@ -1952,6 +1963,57 @@ function readComparativeReportData(report: ComparativeReportRecord): unknown {
 	return JSON.parse(raw);
 }
 
+function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
+	try {
+		if (!fileExists(COMPARATIVE_PROFILE_SETS_FILE)) {
+			return [];
+		}
+
+		const raw = fs.readFileSync(COMPARATIVE_PROFILE_SETS_FILE, 'utf8');
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) {
+			return [];
+		}
+
+		const out: ComparativeProfileSetRecord[] = [];
+		for (const item of parsed) {
+			if (!item || typeof item !== 'object') {
+				continue;
+			}
+
+			const id = normalizeComparativeReportId(String((item as { id?: unknown }).id || ''));
+			const name = String((item as { name?: unknown }).name || '').trim();
+			const reportIds = Array.isArray((item as { reportIds?: unknown }).reportIds)
+				? ((item as { reportIds?: unknown[] }).reportIds || [])
+					.map((value) => normalizeComparativeReportId(String(value || '')))
+					.filter((value) => Boolean(value))
+				: [];
+			if (!id || !name || !reportIds.length) {
+				continue;
+			}
+
+			out.push({
+				id,
+				name,
+				reportIds: Array.from(new Set(reportIds)),
+				windowStart: String((item as { windowStart?: unknown }).windowStart || '').trim() || undefined,
+				windowEnd: String((item as { windowEnd?: unknown }).windowEnd || '').trim() || undefined,
+				createdAt: String((item as { createdAt?: unknown }).createdAt || '').trim() || new Date().toISOString(),
+				updatedAt: String((item as { updatedAt?: unknown }).updatedAt || '').trim() || new Date().toISOString(),
+			});
+		}
+
+		return out;
+	} catch {
+		return [];
+	}
+}
+
+function saveComparativeProfileSets(sets: ComparativeProfileSetRecord[]): void {
+	fs.mkdirSync(path.dirname(COMPARATIVE_PROFILE_SETS_FILE), { recursive: true });
+	fs.writeFileSync(COMPARATIVE_PROFILE_SETS_FILE, `${JSON.stringify(sets, null, 2)}\n`, 'utf8');
+}
+
 function parsePositiveInt(input: unknown, fallbackValue: number): number {
 	const n = Number(input);
 	if (!Number.isFinite(n) || n <= 0) {
@@ -2668,6 +2730,78 @@ app.post('/platform/comparative-reports', (req: Request, res: Response): void =>
 	}
 });
 
+app.get('/platform/comparative-profile/sets', (_req: Request, res: Response): void => {
+	const sets = loadComparativeProfileSets();
+	res.json({
+		count: sets.length,
+		sets,
+	});
+});
+
+app.post('/platform/comparative-profile/sets', (req: Request, res: Response): void => {
+	try {
+		const reportIds = Array.isArray(req.body?.reportIds)
+			? (req.body.reportIds as unknown[])
+				.map((value) => normalizeComparativeReportId(String(value || '')))
+				.filter((value) => Boolean(value))
+			: [];
+
+		if (!reportIds.length) {
+			res.status(400).json({ error: 'reportIds is required and must contain at least one report id' });
+			return;
+		}
+
+		const availableReports = loadComparativeReportManifest();
+		const availableIds = new Set(availableReports.map((report) => report.id));
+		for (const reportId of reportIds) {
+			if (!availableIds.has(reportId)) {
+				res.status(404).json({ error: `Unknown report id: ${reportId}` });
+				return;
+			}
+		}
+
+		const incomingId = normalizeComparativeReportId(String(req.body?.id || ''));
+		const incomingName = String(req.body?.name || '').trim();
+		const fallbackName = reportIds
+			.map((reportId) => availableReports.find((item) => item.id === reportId)?.title || reportId)
+			.join(' + ');
+		const setName = incomingName || fallbackName;
+		if (!setName) {
+			res.status(400).json({ error: 'name is required when report titles cannot be resolved' });
+			return;
+		}
+
+		const nowIso = new Date().toISOString();
+		const sets = loadComparativeProfileSets();
+		const existingIndex = incomingId ? sets.findIndex((set) => set.id === incomingId) : -1;
+		const id = incomingId || normalizeComparativeReportId(setName) || `set-${Date.now()}`;
+		const payload: ComparativeProfileSetRecord = {
+			id,
+			name: setName,
+			reportIds: Array.from(new Set(reportIds)),
+			windowStart: String(req.body?.windowStart || '').trim() || undefined,
+			windowEnd: String(req.body?.windowEnd || '').trim() || undefined,
+			createdAt: existingIndex >= 0 ? sets[existingIndex].createdAt : nowIso,
+			updatedAt: nowIso,
+		};
+
+		if (existingIndex >= 0) {
+			sets[existingIndex] = payload;
+		} else {
+			if (sets.some((set) => set.id === id)) {
+				res.status(409).json({ error: `profile set id already exists: ${id}` });
+				return;
+			}
+			sets.unshift(payload);
+		}
+
+		saveComparativeProfileSets(sets);
+		res.status(existingIndex >= 0 ? 200 : 201).json({ ok: true, set: payload });
+	} catch (error) {
+		res.status(500).json({ error: (error as Error).message });
+	}
+});
+
 app.get('/platform/datasets', (_req: Request, res: Response): void => {
 	const markets = getMarketDatasets();
 	const allTimeframes = Array.from(new Set(markets.flatMap((market) => market.timeframes)));
@@ -3098,6 +3232,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const dataFiles = {
 			m1: resolveMarketTimeframeFile(symbol, '1m'),
 			m5: resolveMarketTimeframeFile(symbol, '5m'),
+			m15: resolveMarketTimeframeFile(symbol, '15m'),
 			h1: resolveMarketTimeframeFile(symbol, '1h'),
 			h4: resolveMarketTimeframeFile(symbol, '4h'),
 			daily: resolveMarketTimeframeFile(symbol, '1d'),
@@ -3133,7 +3268,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		];
 
 		if (engineVersion === 'p2') {
-			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily);
+			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
 
 		const stdout = await new Promise<string>((resolve, reject) => {
