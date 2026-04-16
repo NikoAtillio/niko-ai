@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comparative Reports | Niko AI</title>
+  <style>
+    :root {
+      --bg: #f5f7f4;
+      --card: #ffffff;
+      --ink: #152118;
+      --muted: #5f6d61;
+      --line: #d8e0d8;
+      --brand: #005f73;
+      --brand2: #2a9d8f;
+      --good: #1f9d5d;
+      --bad: #d1495b;
+      --warn: #d4a432;
+      --t1: #6366f1;
+      --t2: #f59e0b;
+      --t3: #10b981;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 5% 5%, #eef5ed, #f6f7f4 55%, #edf2ed 100%);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: 100%;
+      padding: 14px 16px 34px;
+    }
+
+    .page-nav {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.92));
+      box-shadow: 0 8px 20px rgba(10, 34, 17, 0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 360px);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .page-nav-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .page-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2a9d8f, #005f73);
+      box-shadow: 0 0 0 5px rgba(42, 157, 143, 0.18);
+      flex: 0 0 auto;
+    }
+    .page-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #143329;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .page-nav-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #5a675b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .page-nav-control { justify-self: end; width: 100%; max-width: 360px; }
+    .page-nav label {
+      margin: 0 0 5px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5a675b;
+      display: block;
+    }
+
+    .page-nav select, .controls select, .admin-form input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid #c9d3ca;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #172018;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    .quick-menu { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .quick-menu a {
+      border: 1px solid #c9d3ca;
+      background: #fcfdfb;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+    .quick-menu a.active {
+      background: linear-gradient(135deg, #005f73, #2a9d8f);
+      color: #ecf8f2;
+      border-color: transparent;
+    }
+
+    .hero {
+      border-radius: 14px;
+      background: linear-gradient(132deg, #053947, #005f73 50%, #0a9396 100%);
+      color: #eaf8f2;
+      padding: 18px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+    }
+
+    .hero h1 { margin: 0; font-size: 1.52rem; }
+    .hero p { margin: 7px 0 0; color: rgba(235, 249, 241, 0.9); }
+
+    .panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 6px 15px rgba(11, 33, 18, 0.06);
+      padding: 12px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .controls label {
+      margin: 0 0 5px;
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .admin-form {
+      margin-top: 10px;
+      border: 1px dashed #c8d4c9;
+      border-radius: 10px;
+      background: #fbfdfb;
+      padding: 10px;
+    }
+
+    .admin-form h3 {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #284637;
+    }
+
+    .admin-form p {
+      margin: 5px 0 0;
+      font-size: 0.82rem;
+      color: #5f6d61;
+    }
+
+    .admin-grid {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+
+    .admin-grid button {
+      height: 40px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand), var(--brand2));
+      color: #ecf8f2;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .admin-grid button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .tabs {
+      margin-top: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tabs button {
+      border: 1px solid #cad6cb;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #254034;
+      font-weight: 700;
+      padding: 7px 13px;
+      cursor: pointer;
+    }
+
+    .tabs button.active {
+      border-color: transparent;
+      color: #effbf6;
+      background: linear-gradient(135deg, var(--brand), var(--brand2));
+    }
+
+    .cards {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fafdfa;
+      padding: 10px;
+    }
+
+    .card h3 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .card .value { margin-top: 5px; font-size: 1.2rem; font-weight: 800; color: var(--brand); }
+    .card .meta { margin-top: 4px; font-size: 0.82rem; color: var(--muted); }
+
+    .report-title {
+      margin-top: 8px;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #183226;
+    }
+
+    .report-sub {
+      margin-top: 3px;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      margin-top: 10px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 920px; }
+    th {
+      position: sticky;
+      top: 0;
+      background: #edf3ee;
+      text-align: left;
+      font-size: 0.74rem;
+      color: #365445;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    td {
+      padding: 8px;
+      font-size: 0.84rem;
+      border-bottom: 1px solid #ecf2ec;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover { background: #f7fbf6; }
+
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .good { color: var(--good); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .branch-pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      display: inline-block;
+    }
+
+    .chart-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fbf8;
+      padding: 10px;
+    }
+
+    #growthChart {
+      width: 100%;
+      height: 360px;
+      display: block;
+      background: linear-gradient(180deg, #102029, #182c36);
+      border-radius: 8px;
+    }
+
+    .legend {
+      margin-top: 8px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #d3dbd3;
+      border-radius: 999px;
+      background: #fff;
+      padding: 2px 8px;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .empty, .error {
+      margin-top: 10px;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+    }
+    .empty { background: #f1f5f1; border: 1px solid #d4ddd4; color: #3c5444; }
+    .error { background: #fff2f4; border: 1px solid #efc6cd; color: #892432; }
+
+    @media (max-width: 760px) {
+      .page-nav { grid-template-columns: 1fr; }
+      .page-nav-control { justify-self: stretch; max-width: none; }
+      .hero h1 { font-size: 1.22rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="page-nav" aria-label="Primary site navigation">
+      <div class="page-nav-brand">
+        <span class="page-nav-dot" aria-hidden="true"></span>
+        <div>
+          <div class="page-nav-title">Niko AI Lab</div>
+          <div class="page-nav-subtitle">Comparative Backtest Reporting</div>
+        </div>
+      </div>
+      <div class="page-nav-control">
+        <label for="pageSelect">Navigate</label>
+        <select id="pageSelect" onchange="window.location.assign(this.value)">
+          <option value="strategy-lab.html">Strategy Lab</option>
+          <option value="phantom-comparison.html">Strategy Tests</option>
+          <option value="comparative-reports.html" selected>Comparative Reports</option>
+          <option value="profile.html">My Profile</option>
+          <option value="data.html">Data</option>
+        </select>
+      </div>
+    </section>
+
+    <nav class="quick-menu" aria-label="Workspace sections">
+      <a href="strategy-lab.html">Strategy Lab</a>
+      <a href="phantom-comparison.html">Strategy Tests</a>
+      <a href="comparative-reports.html" class="active">Comparative Reports</a>
+      <a href="profile.html">My Profile</a>
+      <a href="data.html">Data</a>
+    </nav>
+
+    <section class="hero">
+      <h1>Comparative Reports</h1>
+      <p>Tab-driven reporting for saved backtest competitions with monthly PnL, equity, and drawdown analytics.</p>
+    </section>
+
+    <section class="panel">
+      <div class="controls">
+        <div>
+          <label for="reportSelect">Saved Report</label>
+          <select id="reportSelect"></select>
+        </div>
+        <div>
+          <label for="modeSelect">Dataset Mode</label>
+          <select id="modeSelect"></select>
+        </div>
+        <div>
+          <label for="branchSelect">Branch</label>
+          <select id="branchSelect"></select>
+        </div>
+      </div>
+
+      <form id="reportAdminForm" class="admin-form">
+        <h3>Add Saved Comparative Report</h3>
+        <p>Register a new generated report JSON so it appears in this dropdown for future analysis.</p>
+        <div class="admin-grid">
+          <div>
+            <label for="newReportTitle">Title</label>
+            <input id="newReportTitle" type="text" placeholder="Example: Phantom P3 Branch Competition" required />
+          </div>
+          <div>
+            <label for="newReportId">ID (optional)</label>
+            <input id="newReportId" type="text" placeholder="auto-generated-from-title" />
+          </div>
+          <div>
+            <label for="newReportDataFile">Report Data JSON Path</label>
+            <input id="newReportDataFile" type="text" placeholder="backtest_artifacts/.../dashboard_data.json" required />
+          </div>
+          <div>
+            <label for="newReportDescription">Description (optional)</label>
+            <input id="newReportDescription" type="text" placeholder="Short report note" />
+          </div>
+          <div>
+            <label for="newReportWindowStart">Window Start (optional)</label>
+            <input id="newReportWindowStart" type="text" placeholder="YYYY-MM-DD" />
+          </div>
+          <div>
+            <label for="newReportWindowEnd">Window End (optional)</label>
+            <input id="newReportWindowEnd" type="text" placeholder="YYYY-MM-DD" />
+          </div>
+          <div>
+            <label for="newReportGeneratedAt">Generated At (optional)</label>
+            <input id="newReportGeneratedAt" type="text" placeholder="2026-04-16T00:00:00Z" />
+          </div>
+          <div>
+            <button id="saveReportBtn" type="submit">Save Report</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="tabs" id="tabs"></div>
+
+      <div class="report-title" id="reportTitle">Loading report...</div>
+      <div class="report-sub" id="reportMeta"></div>
+
+      <div id="alerts"></div>
+      <div id="view"></div>
+    </section>
+  </div>
+
+  <script>
+    const BRANCH_COLORS = {
+      p2_filter_test1: '#6366f1',
+      p2_filter_test2: '#f59e0b',
+      p2_filter_test3: '#10b981'
+    };
+
+    const BRANCH_LABELS = {
+      p2_filter_test1: 'Test 1 (Phase 1)',
+      p2_filter_test2: 'Test 2 (Phase 2)',
+      p2_filter_test3: 'Test 3 (Phase 3)'
+    };
+
+    const TABS = [
+      { id: 'overview', label: 'Overview' },
+      { id: 'growth', label: 'Growth Curves' },
+      { id: 'monthly', label: 'Monthly P&L' },
+      { id: 'drawdown', label: 'Drawdown' },
+      { id: 'comparison', label: 'Full Comparison' }
+    ];
+
+    const state = {
+      reports: [],
+      selectedReportId: '',
+      reportData: null,
+      selectedMode: 'full',
+      selectedBranch: 'p2_filter_test3',
+      activeTab: 'overview'
+    };
+
+    const reportSelect = document.getElementById('reportSelect');
+    const modeSelect = document.getElementById('modeSelect');
+    const branchSelect = document.getElementById('branchSelect');
+    const tabsWrap = document.getElementById('tabs');
+    const view = document.getElementById('view');
+    const alerts = document.getElementById('alerts');
+    const reportTitle = document.getElementById('reportTitle');
+    const reportMeta = document.getElementById('reportMeta');
+    const reportAdminForm = document.getElementById('reportAdminForm');
+    const saveReportBtn = document.getElementById('saveReportBtn');
+    const newReportTitle = document.getElementById('newReportTitle');
+    const newReportId = document.getElementById('newReportId');
+    const newReportDataFile = document.getElementById('newReportDataFile');
+    const newReportDescription = document.getElementById('newReportDescription');
+    const newReportWindowStart = document.getElementById('newReportWindowStart');
+    const newReportWindowEnd = document.getElementById('newReportWindowEnd');
+    const newReportGeneratedAt = document.getElementById('newReportGeneratedAt');
+
+    function fmtCurrency(n) {
+      const v = Number(n || 0);
+      return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(v);
+    }
+
+    function fmtPct(n) {
+      const v = Number(n || 0);
+      return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+    }
+
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function setError(msg) {
+      alerts.innerHTML = `<div class="error">${escapeHtml(msg)}</div>`;
+    }
+
+    function setInfo(msg) {
+      alerts.innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
+    }
+
+    function clearAlerts() {
+      alerts.innerHTML = '';
+    }
+
+    function getSummaryRows() {
+      const rows = (state.reportData && state.reportData.summary) || [];
+      return rows.filter((r) => r.mode === state.selectedMode);
+    }
+
+    function getHighlightRows() {
+      const rows = (state.reportData && state.reportData.highlights) || [];
+      return rows.filter((r) => r.mode === state.selectedMode);
+    }
+
+    function getMonthlyRows(branch = state.selectedBranch) {
+      const monthly = state.reportData && state.reportData.monthly;
+      if (!monthly || !monthly[state.selectedMode] || !monthly[state.selectedMode][branch]) {
+        return [];
+      }
+      return monthly[state.selectedMode][branch];
+    }
+
+    function buildTabs() {
+      tabsWrap.innerHTML = TABS.map((tab) => {
+        const active = tab.id === state.activeTab ? 'active' : '';
+        return `<button class="${active}" data-tab="${tab.id}">${tab.label}</button>`;
+      }).join('');
+
+      tabsWrap.querySelectorAll('button[data-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeTab = btn.getAttribute('data-tab');
+          buildTabs();
+          renderView();
+        });
+      });
+    }
+
+    function renderReportHeader() {
+      const report = state.reports.find((r) => r.id === state.selectedReportId);
+      if (!report) {
+        reportTitle.textContent = 'No report selected';
+        reportMeta.textContent = '';
+        return;
+      }
+
+      reportTitle.textContent = report.title;
+      const windows = (state.reportData && state.reportData.windows) || [];
+      const modeWindow = windows.find((w) => w.mode === state.selectedMode);
+      const windowText = modeWindow
+        ? `${modeWindow.start_date || modeWindow.startDate} to ${modeWindow.end_date || modeWindow.endDate} (${modeWindow.timescale_months || modeWindow.timescaleMonths} months)`
+        : `${report.windowStart || '-'} to ${report.windowEnd || '-'}`;
+
+      reportMeta.textContent = `${report.description || ''} | ${state.selectedMode.toUpperCase()} window: ${windowText}`;
+    }
+
+    function renderOverview() {
+      const summary = getSummaryRows();
+      const highlights = getHighlightRows();
+      if (!summary.length) {
+        view.innerHTML = '<div class="empty">No summary rows found for this mode.</div>';
+        return;
+      }
+
+      const best = summary.slice().sort((a, b) => Number(b.net_return_pct) - Number(a.net_return_pct))[0];
+      const cards = `
+        <div class="cards">
+          <div class="card"><h3>Best Final Equity</h3><div class="value">${fmtCurrency(best.final_equity_gbp)}</div><div class="meta">${BRANCH_LABELS[best.branch] || best.branch}</div></div>
+          <div class="card"><h3>Best Net Return</h3><div class="value">${fmtPct(best.net_return_pct)}</div><div class="meta">Start ${fmtCurrency(best.start_cap_gbp)}</div></div>
+          <div class="card"><h3>Max Drawdown</h3><div class="value">${Number(best.max_dd_pct).toFixed(2)}%</div><div class="meta">${fmtCurrency(Math.abs(best.max_dd_amt_gbp))} worst drop</div></div>
+          <div class="card"><h3>Branches Compared</h3><div class="value">${summary.length}</div><div class="meta">Saved report set</div></div>
+        </div>
+      `;
+
+      const rows = summary.map((r) => {
+        const hl = highlights.find((h) => h.branch === r.branch) || {};
+        return `
+          <tr>
+            <td><span class="branch-pill" style="background:${BRANCH_COLORS[r.branch] || '#486'}">${escapeHtml(BRANCH_LABELS[r.branch] || r.branch)}</span></td>
+            <td class="num">${fmtCurrency(r.start_cap_gbp)}</td>
+            <td class="num">${fmtCurrency(r.final_equity_gbp)}</td>
+            <td class="num good">${fmtCurrency(r.net_pnl_gbp)}</td>
+            <td class="num good">${fmtPct(r.net_return_pct)}</td>
+            <td class="num ${Number(r.max_dd_pct) < -3 ? 'bad' : 'good'}">${Number(r.max_dd_pct).toFixed(2)}%</td>
+            <td class="num bad">${fmtCurrency(r.max_dd_amt_gbp)}</td>
+            <td class="num">${Number(hl.positive_month_ratio_pct || 0).toFixed(1)}%</td>
+          </tr>
+        `;
+      }).join('');
+
+      view.innerHTML = `
+        ${cards}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th class="num">Start</th>
+                <th class="num">Final Equity</th>
+                <th class="num">Net P&L</th>
+                <th class="num">Return</th>
+                <th class="num">Max DD %</th>
+                <th class="num">Max DD GBP</th>
+                <th class="num">Positive Months</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderGrowth() {
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const branches = Object.keys(modeMonthly);
+      if (!branches.length) {
+        view.innerHTML = '<div class="empty">No monthly series found to render growth curves.</div>';
+        return;
+      }
+
+      const allPoints = [];
+      branches.forEach((branch) => {
+        modeMonthly[branch].forEach((point) => {
+          allPoints.push({ branch, month: point.month, y: Number(point.month_end_equity_gbp || 0) });
+        });
+      });
+      const months = Array.from(new Set(allPoints.map((p) => p.month))).sort();
+      const ys = allPoints.map((p) => p.y);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const width = 1200;
+      const height = 360;
+      const pad = { left: 64, right: 18, top: 18, bottom: 34 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const xAt = (idx) => pad.left + (idx / Math.max(1, months.length - 1)) * plotW;
+      const yAt = (val) => {
+        const span = Math.max(1, maxY - minY);
+        return pad.top + (1 - ((val - minY) / span)) * plotH;
+      };
+
+      const lines = branches.map((branch) => {
+        const map = new Map(modeMonthly[branch].map((r) => [r.month, Number(r.month_end_equity_gbp || 0)]));
+        const d = months.map((m, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(map.get(m) || minY).toFixed(1)}`).join(' ');
+        return `<path d="${d}" fill="none" stroke="${BRANCH_COLORS[branch] || '#ccc'}" stroke-width="2.3" />`;
+      }).join('');
+
+      const xTicks = [0, Math.floor(months.length / 2), months.length - 1]
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 9}" fill="#cfe3d3" font-size="11" text-anchor="middle">${months[idx]}</text>`)
+        .join('');
+
+      const yTicks = [0, 0.5, 1].map((t) => {
+        const yv = minY + (maxY - minY) * (1 - t);
+        return `<text x="10" y="${(pad.top + t * plotH + 4).toFixed(1)}" fill="#cfe3d3" font-size="11">${Math.round(yv).toLocaleString('en-GB')}</text>`;
+      }).join('');
+
+      const legend = branches.map((b) => `
+        <span class="legend-chip"><span class="dot" style="background:${BRANCH_COLORS[b] || '#ccc'}"></span>${escapeHtml(BRANCH_LABELS[b] || b)}</span>
+      `).join('');
+
+      view.innerHTML = `
+        <div class="chart-wrap">
+          <svg id="growthChart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="Growth chart">
+            <rect x="0" y="0" width="${width}" height="${height}" fill="transparent"></rect>
+            <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#5a7980" stroke-opacity="0.6" />
+            <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#5a7980" stroke-opacity="0.6" />
+            ${lines}
+            ${xTicks}
+            ${yTicks}
+          </svg>
+          <div class="legend">${legend}</div>
+        </div>
+      `;
+    }
+
+    function renderMonthly() {
+      const rows = getMonthlyRows();
+      if (!rows.length) {
+        view.innerHTML = '<div class="empty">No monthly rows available for this branch and mode.</div>';
+        return;
+      }
+
+      const body = rows.map((r) => {
+        const pnl = Number(r.monthly_pnl_gbp || 0);
+        return `
+          <tr>
+            <td>${escapeHtml(r.month)}</td>
+            <td class="num ${pnl >= 0 ? 'good' : 'bad'}">${fmtCurrency(pnl)}</td>
+            <td class="num">${fmtCurrency(r.month_end_equity_gbp)}</td>
+            <td class="num ${Number(r.month_end_drawdown_pct) < 0 ? 'bad' : 'good'}">${Number(r.month_end_drawdown_pct).toFixed(2)}%</td>
+            <td class="num bad">${fmtCurrency(r.month_end_drawdown_amt_gbp)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      view.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="num">Monthly P&L (GBP)</th>
+                <th class="num">Month-End Equity</th>
+                <th class="num">Month-End DD %</th>
+                <th class="num">Month-End DD GBP</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderDrawdown() {
+      const rows = getMonthlyRows();
+      if (!rows.length) {
+        view.innerHTML = '<div class="empty">No drawdown rows available for this branch and mode.</div>';
+        return;
+      }
+
+      const body = rows.map((r) => {
+        return `
+          <tr>
+            <td>${escapeHtml(r.month)}</td>
+            <td class="num ${Number(r.month_end_drawdown_pct) < 0 ? 'bad' : 'good'}">${Number(r.month_end_drawdown_pct).toFixed(2)}%</td>
+            <td class="num bad">${fmtCurrency(r.month_end_drawdown_amt_gbp)}</td>
+            <td class="num ${Number(r.worst_intramonth_dd_pct) < 0 ? 'bad' : 'good'}">${Number(r.worst_intramonth_dd_pct).toFixed(2)}%</td>
+            <td class="num bad">${fmtCurrency(r.worst_intramonth_dd_amt_gbp)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      view.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="num">Month-End DD %</th>
+                <th class="num">Month-End DD GBP</th>
+                <th class="num">Worst Intramonth DD %</th>
+                <th class="num">Worst Intramonth DD GBP</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderComparison() {
+      const summary = getSummaryRows();
+      const highlights = getHighlightRows();
+      if (!summary.length) {
+        view.innerHTML = '<div class="empty">No comparison rows found for this mode.</div>';
+        return;
+      }
+
+      const body = summary.map((r) => {
+        const h = highlights.find((x) => x.branch === r.branch) || {};
+        return `
+          <tr>
+            <td><span class="branch-pill" style="background:${BRANCH_COLORS[r.branch] || '#486'}">${escapeHtml(BRANCH_LABELS[r.branch] || r.branch)}</span></td>
+            <td class="num">${fmtCurrency(r.start_cap_gbp)}</td>
+            <td class="num">${fmtCurrency(r.final_equity_gbp)}</td>
+            <td class="num good">${fmtCurrency(r.net_pnl_gbp)}</td>
+            <td class="num good">${fmtPct(r.net_return_pct)}</td>
+            <td class="num">${Number(r.months || 0)}</td>
+            <td class="num ${Number(r.max_dd_pct) < -3 ? 'bad' : 'good'}">${Number(r.max_dd_pct).toFixed(2)}%</td>
+            <td class="num bad">${fmtCurrency(r.max_dd_amt_gbp)}</td>
+            <td class="num">${Number(h.positive_month_ratio_pct || 0).toFixed(1)}%</td>
+            <td class="num good">${fmtCurrency(h.best_month_pnl_gbp || 0)}</td>
+            <td class="num bad">${fmtCurrency(h.worst_month_pnl_gbp || 0)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      view.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th class="num">Start</th>
+                <th class="num">Final Equity</th>
+                <th class="num">Net P&L</th>
+                <th class="num">Return</th>
+                <th class="num">Months</th>
+                <th class="num">Max DD %</th>
+                <th class="num">Max DD GBP</th>
+                <th class="num">Positive Months</th>
+                <th class="num">Best Month P&L</th>
+                <th class="num">Worst Month P&L</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderView() {
+      clearAlerts();
+      renderReportHeader();
+
+      if (!state.reportData) {
+        setInfo('Select a comparative report to view results.');
+        view.innerHTML = '';
+        return;
+      }
+
+      if (state.activeTab === 'overview') {
+        renderOverview();
+        return;
+      }
+      if (state.activeTab === 'growth') {
+        renderGrowth();
+        return;
+      }
+      if (state.activeTab === 'monthly') {
+        renderMonthly();
+        return;
+      }
+      if (state.activeTab === 'drawdown') {
+        renderDrawdown();
+        return;
+      }
+      renderComparison();
+    }
+
+    function refreshBranchOptions() {
+      const monthly = state.reportData && state.reportData.monthly;
+      const modeData = monthly && monthly[state.selectedMode] ? monthly[state.selectedMode] : {};
+      const branches = Object.keys(modeData);
+
+      if (!branches.length) {
+        branchSelect.innerHTML = '<option value="">No branches</option>';
+        state.selectedBranch = '';
+        return;
+      }
+
+      if (!branches.includes(state.selectedBranch)) {
+        state.selectedBranch = branches[0];
+      }
+
+      branchSelect.innerHTML = branches.map((branch) => {
+        const label = BRANCH_LABELS[branch] || branch;
+        const selected = branch === state.selectedBranch ? 'selected' : '';
+        return `<option value="${branch}" ${selected}>${escapeHtml(label)}</option>`;
+      }).join('');
+    }
+
+    async function loadReportList() {
+      const res = await fetch('/platform/comparative-reports');
+      if (!res.ok) {
+        throw new Error(`Failed to load report list: ${res.status}`);
+      }
+      const data = await res.json();
+      state.reports = Array.isArray(data.reports) ? data.reports : [];
+
+      if (!state.reports.length) {
+        reportSelect.innerHTML = '<option value="">No reports available</option>';
+        state.selectedReportId = '';
+        return;
+      }
+
+      reportSelect.innerHTML = state.reports.map((report, idx) => {
+        const selected = idx === 0 ? 'selected' : '';
+        const suffix = report.hasData ? '' : ' (missing data)';
+        return `<option value="${report.id}" ${selected}>${escapeHtml(report.title + suffix)}</option>`;
+      }).join('');
+
+      state.selectedReportId = reportSelect.value || state.reports[0].id;
+    }
+
+    async function loadSelectedReport() {
+      if (!state.selectedReportId) {
+        state.reportData = null;
+        renderView();
+        return;
+      }
+
+      const res = await fetch(`/platform/comparative-reports/${encodeURIComponent(state.selectedReportId)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `Failed: ${res.status}` }));
+        throw new Error(err.error || `Failed to load report ${state.selectedReportId}`);
+      }
+
+      const payload = await res.json();
+      const data = payload.data || {};
+      state.reportData = data;
+
+      const windows = Array.isArray(data.windows) ? data.windows : [];
+      const modes = windows.map((w) => w.mode).filter(Boolean);
+      if (!modes.length) {
+        modeSelect.innerHTML = '<option value="full">full</option>';
+        state.selectedMode = 'full';
+      } else {
+        if (!modes.includes(state.selectedMode)) {
+          state.selectedMode = modes[0];
+        }
+        modeSelect.innerHTML = modes.map((mode) => {
+          const selected = mode === state.selectedMode ? 'selected' : '';
+          return `<option value="${mode}" ${selected}>${escapeHtml(mode.toUpperCase())}</option>`;
+        }).join('');
+      }
+
+      refreshBranchOptions();
+      renderView();
+    }
+
+    async function createComparativeReport(payload) {
+      const res = await fetch('/platform/comparative-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to save report: ${res.status}`);
+      }
+      return data;
+    }
+
+    function resetAdminForm() {
+      newReportTitle.value = '';
+      newReportId.value = '';
+      newReportDataFile.value = '';
+      newReportDescription.value = '';
+      newReportWindowStart.value = '';
+      newReportWindowEnd.value = '';
+      newReportGeneratedAt.value = '';
+    }
+
+    reportSelect.addEventListener('change', async () => {
+      state.selectedReportId = reportSelect.value;
+      try {
+        await loadSelectedReport();
+      } catch (error) {
+        state.reportData = null;
+        setError((error && error.message) || 'Unable to load selected report.');
+        renderView();
+      }
+    });
+
+    modeSelect.addEventListener('change', () => {
+      state.selectedMode = modeSelect.value;
+      refreshBranchOptions();
+      renderView();
+    });
+
+    branchSelect.addEventListener('change', () => {
+      state.selectedBranch = branchSelect.value;
+      renderView();
+    });
+
+    reportAdminForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearAlerts();
+
+      const title = String(newReportTitle.value || '').trim();
+      const dataFile = String(newReportDataFile.value || '').trim();
+      if (!title || !dataFile) {
+        setError('Title and report data JSON path are required.');
+        return;
+      }
+
+      const payload = {
+        id: String(newReportId.value || '').trim(),
+        title,
+        dataFile,
+        description: String(newReportDescription.value || '').trim(),
+        windowStart: String(newReportWindowStart.value || '').trim(),
+        windowEnd: String(newReportWindowEnd.value || '').trim(),
+        generatedAt: String(newReportGeneratedAt.value || '').trim()
+      };
+
+      try {
+        saveReportBtn.disabled = true;
+        const result = await createComparativeReport(payload);
+        await loadReportList();
+        state.selectedReportId = (result && result.report && result.report.id) || state.selectedReportId;
+        reportSelect.value = state.selectedReportId;
+        await loadSelectedReport();
+        resetAdminForm();
+        setInfo('Comparative report saved and loaded successfully.');
+      } catch (error) {
+        setError((error && error.message) || 'Unable to save comparative report.');
+      } finally {
+        saveReportBtn.disabled = false;
+      }
+    });
+
+    async function init() {
+      buildTabs();
+      try {
+        await loadReportList();
+        await loadSelectedReport();
+      } catch (error) {
+        setError((error && error.message) || 'Failed to initialize comparative reports page.');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

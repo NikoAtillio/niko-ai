@@ -1,0 +1,13 @@
+{
+  "reports": [
+    {
+      "id": "phantom-p2-branch-competition-2021-gbp10k",
+      "title": "Phantom P2 Branch Competition",
+      "description": "p2_filter_test1 vs p2_filter_test2 vs p2_filter_test3 with 2021+ window and GBP 10,000 baseline.",
+      "generatedAt": "2026-04-16T00:00:00Z",
+      "windowStart": "2021-01-01",
+      "windowEnd": "2026-03-31",
+      "dataFile": "backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_2021_10k.json"
+    }
+  ]
+}

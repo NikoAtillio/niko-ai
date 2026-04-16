@@ -1,0 +1,7 @@
+branch,mode,start_cap_gbp,final_equity_gbp,net_pnl_gbp,net_return_pct,max_dd_amt_gbp,max_dd_pct,months
+p2_filter_test3,full,10000.0,215287.54,205287.54,2052.88,-1777.73,-4.384,63
+p2_filter_test2,full,10000.0,208525.63,198525.63,1985.26,-1830.95,-5.241,63
+p2_filter_test1,full,10000.0,91254.17,81254.17,812.54,-1348.22,-2.749,63
+p2_filter_test3,policy,10000.0,66577.76,56577.76,565.78,-27.37,-0.263,51
+p2_filter_test2,policy,10000.0,65927.03,55927.03,559.27,-27.37,-0.263,51
+p2_filter_test1,policy,10000.0,42672.01,32672.01,326.72,-9.35,-0.091,51
