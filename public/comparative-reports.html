@@ -93,13 +93,6 @@
       font-weight: 600;
     }
 
-    .admin-form select[multiple] {
-      min-height: 132px;
-      height: auto;
-      font-weight: 500;
-      padding: 6px 8px;
-    }
-
     .quick-menu { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
     .quick-menu a {
       border: 1px solid #c9d3ca;
@@ -174,15 +167,91 @@
       color: #5f6d61;
     }
 
-    .admin-grid {
+    .admin-layout {
       margin-top: 8px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
       gap: 8px;
-      align-items: end;
+      align-items: stretch;
     }
 
-    .admin-grid button {
+    .strategy-panel,
+    .window-panel {
+      border: 1px solid #d8e2d9;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+    }
+
+    .strategy-panel label,
+    .window-field label {
+      margin: 0 0 6px;
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .strategy-checklist {
+      max-height: 148px;
+      overflow-y: auto;
+      border: 1px solid #d9e3da;
+      border-radius: 8px;
+      background: #f8fbf8;
+      padding: 6px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .strategy-item {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.95rem;
+      color: #172018;
+      padding: 2px 2px;
+    }
+
+    .strategy-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--brand2);
+    }
+
+    .window-panel {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .window-field {
+      display: grid;
+      align-content: center;
+    }
+
+    .window-field input {
+      width: 100%;
+      height: 42px;
+      border: 1px solid #c9d3ca;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #172018;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    .admin-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .admin-actions button {
       height: 40px;
       border: 1px solid transparent;
       border-radius: 10px;
@@ -190,11 +259,18 @@
       color: #ecf8f2;
       font-weight: 700;
       cursor: pointer;
+      min-width: 180px;
     }
 
-    .admin-grid button:disabled {
+    .admin-actions button:disabled {
       opacity: 0.65;
       cursor: not-allowed;
+    }
+
+    .admin-actions .secondary {
+      background: #ffffff;
+      color: #1c3126;
+      border-color: #c9d3ca;
     }
 
     .tabs {
@@ -292,6 +368,9 @@
     tbody tr:hover { background: #f7fbf6; }
 
     .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .group-header { text-align: center; }
+    .group-sep { border-left: 2px solid #cfd9d0 !important; }
+    .header-split { display: inline-block; line-height: 1.15; white-space: normal; }
     .good { color: var(--good); font-weight: 700; }
     .bad { color: var(--bad); font-weight: 700; }
     .branch-pill {
@@ -376,6 +455,7 @@
       .page-nav { grid-template-columns: 1fr; }
       .page-nav-control { justify-self: stretch; max-width: none; }
       .hero h1 { font-size: 1.22rem; }
+      .admin-layout { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -415,43 +495,32 @@
     </section>
 
     <section class="panel">
-      <div class="controls">
-        <div>
-          <label for="reportSelect">Saved Report</label>
-          <select id="reportSelect"></select>
-        </div>
-        <div>
-          <label for="modeSelect">Dataset Mode</label>
-          <select id="modeSelect"></select>
-        </div>
-        <div>
-          <label for="branchSelect">Branch</label>
-          <select id="branchSelect"></select>
-        </div>
-      </div>
-
       <form id="reportAdminForm" class="admin-form">
         <h3>Saved Strategy Comparison</h3>
         <p>Select one or more saved strategy reports, then load or save this selection to your profile.</p>
-        <div class="admin-grid">
-          <div>
-            <label for="strategySelect">Strategies</label>
-            <select id="strategySelect" multiple></select>
+        <div class="admin-layout">
+          <div class="strategy-panel">
+            <label>Strategies</label>
+            <div id="strategyChecklist" class="strategy-checklist"></div>
           </div>
-          <div>
-            <label for="windowStartInput">Window Start (optional)</label>
-            <input id="windowStartInput" type="date" />
+          <div class="window-panel">
+            <div class="window-field">
+              <label for="windowStartInput">Window Start (optional)</label>
+              <input id="windowStartInput" type="date" />
+            </div>
+            <div class="window-field">
+              <label for="windowEndInput">Window End (optional)</label>
+              <input id="windowEndInput" type="date" />
+            </div>
+            <div class="window-field">
+              <label for="modeSelect">Dataset Mode</label>
+              <select id="modeSelect"></select>
+            </div>
           </div>
-          <div>
-            <label for="windowEndInput">Window End (optional)</label>
-            <input id="windowEndInput" type="date" />
-          </div>
-          <div>
-            <button id="loadReportBtn" type="button">Load</button>
-          </div>
-          <div>
-            <button id="saveReportBtn" type="submit">Save To Profile</button>
-          </div>
+        </div>
+        <div class="admin-actions">
+          <button id="loadReportBtn" type="button" class="secondary">Load</button>
+          <button id="saveReportBtn" type="submit">Save To Profile</button>
         </div>
       </form>
 
@@ -494,23 +563,20 @@
       selectedReportIds: [],
       reportData: null,
       selectedMode: 'full',
-      selectedBranch: '',
       activeTab: 'overview',
       windowStart: '',
       windowEnd: '',
       branchLabels: {}
     };
 
-    const reportSelect = document.getElementById('reportSelect');
     const modeSelect = document.getElementById('modeSelect');
-    const branchSelect = document.getElementById('branchSelect');
     const tabsWrap = document.getElementById('tabs');
     const view = document.getElementById('view');
     const alerts = document.getElementById('alerts');
     const reportTitle = document.getElementById('reportTitle');
     const reportMeta = document.getElementById('reportMeta');
     const reportAdminForm = document.getElementById('reportAdminForm');
-    const strategySelect = document.getElementById('strategySelect');
+    const strategyChecklist = document.getElementById('strategyChecklist');
     const loadReportBtn = document.getElementById('loadReportBtn');
     const saveReportBtn = document.getElementById('saveReportBtn');
     const windowStartInput = document.getElementById('windowStartInput');
@@ -548,8 +614,8 @@
     }
 
     function getSelectedStrategyIdsFromUi() {
-      return Array.from(strategySelect.selectedOptions || [])
-        .map((option) => String(option.value || '').trim())
+      return Array.from(strategyChecklist.querySelectorAll('input[type="checkbox"][data-report-id]:checked'))
+        .map((input) => String(input.getAttribute('data-report-id') || '').trim())
         .filter(Boolean);
     }
 
@@ -583,6 +649,28 @@
       return Number.isNaN(dt.getTime()) ? null : dt;
     }
 
+    function parseDateInput(value) {
+      const token = String(value || '').trim();
+      if (!token) return null;
+      if (/^\d{4}-\d{2}$/.test(token)) {
+        const dt = new Date(`${token}-01T00:00:00Z`);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(token)) {
+        const dt = new Date(`${token}T00:00:00Z`);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      return null;
+    }
+
+    function formatDateInput(dateObj) {
+      if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return '';
+      const y = dateObj.getUTCFullYear();
+      const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
     function getSummaryRows() {
       const rows = (state.reportData && state.reportData.summary) || [];
       return rows.filter((r) => r.mode === state.selectedMode);
@@ -591,14 +679,6 @@
     function getHighlightRows() {
       const rows = (state.reportData && state.reportData.highlights) || [];
       return rows.filter((r) => r.mode === state.selectedMode);
-    }
-
-    function getMonthlyRows(branch = state.selectedBranch) {
-      const monthly = state.reportData && state.reportData.monthly;
-      if (!monthly || !monthly[state.selectedMode] || !monthly[state.selectedMode][branch]) {
-        return [];
-      }
-      return monthly[state.selectedMode][branch];
     }
 
     function buildTabs() {
@@ -617,23 +697,22 @@
     }
 
     function renderReportHeader() {
-      const set = state.savedSets.find((item) => item.id === state.selectedSetId);
-      if (!set) {
+      const strategyNames = state.selectedReportIds
+        .map((reportId) => getReportById(reportId)?.title || reportId)
+        .join(' + ');
+
+      if (!strategyNames) {
         reportTitle.textContent = 'No report selected';
         reportMeta.textContent = '';
         return;
       }
 
-      reportTitle.textContent = set.name;
+      reportTitle.textContent = strategyNames;
       const windows = (state.reportData && state.reportData.windows) || [];
       const modeWindow = windows.find((w) => w.mode === state.selectedMode);
       const windowText = modeWindow
         ? `${modeWindow.start_date || modeWindow.startDate} to ${modeWindow.end_date || modeWindow.endDate} (${modeWindow.timescale_months || modeWindow.timescaleMonths} months)`
         : `${state.windowStart || '-'} to ${state.windowEnd || '-'}`;
-
-      const strategyNames = (set.reportIds || [])
-        .map((reportId) => getReportById(reportId)?.title || reportId)
-        .join(' + ');
 
       reportMeta.textContent = `${strategyNames} | ${state.selectedMode.toUpperCase()} window: ${windowText}`;
     }
@@ -646,13 +725,17 @@
         return;
       }
 
-      const best = summary.slice().sort((a, b) => Number(b.net_return_pct) - Number(a.net_return_pct))[0];
       const cards = `
         <div class="cards">
-          <div class="card"><h3>Best Final Equity</h3><div class="value">${fmtCurrency(best.final_equity_gbp)}</div><div class="meta">${escapeHtml(getBranchLabel(best.branch))}</div></div>
-          <div class="card"><h3>Best Net Return</h3><div class="value">${fmtPct(best.net_return_pct)}</div><div class="meta">Start ${fmtCurrency(best.start_cap_gbp)}</div></div>
-          <div class="card"><h3>Max Drawdown</h3><div class="value">${Number(best.max_dd_pct).toFixed(2)}%</div><div class="meta">${fmtCurrency(Math.abs(best.max_dd_amt_gbp))} worst drop</div></div>
-          <div class="card"><h3>Branches Compared</h3><div class="value">${summary.length}</div><div class="meta">Saved report set</div></div>
+          ${summary.map((r) => `
+            <div class="card">
+              <h3>${escapeHtml(getBranchLabel(r.branch))}</h3>
+              <div class="meta">Final Equity</div>
+              <div class="value">${fmtCurrency(r.final_equity_gbp)}</div>
+              <div class="meta">Net Return ${fmtPct(r.net_return_pct)}</div>
+              <div class="meta">Max DD ${Number(r.max_dd_pct).toFixed(2)}% / ${fmtCurrency(r.max_dd_amt_gbp)}</div>
+            </div>
+          `).join('')}
         </div>
       `;
 
@@ -678,7 +761,7 @@
           <table>
             <thead>
               <tr>
-                <th>Branch</th>
+                <th>Strategy</th>
                 <th class="num">Start</th>
                 <th class="num">Final Equity</th>
                 <th class="num">Net P&L</th>
@@ -896,75 +979,115 @@
     }
 
     function renderMonthly() {
-      const rows = getMonthlyRows();
-      if (!rows.length) {
-        view.innerHTML = '<div class="empty">No monthly rows available for this branch and mode.</div>';
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const branches = Object.keys(modeMonthly);
+      if (!branches.length) {
+        view.innerHTML = '<div class="empty">No monthly rows available for this mode.</div>';
         return;
       }
 
-      const body = rows.map((r) => {
-        const pnl = Number(r.monthly_pnl_gbp || 0);
-        return `
-          <tr>
-            <td>${escapeHtml(r.month)}</td>
-            <td class="num ${pnl >= 0 ? 'good' : 'bad'}">${fmtCurrency(pnl)}</td>
-            <td class="num">${fmtCurrency(r.month_end_equity_gbp)}</td>
-            <td class="num ${Number(r.month_end_drawdown_pct) < 0 ? 'bad' : 'good'}">${Number(r.month_end_drawdown_pct).toFixed(2)}%</td>
-            <td class="num bad">${fmtCurrency(r.month_end_drawdown_amt_gbp)}</td>
-          </tr>
-        `;
+      const byBranchMonth = {};
+      const monthSet = new Set();
+      branches.forEach((branch) => {
+        byBranchMonth[branch] = {};
+        (modeMonthly[branch] || []).forEach((row) => {
+          const month = String(row.month || '');
+          if (!month) return;
+          byBranchMonth[branch][month] = row;
+          monthSet.add(month);
+        });
+      });
+
+      const months = Array.from(monthSet).sort();
+      const topHeader = branches.map((branch, idx) => (
+        `<th class="num group-header ${idx > 0 ? 'group-sep' : ''}" colspan="2">${escapeHtml(getBranchLabel(branch))}</th>`
+      )).join('');
+      const subHeader = branches.map((_, idx) => (`
+        <th class="num ${idx > 0 ? 'group-sep' : ''}">P&L</th>
+        <th class="num">Equity</th>
+      `)).join('');
+
+      const rows = months.map((month) => {
+        const cols = branches.map((branch, idx) => {
+          const row = byBranchMonth[branch][month];
+          if (!row) return `<td class="num ${idx > 0 ? 'group-sep' : ''}">-</td><td class="num">-</td>`;
+          const pnl = Number(row.monthly_pnl_gbp || 0);
+          return `<td class="num ${idx > 0 ? 'group-sep' : ''} ${pnl >= 0 ? 'good' : 'bad'}">${fmtCurrency(pnl)}</td><td class="num">${fmtCurrency(row.month_end_equity_gbp)}</td>`;
+        }).join('');
+        return `<tr><td>${escapeHtml(month)}</td>${cols}</tr>`;
       }).join('');
 
       view.innerHTML = `
+        <div class="report-sub">Monthly side-by-side comparison across selected strategies.</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Month</th>
-                <th class="num">Monthly P&L (GBP)</th>
-                <th class="num">Month-End Equity</th>
-                <th class="num">Month-End DD %</th>
-                <th class="num">Month-End DD GBP</th>
+                ${topHeader}
               </tr>
+              <tr><th></th>${subHeader}</tr>
             </thead>
-            <tbody>${body}</tbody>
+            <tbody>${rows}</tbody>
           </table>
         </div>
       `;
     }
 
     function renderDrawdown() {
-      const rows = getMonthlyRows();
-      if (!rows.length) {
-        view.innerHTML = '<div class="empty">No drawdown rows available for this branch and mode.</div>';
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const branches = Object.keys(modeMonthly);
+      if (!branches.length) {
+        view.innerHTML = '<div class="empty">No drawdown rows available for this mode.</div>';
         return;
       }
 
-      const body = rows.map((r) => {
-        return `
-          <tr>
-            <td>${escapeHtml(r.month)}</td>
-            <td class="num ${Number(r.month_end_drawdown_pct) < 0 ? 'bad' : 'good'}">${Number(r.month_end_drawdown_pct).toFixed(2)}%</td>
-            <td class="num bad">${fmtCurrency(r.month_end_drawdown_amt_gbp)}</td>
-            <td class="num ${Number(r.worst_intramonth_dd_pct) < 0 ? 'bad' : 'good'}">${Number(r.worst_intramonth_dd_pct).toFixed(2)}%</td>
-            <td class="num bad">${fmtCurrency(r.worst_intramonth_dd_amt_gbp)}</td>
-          </tr>
-        `;
+      const byBranchMonth = {};
+      const monthSet = new Set();
+      branches.forEach((branch) => {
+        byBranchMonth[branch] = {};
+        (modeMonthly[branch] || []).forEach((row) => {
+          const month = String(row.month || '');
+          if (!month) return;
+          byBranchMonth[branch][month] = row;
+          monthSet.add(month);
+        });
+      });
+
+      const months = Array.from(monthSet).sort();
+      const topHeader = branches.map((branch, idx) => (
+        `<th class="num group-header ${idx > 0 ? 'group-sep' : ''}" colspan="3">${escapeHtml(getBranchLabel(branch))}</th>`
+      )).join('');
+      const subHeader = branches.map((_, idx) => (`
+        <th class="num ${idx > 0 ? 'group-sep' : ''}">DD %</th>
+        <th class="num">DD £</th>
+        <th class="num"><span class="header-split">Worst Intramonth<br>DD %</span></th>
+      `)).join('');
+
+      const rows = months.map((month) => {
+        const cols = branches.map((branch, idx) => {
+          const row = byBranchMonth[branch][month];
+          if (!row) return `<td class="num ${idx > 0 ? 'group-sep' : ''}">-</td><td class="num">-</td><td class="num">-</td>`;
+          const ddPct = Number(row.month_end_drawdown_pct || 0);
+          const ddAmt = Number(row.month_end_drawdown_amt_gbp || 0);
+          const worstPct = Number(row.worst_intramonth_dd_pct || 0);
+          return `<td class="num ${idx > 0 ? 'group-sep' : ''} ${ddPct < 0 ? 'bad' : 'good'}">${ddPct.toFixed(2)}%</td><td class="num bad">${fmtCurrency(ddAmt)}</td><td class="num ${worstPct < 0 ? 'bad' : 'good'}">${worstPct.toFixed(2)}%</td>`;
+        }).join('');
+        return `<tr><td>${escapeHtml(month)}</td>${cols}</tr>`;
       }).join('');
 
       view.innerHTML = `
+        <div class="report-sub">Drawdown side-by-side comparison across selected strategies.</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Month</th>
-                <th class="num">Month-End DD %</th>
-                <th class="num">Month-End DD GBP</th>
-                <th class="num">Worst Intramonth DD %</th>
-                <th class="num">Worst Intramonth DD GBP</th>
+                ${topHeader}
               </tr>
+              <tr><th></th>${subHeader}</tr>
             </thead>
-            <tbody>${body}</tbody>
+            <tbody>${rows}</tbody>
           </table>
         </div>
       `;
@@ -1002,7 +1125,7 @@
           <table>
             <thead>
               <tr>
-                <th>Branch</th>
+                <th>Strategy</th>
                 <th class="num">Start</th>
                 <th class="num">Final Equity</th>
                 <th class="num">Net P&L</th>
@@ -1048,28 +1171,6 @@
         return;
       }
       renderComparison();
-    }
-
-    function refreshBranchOptions() {
-      const monthly = state.reportData && state.reportData.monthly;
-      const modeData = monthly && monthly[state.selectedMode] ? monthly[state.selectedMode] : {};
-      const branches = Object.keys(modeData);
-
-      if (!branches.length) {
-        branchSelect.innerHTML = '<option value="">No branches</option>';
-        state.selectedBranch = '';
-        return;
-      }
-
-      if (!branches.includes(state.selectedBranch)) {
-        state.selectedBranch = branches[0];
-      }
-
-      branchSelect.innerHTML = branches.map((branch) => {
-        const label = getBranchLabel(branch);
-        const selected = branch === state.selectedBranch ? 'selected' : '';
-        return `<option value="${branch}" ${selected}>${escapeHtml(label)}</option>`;
-      }).join('');
     }
 
     function refreshModeOptions() {
@@ -1172,8 +1273,8 @@
     }
 
     function buildMergedReportData(reportIds, windowStart, windowEnd) {
-      const startDate = parseMonthToDate(windowStart);
-      const endDate = parseMonthToDate(windowEnd);
+      const startDate = parseDateInput(windowStart);
+      const endDate = parseDateInput(windowEnd);
       const windowsMap = new Map();
       const monthly = {};
       const summary = [];
@@ -1254,6 +1355,62 @@
       };
     }
 
+    function syncWindowBoundsAndDefaults(reportIds) {
+      let minDate = null;
+      let maxDate = null;
+
+      const considerDate = (dt) => {
+        if (!(dt instanceof Date) || Number.isNaN(dt.getTime())) return;
+        if (!minDate || dt < minDate) minDate = dt;
+        if (!maxDate || dt > maxDate) maxDate = dt;
+      };
+
+      reportIds.forEach((reportId) => {
+        const payload = state.reportDataById[reportId];
+        const data = payload && payload.data;
+        if (!data) return;
+
+        (Array.isArray(data.windows) ? data.windows : []).forEach((windowRow) => {
+          considerDate(parseDateInput(windowRow.start_date || windowRow.startDate || ''));
+          considerDate(parseDateInput(windowRow.end_date || windowRow.endDate || ''));
+        });
+
+        Object.values(data.monthly || {}).forEach((modeRows) => {
+          if (!modeRows || typeof modeRows !== 'object') return;
+          Object.values(modeRows).forEach((rows) => {
+            if (!Array.isArray(rows)) return;
+            rows.forEach((row) => considerDate(parseMonthToDate(row.month)));
+          });
+        });
+      });
+
+      if (!minDate || !maxDate) {
+        windowStartInput.min = '';
+        windowStartInput.max = '';
+        windowEndInput.min = '';
+        windowEndInput.max = '';
+        return;
+      }
+
+      const minToken = formatDateInput(minDate);
+      const maxToken = formatDateInput(maxDate);
+      windowStartInput.min = minToken;
+      windowStartInput.max = maxToken;
+      windowEndInput.min = minToken;
+      windowEndInput.max = maxToken;
+
+      if (!windowStartInput.value) windowStartInput.value = minToken;
+      if (!windowEndInput.value) windowEndInput.value = maxToken;
+
+      if (windowStartInput.value && windowStartInput.value < minToken) windowStartInput.value = minToken;
+      if (windowStartInput.value && windowStartInput.value > maxToken) windowStartInput.value = maxToken;
+      if (windowEndInput.value && windowEndInput.value < minToken) windowEndInput.value = minToken;
+      if (windowEndInput.value && windowEndInput.value > maxToken) windowEndInput.value = maxToken;
+      if (windowStartInput.value && windowEndInput.value && windowStartInput.value > windowEndInput.value) {
+        windowEndInput.value = windowStartInput.value;
+      }
+    }
+
     async function ensureReportDataLoaded(reportId) {
       if (state.reportDataById[reportId]) {
         return state.reportDataById[reportId];
@@ -1272,28 +1429,19 @@
 
     function populateStrategyOptions() {
       if (!state.availableReports.length) {
-        strategySelect.innerHTML = '<option value="" disabled>No strategy reports available</option>';
+        strategyChecklist.innerHTML = '<div class="empty">No strategy reports available</div>';
         return;
       }
 
-      strategySelect.innerHTML = state.availableReports.map((report) => {
+      strategyChecklist.innerHTML = state.availableReports.map((report) => {
         const suffix = report.hasData ? '' : ' (missing data)';
-        return `<option value="${report.id}">${escapeHtml(report.title + suffix)}</option>`;
+        return `
+          <label class="strategy-item">
+            <input type="checkbox" data-report-id="${escapeHtml(report.id)}" ${report.hasData ? '' : 'disabled'} />
+            <span>${escapeHtml(report.title + suffix)}</span>
+          </label>
+        `;
       }).join('');
-    }
-
-    function populateSavedSetOptions() {
-      if (!state.savedSets.length) {
-        reportSelect.innerHTML = '<option value="">No saved profile sets</option>';
-        state.selectedSetId = '';
-        return;
-      }
-
-      reportSelect.innerHTML = state.savedSets.map((set, idx) => {
-        const selected = idx === 0 ? 'selected' : '';
-        return `<option value="${set.id}" ${selected}>${escapeHtml(set.name)}</option>`;
-      }).join('');
-      state.selectedSetId = reportSelect.value;
     }
 
     function applySetToInputs(set) {
@@ -1303,8 +1451,9 @@
       state.windowStart = String(set.windowStart || '');
       state.windowEnd = String(set.windowEnd || '');
 
-      Array.from(strategySelect.options).forEach((option) => {
-        option.selected = state.selectedReportIds.includes(option.value);
+      Array.from(strategyChecklist.querySelectorAll('input[type="checkbox"][data-report-id]')).forEach((input) => {
+        const reportId = String(input.getAttribute('data-report-id') || '');
+        input.checked = state.selectedReportIds.includes(reportId);
       });
       windowStartInput.value = state.windowStart;
       windowEndInput.value = state.windowEnd;
@@ -1350,7 +1499,6 @@
         }];
       }
 
-      populateSavedSetOptions();
       const selected = state.savedSets.find((set) => set.id === state.selectedSetId) || state.savedSets[0] || null;
       if (selected) {
         applySetToInputs(selected);
@@ -1360,13 +1508,10 @@
     async function rebuildMergedData() {
       const selectedIds = getSelectedStrategyIdsFromUi();
       state.selectedReportIds = selectedIds;
-      state.windowStart = String(windowStartInput.value || '').trim();
-      state.windowEnd = String(windowEndInput.value || '').trim();
 
       if (!selectedIds.length) {
         state.reportData = null;
         modeSelect.innerHTML = '<option value="full">FULL</option>';
-        branchSelect.innerHTML = '<option value="">No branches</option>';
         renderView();
         setInfo('Select at least one strategy report, then click Load.');
         return;
@@ -1376,9 +1521,12 @@
         await ensureReportDataLoaded(reportId);
       }
 
+      syncWindowBoundsAndDefaults(selectedIds);
+      state.windowStart = String(windowStartInput.value || '').trim();
+      state.windowEnd = String(windowEndInput.value || '').trim();
+
       state.reportData = buildMergedReportData(selectedIds, state.windowStart, state.windowEnd);
       refreshModeOptions();
-      refreshBranchOptions();
       renderView();
     }
 
@@ -1407,10 +1555,7 @@
       }
 
       await loadProfileSets();
-      if (data.set && data.set.id) {
-        state.selectedSetId = data.set.id;
-        reportSelect.value = data.set.id;
-      }
+      if (data.set && data.set.id) state.selectedSetId = data.set.id;
       setInfo('Strategy comparison saved to profile.');
     }
 
@@ -1423,28 +1568,8 @@
       }
     });
 
-    reportSelect.addEventListener('change', async () => {
-      state.selectedSetId = reportSelect.value;
-      const selected = state.savedSets.find((set) => set.id === state.selectedSetId);
-      if (!selected) return;
-
-      applySetToInputs(selected);
-      clearAlerts();
-      try {
-        await rebuildMergedData();
-      } catch (error) {
-        setError((error && error.message) || 'Unable to load selected saved report set.');
-      }
-    });
-
     modeSelect.addEventListener('change', () => {
       state.selectedMode = modeSelect.value;
-      refreshBranchOptions();
-      renderView();
-    });
-
-    branchSelect.addEventListener('change', () => {
-      state.selectedBranch = branchSelect.value;
       renderView();
     });
 

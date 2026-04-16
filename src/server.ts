@@ -1073,9 +1073,14 @@ interface PhantomV2ValidationResult {
 }
 
 function normalizePhantomScenario(rawScenario: string, engineVersion: string): { version: string; scenarioKey: string; scenario: string } {
-	const version = String(engineVersion || 'p1').toLowerCase() === 'p2' ? 'p2' : 'p1';
+	const normalizedEngine = String(engineVersion || 'p1').toLowerCase();
+	const version = normalizedEngine === 'p3'
+		? 'p3'
+		: normalizedEngine === 'p2'
+			? 'p2'
+			: 'p1';
 	let token = String(rawScenario || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-	token = token.replace(/^P[12]/, '');
+	token = token.replace(/^P[123]/, '');
 	if (token === 'D') token = 'C';
 	if (!['A', 'B', 'C'].includes(token)) token = 'B';
 	return {
@@ -1130,18 +1135,39 @@ function bucketLabelFromDate(dateText: string): string {
 
 function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
-	const p2Instrument = engineVersion.toLowerCase() === 'p2' ? mapSymbolToPhantomP2Instrument(symbol) : null;
+	const normalizedEngineVersion = String(engineVersion || 'p1').toLowerCase();
+	let p2Instrument: 'XAU' | 'US100' | 'BTC' | null = null;
+	if (normalizedEngineVersion === 'p2' || normalizedEngineVersion === 'p3') {
+		try {
+			p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
+		} catch {
+			p2Instrument = null;
+		}
+	}
 
 	for (const summary of summaries) {
-		const preferredTradeFile = path.join(workingDir, `phantom_${engineVersion.toLowerCase()}_trades_${summary.scenario.toUpperCase()}.csv`);
-		const preferredTradeFileWithInstrument = p2Instrument
-			? path.join(workingDir, `phantom_${engineVersion.toLowerCase()}_trades_${p2Instrument}_${summary.scenario.toUpperCase()}.csv`)
-			: '';
+		const scenarioTag = String(summary.scenario || '').toUpperCase();
+		const scenarioTagP2Compat = scenarioTag.replace(/^P3/, 'P2');
+		const versionPrefixes = normalizedEngineVersion === 'p3'
+			? ['p3', 'p2']
+			: [normalizedEngineVersion];
+		const preferredCandidates: string[] = [];
+		for (const versionPrefix of versionPrefixes) {
+			preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${scenarioTag}.csv`));
+			if (scenarioTagP2Compat !== scenarioTag) {
+				preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${scenarioTagP2Compat}.csv`));
+			}
+			if (p2Instrument) {
+				preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${p2Instrument}_${scenarioTag}.csv`));
+				if (scenarioTagP2Compat !== scenarioTag) {
+					preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${p2Instrument}_${scenarioTagP2Compat}.csv`));
+				}
+			}
+		}
 		const legacyScenario = summary.scenarioKey === 'C' ? 'D' : summary.scenarioKey;
 		const legacyTradeFile = path.join(workingDir, `phantom_v5_1_trades_${legacyScenario}.csv`);
-		const tradeFile = fileExists(preferredTradeFileWithInstrument)
-			? preferredTradeFileWithInstrument
-			: (fileExists(preferredTradeFile) ? preferredTradeFile : legacyTradeFile);
+		const preferredTradeFile = preferredCandidates.find((candidate) => fileExists(candidate));
+		const tradeFile = preferredTradeFile || legacyTradeFile;
 		if (!fileExists(tradeFile)) {
 			continue;
 		}
@@ -3224,7 +3250,13 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
 		const scenario = String(req.body?.scenario || 'ALL').toUpperCase();
-		const engineVersion = String(req.body?.engineVersion || 'p1').toLowerCase() === 'p2' ? 'p2' : 'p1';
+		const requestedEngineVersionRaw = String(req.body?.engineVersion || 'p1').toLowerCase();
+		const requestedEngineVersion = requestedEngineVersionRaw === 'p3'
+			? 'p3'
+			: requestedEngineVersionRaw === 'p2'
+				? 'p2'
+				: 'p1';
+		const executionEngineVersion = requestedEngineVersion === 'p1' ? 'p1' : 'p2';
 		const spreadBps = Math.max(0, toNumber(req.body?.spreadBps, 0));
 		const slippageBps = Math.max(0, toNumber(req.body?.slippageBps, 0));
 		const commissionPerTrade = Math.max(0, toNumber(req.body?.commissionPerTrade, 0));
@@ -3240,7 +3272,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-		const scriptCandidates = engineVersion === 'p2'
+		const scriptCandidates = executionEngineVersion === 'p2'
 			? [
 				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
 				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py'),
@@ -3250,7 +3282,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
 			];
 		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
-		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${engineVersion}-validate-`;
+		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${requestedEngineVersion}-validate-`;
 		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, artifactPrefix));
 
 		const args = [
@@ -3267,7 +3299,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--commission-per-trade', String(commissionPerTrade),
 		];
 
-		if (engineVersion === 'p2') {
+		if (executionEngineVersion === 'p2') {
 			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
 
@@ -3307,9 +3339,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			});
 		});
 
-		const summaries = parsePhantomV2ValidationOutput(stdout, engineVersion);
+		const summaries = parsePhantomV2ValidationOutput(stdout, requestedEngineVersion);
 		const best = pickBestPhantomV2Summary(summaries);
-		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries, engineVersion);
+		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries, requestedEngineVersion);
 
 		res.json({
 			ok: true,
@@ -3318,7 +3350,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			spreadBps,
 			slippageBps,
 			commissionPerTrade,
-			engineVersion,
+			engineVersion: requestedEngineVersion,
 			scenario,
 			dataFiles,
 			workingDir,

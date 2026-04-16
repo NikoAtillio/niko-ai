@@ -704,8 +704,9 @@
             </select>
             <label for="phantomEngineSelect" style="margin-top:8px;">Strategy</label>
             <select id="phantomEngineSelect">
-              <option value="p1" selected>Phantom V1</option>
-              <option value="p2">Phantom V2</option>
+              <option value="p1" selected>Phantom P1</option>
+              <option value="p2">Phantom P2</option>
+              <option value="p3">Phantom P3</option>
             </select>
           </div>
           <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
@@ -785,8 +786,9 @@
           <label for="versionFilter">Strategy</label>
           <select id="versionFilter">
             <option value="ALL">All</option>
-            <option value="p1">Phantom V1</option>
-            <option value="p2">Phantom V2</option>
+            <option value="p1">Phantom P1</option>
+            <option value="p2">Phantom P2</option>
+            <option value="p3">Phantom P3</option>
           </select>
         </div>
         <div>
@@ -994,8 +996,9 @@
 
     function formatVersionLabel(version) {
       const v = String(version || '').trim().toLowerCase();
-      if (v === 'p1' || v === 'v1') return 'Phantom V1';
-      if (v === 'p2' || v === 'v2') return 'Phantom V2';
+      if (v === 'p1' || v === 'v1') return 'Phantom P1';
+      if (v === 'p2' || v === 'v2') return 'Phantom P2';
+      if (v === 'p3' || v === 'v3') return 'Phantom P3';
       if (v === 'v4') return 'Phantom V4';
       return String(version || 'Unknown');
     }
@@ -1645,12 +1648,12 @@
       };
 
       const periodFromName = inferYearBucketFromFilename(fileName);
-      const scenarioFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[12][ABC]|[ABCD])(?:[^A-Za-z0-9]|$)/i);
+      const scenarioFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[123][ABC]|[ABCD])(?:[^A-Za-z0-9]|$)/i);
       const scenarioFromNameRaw = scenarioFromNameMatch ? scenarioFromNameMatch[1].toUpperCase() : '';
       const scenarioFromName = scenarioFromNameRaw.endsWith('D')
         ? `${scenarioFromNameRaw.slice(0, -1)}C`
         : scenarioFromNameRaw;
-      const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[12]|v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
+      const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[123]|v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
       const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'p1';
 
       let parsedRows = 0;
@@ -2803,7 +2806,7 @@
       const withdrawalText = withdrawalPct > 0
         ? `monthly withdrawal ${withdrawalPct.toFixed(0)}% of each month's positive profit`
         : 'no monthly withdrawals (full compounding)';
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom V1/V2 comparison data.`;
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom P1/P2/P3 comparison data.`;
 
       latestResultsSummary = {
         generatedAt: new Date().toISOString(),

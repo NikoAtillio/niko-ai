@@ -1,0 +1,100 @@
+INSTRUMENT SUMMARY (latest run per strategy variant)
+
+BTCUSD (6 variants)
+  Highest return: P2B | return=1093.26% net=109326.01 maxDD=3398.86 PF=2.40 trades=3157
+  Lowest drawdown: P2A | maxDD=146.83 return=28.03% net=2802.83 PF=2.51 trades=878
+  Highest net PnL: P2B | net=109326.01 return=1093.26% maxDD=3398.86 PF=2.40 trades=3157
+  Best return/DD efficiency: P2C | net/maxDD=47.90 return=252.51% maxDD=527.19 trades=3157
+
+EURUSD (6 variants)
+  Highest return: P1B | return=182.83% net=18283.48 maxDD=3889.79 PF=1.08 trades=16884
+  Lowest drawdown: P1A | maxDD=607.19 return=23.45% net=2345.32 PF=1.15 trades=3288
+  Highest net PnL: P1B | net=18283.48 return=182.83% maxDD=3889.79 PF=1.08 trades=16884
+  Best return/DD efficiency: P1C | net/maxDD=5.52 return=74.90% maxDD=1357.99 trades=16884
+
+GBPUSD (6 variants)
+  Highest return: P1B | return=388.13% net=38812.82 maxDD=9958.85 PF=1.09 trades=17096
+  Lowest drawdown: P1A | maxDD=768.60 return=16.16% net=1616.35 PF=1.10 trades=3452
+  Highest net PnL: P1B | net=38812.82 return=388.13% maxDD=9958.85 PF=1.09 trades=17096
+  Best return/DD efficiency: P1C | net/maxDD=5.17 return=129.64% maxDD=2508.55 trades=17096
+
+NZDUSD (6 variants)
+  Highest return: P1B | return=156.84% net=15683.64 maxDD=6133.41 PF=1.06 trades=16954
+  Lowest drawdown: P1A | maxDD=520.47 return=11.13% net=1112.62 PF=1.07 trades=3365
+  Highest net PnL: P1B | net=15683.64 return=156.84% maxDD=6133.41 PF=1.06 trades=16954
+  Best return/DD efficiency: P1C | net/maxDD=3.39 return=66.65% maxDD=1965.76 trades=16954
+
+US100 (6 variants)
+  Highest return: P2B | return=707.74% net=70774.37 maxDD=1539.35 PF=2.60 trades=2055
+  Lowest drawdown: P2A | maxDD=127.37 return=55.94% net=5593.62 PF=3.05 trades=1009
+  Highest net PnL: P2B | net=70774.37 return=707.74% maxDD=1539.35 PF=2.60 trades=2055
+  Best return/DD efficiency: P2C | net/maxDD=56.30 return=188.90% maxDD=335.53 trades=2055
+
+USDCHF (6 variants)
+  Highest return: P1B | return=132.90% net=13290.22 maxDD=5965.55 PF=1.05 trades=17337
+  Lowest drawdown: P1A | maxDD=740.62 return=5.13% net=512.78 PF=1.03 trades=3298
+  Highest net PnL: P1B | net=13290.22 return=132.90% maxDD=5965.55 PF=1.05 trades=17337
+  Best return/DD efficiency: P1C | net/maxDD=3.19 return=58.91% maxDD=1847.38 trades=17337
+
+USDJPY (6 variants)
+  Highest return: P1B | return=1540.48% net=154048.06 maxDD=17190.52 PF=1.15 trades=16258
+  Lowest drawdown: P1A | maxDD=531.74 return=20.21% net=2020.85 PF=1.13 trades=3246
+  Highest net PnL: P1B | net=154048.06 return=1540.48% maxDD=17190.52 PF=1.15 trades=16258
+  Best return/DD efficiency: P1C | net/maxDD=11.95 return=326.33% maxDD=2731.79 trades=16258
+
+XAUUSD (6 variants)
+  Highest return: P2B | return=7905.25% net=790524.97 maxDD=20372.21 PF=2.20 trades=7494
+  Lowest drawdown: P2A | maxDD=96.70 return=36.70% net=3669.96 PF=2.42 trades=1376
+  Highest net PnL: P2B | net=790524.97 return=7905.25% maxDD=20372.21 PF=2.20 trades=7494
+  Best return/DD efficiency: P2C | net/maxDD=46.85 return=872.15% maxDD=1861.61 trades=7494
+
+DETAIL CSV
+instrument,strategy,trades,wins,losses,net,retPct,maxDD,profitFactor,filePath
+BTCUSD,P2B,3157,1628,1513,109326.01,1093.26,3398.86,2.402,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/BTC_P2B/phantom_p2_trades_BTC_P2B.csv
+BTCUSD,P1B,11068,4459,6609,67734.62,677.35,4981.45,1.197,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-btcusd-p1-validate-Up0Qbz/phantom_p1_trades_P1B.csv
+BTCUSD,P2C,3157,1628,1513,25250.78,252.51,527.19,2.437,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/BTC_P2C/phantom_p2_trades_BTC_P2C.csv
+BTCUSD,P1C,11068,4459,6609,18797.71,187.98,1233.84,1.201,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-btcusd-p1-validate-Up0Qbz/phantom_p1_trades_P1C.csv
+BTCUSD,P1A,2987,1261,1726,5957.82,59.58,409.75,1.324,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-btcusd-p1-validate-Up0Qbz/phantom_p1_trades_P1A.csv
+BTCUSD,P2A,878,478,400,2802.83,28.03,146.83,2.512,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/BTC_P2A/phantom_p2_trades_BTC_P2A.csv
+EURUSD,P1B,16884,6549,10335,18283.48,182.83,3889.79,1.079,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p1-validate-3Kh9Ab/phantom_p1_trades_P1B.csv
+EURUSD,P2B,16884,6549,10335,18283.48,182.83,3889.79,1.079,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p2-validate-H6R0qS/phantom_p2_trades_P2B.csv
+EURUSD,P1C,16884,6549,10335,7489.88,74.90,1357.99,1.082,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p1-validate-3Kh9Ab/phantom_p1_trades_P1C.csv
+EURUSD,P2C,16884,6549,10335,7489.88,74.90,1357.99,1.082,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p2-validate-H6R0qS/phantom_p2_trades_P2C.csv
+EURUSD,P1A,3288,1273,2015,2345.32,23.45,607.19,1.147,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p1-validate-3Kh9Ab/phantom_p1_trades_P1A.csv
+EURUSD,P2A,3288,1273,2015,2345.32,23.45,607.19,1.147,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-eurusd-p2-validate-H6R0qS/phantom_p2_trades_P2A.csv
+GBPUSD,P1B,17096,6695,10401,38812.82,388.13,9958.85,1.092,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p1-validate-88c230/phantom_p1_trades_P1B.csv
+GBPUSD,P2B,17096,6695,10401,38812.82,388.13,9958.85,1.092,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p2-validate-8b9x2J/phantom_p2_trades_P2B.csv
+GBPUSD,P1C,17096,6695,10401,12964.28,129.64,2508.55,1.103,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p1-validate-88c230/phantom_p1_trades_P1C.csv
+GBPUSD,P2C,17096,6695,10401,12964.28,129.64,2508.55,1.103,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p2-validate-8b9x2J/phantom_p2_trades_P2C.csv
+GBPUSD,P1A,3452,1296,2156,1616.35,16.16,768.60,1.099,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p1-validate-88c230/phantom_p1_trades_P1A.csv
+GBPUSD,P2A,3452,1296,2156,1616.35,16.16,768.60,1.099,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-gbpusd-p2-validate-8b9x2J/phantom_p2_trades_P2A.csv
+NZDUSD,P1B,16954,6617,10337,15683.64,156.84,6133.41,1.064,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p1-validate-BT9Ezp/phantom_p1_trades_P1B.csv
+NZDUSD,P2B,16954,6617,10337,15683.64,156.84,6133.41,1.064,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p2-validate-4j3Te7/phantom_p2_trades_P2B.csv
+NZDUSD,P1C,16954,6617,10337,6665.09,66.65,1965.76,1.071,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p1-validate-BT9Ezp/phantom_p1_trades_P1C.csv
+NZDUSD,P2C,16954,6617,10337,6665.09,66.65,1965.76,1.071,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p2-validate-4j3Te7/phantom_p2_trades_P2C.csv
+NZDUSD,P1A,3365,1281,2084,1112.62,11.13,520.47,1.072,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p1-validate-BT9Ezp/phantom_p1_trades_P1A.csv
+NZDUSD,P2A,3365,1281,2084,1112.62,11.13,520.47,1.072,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p2-validate-4j3Te7/phantom_p2_trades_P2A.csv
+US100,P2B,2055,1108,932,70774.37,707.74,1539.35,2.601,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2B.csv
+US100,P2C,2055,1108,932,18890.10,188.90,335.53,2.624,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2C.csv
+US100,P1B,5926,2369,3557,14765.07,147.65,1656.50,1.202,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-2TI4D5/phantom_p1_trades_P1B.csv
+US100,P1A,3358,1386,1972,7185.87,71.86,385.32,1.315,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-3MKar3/phantom_p1_trades_P1A.csv
+US100,P1C,5926,2369,3557,6151.63,61.52,1023.10,1.206,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-2TI4D5/phantom_p1_trades_P1C.csv
+US100,P2A,1009,584,422,5593.62,55.94,127.37,3.053,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2A.csv
+USDCHF,P1B,17337,6634,10703,13290.22,132.90,5965.55,1.055,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p1-validate-xpRms7/phantom_p1_trades_P1B.csv
+USDCHF,P2B,17337,6634,10703,13290.22,132.90,5965.55,1.055,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p2-validate-Juty5n/phantom_p2_trades_P2B.csv
+USDCHF,P1C,17337,6634,10703,5891.48,58.91,1847.38,1.062,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p1-validate-xpRms7/phantom_p1_trades_P1C.csv
+USDCHF,P2C,17337,6634,10703,5891.48,58.91,1847.38,1.062,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p2-validate-Juty5n/phantom_p2_trades_P2C.csv
+USDCHF,P1A,3298,1212,2086,512.78,5.13,740.62,1.035,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p1-validate-xpRms7/phantom_p1_trades_P1A.csv
+USDCHF,P2A,3298,1212,2086,512.78,5.13,740.62,1.035,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p2-validate-Juty5n/phantom_p2_trades_P2A.csv
+USDJPY,P1B,16258,6350,9908,154048.06,1540.48,17190.52,1.154,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p1-validate-zYfxTs/phantom_p1_trades_P1B.csv
+USDJPY,P2B,16258,6350,9908,154048.06,1540.48,17190.52,1.154,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p2-validate-IgE146/phantom_p2_trades_P2B.csv
+USDJPY,P1C,16258,6350,9908,32633.30,326.33,2731.79,1.168,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p1-validate-zYfxTs/phantom_p1_trades_P1C.csv
+USDJPY,P2C,16258,6350,9908,32633.30,326.33,2731.79,1.168,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p2-validate-IgE146/phantom_p2_trades_P2C.csv
+USDJPY,P1A,3246,1276,1970,2020.85,20.21,531.74,1.130,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p1-validate-zYfxTs/phantom_p1_trades_P1A.csv
+USDJPY,P2A,3246,1276,1970,2020.85,20.21,531.74,1.130,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdjpy-p2-validate-IgE146/phantom_p2_trades_P2A.csv
+XAUUSD,P2B,7494,3744,3748,790524.97,7905.25,20372.21,2.201,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/XAU_P2B/phantom_p2_trades_XAU_P2B.csv
+XAUUSD,P1B,16893,6604,10289,327819.63,3278.20,20116.45,1.180,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-xauusd-p1-validate-sxRIdK/phantom_p1_trades_P1B.csv
+XAUUSD,P2C,7494,3744,3748,87214.51,872.15,1861.61,2.202,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/XAU_P2C/phantom_p2_trades_XAU_P2C.csv
+XAUUSD,P1C,16893,6604,10289,86840.68,868.41,4634.76,1.166,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-xauusd-p1-validate-sxRIdK/phantom_p1_trades_P1C.csv
+XAUUSD,P1A,3358,1327,2031,14279.07,142.79,1257.26,1.202,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-xauusd-p1-validate-sxRIdK/phantom_p1_trades_P1A.csv
+XAUUSD,P2A,1376,716,658,3669.96,36.70,96.70,2.423,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-p2-fixed-20260416_174332/XAU_P2A/phantom_p2_trades_XAU_P2A.csv
