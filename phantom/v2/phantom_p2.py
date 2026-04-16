@@ -31,6 +31,7 @@ import argparse
 import os
 import sys
 import warnings
+from typing import Optional
 import numpy as np
 import pandas as pd
 
@@ -45,9 +46,10 @@ ENGINE_VERSION = 'p2'
 # ══════════════════════════════════════════════════════════════════════════════
 INSTRUMENT_CONFIG = {
     'XAU': dict(
-        # Session: London open through NY close (07:00–20:00 UTC), weekdays only
-        session_start   = 7,
-        session_end     = 20,
+        # Session: tightened to 08:00–19:00 UTC; exclude 11:00 lunch lull
+        session_start   = 8,
+        session_end     = 19,
+        session_exclude_hours = [11],
         allow_weekend   = False,
         weekend_size    = 0.0,
         # TP at 1.3R — daily range ~1.43%, 1.3R is achievable within session
@@ -79,13 +81,15 @@ INSTRUMENT_CONFIG = {
         confirm_tf_mins = 60,    # H1 = 60 min bars
         regime_ema_fast = 50,
         regime_ema_slow = 200,
+        # Phase 2: keep shorts at base score threshold, require stronger longs
+        dir_score_offset = {'long': 1, 'short': 0},
         soft_session_start = None,
         soft_session_size  = 0.0,
     ),
     'BTC': dict(
-        # Session: 07:00–21:00 UTC; weekends allowed at 0.5x size
-        session_start   = 7,
-        session_end     = 21,
+        # Session tightened to 08:00–18:00 UTC; weekends allowed at 0.5x size
+        session_start   = 8,
+        session_end     = 18,
         allow_weekend   = True,
         weekend_size    = 0.5,   # 50% size on Sat/Sun
         # TP at 1.5R — BTC daily range ~3–5%, 2R is achievable but 1.5R is safer
@@ -95,6 +99,8 @@ INSTRUMENT_CONFIG = {
         # Confirmation: require 2 H4 bars (8h) holding zone before entry
         min_confirm_bars= 2,
         confirm_tf_mins = 240,
+        # Phase 3 test: allow BTC setups more time before stop exits.
+        min_hold_hours  = 4,
         regime_ema_fast = 50,
         regime_ema_slow = 200,
         soft_session_start = None,
@@ -118,6 +124,8 @@ DEFAULTS = {
     'breakeven_r'   : 0.8,       # move stop to entry at this R level
     'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
     'confidence_min' : 0.5,      # size multiplier when low confidence
+    'confidence_mode': 'inverted', # flat | inverted | score
+    'confidence_score_min': 7,
 }
 
 SCENARIOS = {
@@ -230,6 +238,13 @@ def add_daily_regime(daily: pd.DataFrame, inst_cfg: dict) -> pd.DataFrame:
     )
     return daily
 
+def apply_start_date(df: pd.DataFrame, start_date: Optional[str]) -> pd.DataFrame:
+    """Optionally filter a dataframe to rows on/after a UTC date string."""
+    if not start_date:
+        return df
+    ts = pd.Timestamp(start_date)
+    return df[df.index >= ts]
+
 # ══════════════════════════════════════════════════════════════════════════════
 # FAST LOOKUP HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -300,15 +315,21 @@ def get_session_size_mult(ts: pd.Timestamp, inst_cfg: dict) -> float:
     hour = ts.hour
     dow  = ts.dayofweek  # 0=Mon, 6=Sun
 
+    # Optional hard exclusion list for known weak hours.
+    exclude_hours = inst_cfg.get('session_exclude_hours', [])
+    if hour in exclude_hours:
+        return 0.0
+
+    in_core_session = inst_cfg['session_start'] <= hour < inst_cfg['session_end']
+
     # Weekend handling
     if dow >= 5:
         if not inst_cfg['allow_weekend']:
             return 0.0
-        else:
-            return inst_cfg['weekend_size']
+        return inst_cfg['weekend_size'] if in_core_session else 0.0
 
     # Core session
-    if inst_cfg['session_start'] <= hour < inst_cfg['session_end']:
+    if in_core_session:
         return 1.0
 
     # Soft session (XAU Asian hours)
@@ -510,16 +531,34 @@ def run_scenario(
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
 
-            # Check stop
+            # Minimum-hold stop filter (instrument-specific, timeframe-aware).
+            hold_bars = bar_i - p['entry_bar']
+            bar_minutes = 1 if cfg['entry_tf'] == 'm1' else 5
+            bars_per_hour = max(1, 60 // bar_minutes)
+            min_hold_hours = int(inst_cfg.get('min_hold_hours', 2))
+            min_hold_bars = min_hold_hours * bars_per_hour
+
+            # Only exit on stop if hold threshold is met, or trade is at/above breakeven.
+            allow_stop_exit = hold_bars >= min_hold_bars
+            if not allow_stop_exit:
+                # Allow stop exit even under 2h if we're at/past BE or in profit
+                current_r = (
+                    (price - p['entry']) / p['initial_risk_price']
+                    if p['dir'] == 'long'
+                    else (p['entry'] - price) / p['initial_risk_price']
+                )
+                if current_r >= 0.0:  # At or in profit
+                    allow_stop_exit = True
+
             if p['dir'] == 'long':
-                if low <= p['stop']:
+                if allow_stop_exit and low <= p['stop']:
                     exit_signal_px = p['stop']
                     exit_reason = 'stop'
                 elif high >= p['tp']:
                     exit_signal_px = p['tp']
                     exit_reason = 'tp'
             else:
-                if high >= p['stop']:
+                if allow_stop_exit and high >= p['stop']:
                     exit_signal_px = p['stop']
                     exit_reason = 'stop'
                 elif low <= p['tp']:
@@ -679,7 +718,9 @@ def run_scenario(
                 continue
 
             total_score = h4_score + h1_score + ltf_score
-            if total_score < score_min:
+            dir_score_offset = inst_cfg.get('dir_score_offset', {})
+            effective_score_min = score_min + int(dir_score_offset.get(z_dir, 0))
+            if total_score < effective_score_min:
                 skipped['score'] += 1
                 continue
             if ltf_score > ltf_cap:
@@ -706,27 +747,26 @@ def run_scenario(
                     continue
 
             # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
-            # High confidence = session peak + cluster 2-3 + regime aligned
+            # Phase 2 supports configurable confidence modes.
             cluster_count = cluster.count_in_window(ts_pd)
             in_peak_session = (
                 inst_cfg['session_start'] <= ts_pd.hour < inst_cfg['session_end']
                 and ts_pd.dayofweek < 5
             )
-            high_confidence = (
-                in_peak_session
-                and 1 <= cluster_count <= 2   # 2nd or 3rd entry in window = sweet spot
-                and regime_mult == 1.0         # with-trend
-            )
-            low_confidence = (
-                not in_peak_session
-                or cluster_count == 0          # first entry in window (unconfirmed)
-                or regime_mult < 1.0           # counter-trend
-            )
+            confidence_mode = DEFAULTS.get('confidence_mode', 'flat')
+            confidence_score_min = int(DEFAULTS.get('confidence_score_min', 7))
 
-            if high_confidence:
-                conf_mult = DEFAULTS['confidence_mult']   # 1.5x
-            elif low_confidence:
-                conf_mult = DEFAULTS['confidence_min']    # 0.5x
+            if confidence_mode == 'flat':
+                conf_mult = 1.0
+            elif confidence_mode == 'inverted':
+                # True inverted confidence: first cluster touch gets the size premium.
+                conf_mult = DEFAULTS['confidence_mult'] if cluster_count == 0 else 1.0
+            elif confidence_mode == 'score':
+                conf_mult = (
+                    DEFAULTS['confidence_mult']
+                    if (in_peak_session and total_score >= confidence_score_min)
+                    else 1.0
+                )
             else:
                 conf_mult = 1.0
 
@@ -927,6 +967,8 @@ def main():
                         help='Adverse slippage per side in bps')
     parser.add_argument('--commission-per-trade', type=float, default=0.0,
                         help='Fixed commission per closed trade')
+    parser.add_argument('--start-date', default=None,
+                        help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
     args = parser.parse_args()
 
     output_dir = args.output_dir or '.'
@@ -940,12 +982,12 @@ def main():
           f"  | Confirm: {inst_cfg['min_confirm_bars']} bars")
 
     print("\nLoading data...")
-    m1    = add_indicators(load_csv(args.m1))
-    m5    = add_indicators(load_csv(args.m5))
-    h1    = add_indicators(load_csv(args.h1))
-    h4    = add_indicators(load_csv(args.h4))
-    m15   = add_indicators(load_csv(args.m15))
-    daily = add_indicators(load_csv(args.daily))
+    m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
+    m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date)
+    h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date)
+    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date)
+    m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date)
+    daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date)
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
     print(f"  Range: {m1.index[0]} → {m1.index[-1]}")

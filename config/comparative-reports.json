@@ -1,0 +1,40 @@
+{
+  "reports": [
+    {
+      "id": "phantom-p1-strategy-2021-gbp10k",
+      "title": "Phantom P1 Strategy",
+      "description": "Single-strategy view derived from p2_filter_test1 over 2021+ window and GBP 10,000 baseline.",
+      "generatedAt": "2026-04-16T00:00:00Z",
+      "windowStart": "2021-01-01",
+      "windowEnd": "2026-03-31",
+      "dataFile": "backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p1.json"
+    },
+    {
+      "id": "phantom-p2-strategy-2021-gbp10k",
+      "title": "Phantom P2 Strategy",
+      "description": "Single-strategy view derived from p2_filter_test2 over 2021+ window and GBP 10,000 baseline.",
+      "generatedAt": "2026-04-16T00:00:00Z",
+      "windowStart": "2021-01-01",
+      "windowEnd": "2026-03-31",
+      "dataFile": "backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p2.json"
+    },
+    {
+      "id": "phantom-p3-strategy-2021-gbp10k",
+      "title": "Phantom P3 Strategy",
+      "description": "Single-strategy view derived from p2_filter_test3 over 2021+ window and GBP 10,000 baseline.",
+      "generatedAt": "2026-04-16T00:00:00Z",
+      "windowStart": "2021-01-01",
+      "windowEnd": "2026-03-31",
+      "dataFile": "backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p3.json"
+    },
+    {
+      "id": "phantom-p2-branch-competition-2021-gbp10k",
+      "title": "Phantom P2 Branch Competition",
+      "description": "p2_filter_test1 vs p2_filter_test2 vs p2_filter_test3 with 2021+ window and GBP 10,000 baseline.",
+      "generatedAt": "2026-04-16T00:00:00Z",
+      "windowStart": "2021-01-01",
+      "windowEnd": "2026-03-31",
+      "dataFile": "backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_2021_10k.json"
+    }
+  ]
+}

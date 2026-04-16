@@ -1,0 +1,1131 @@
+{
+  "meta": {
+    "currency": "GBP",
+    "start_cap_gbp": 10000.0,
+    "start_filter": "2021-01-01",
+    "notes": [
+      "Monthly values are exact month-by-month values from trade outputs, not sampled January points.",
+      "PnL/equity amounts are normalized from original basket starts (full=45k, policy=15k) to 10k using linear scaling."
+    ],
+    "strategyLabel": "Phantom P3 (from p2_filter_test3)",
+    "sourceBranch": "p2_filter_test3"
+  },
+  "windows": [
+    {
+      "mode": "full",
+      "start_date": "2021-01-01",
+      "end_date": "2026-03-31",
+      "timescale_months": 63,
+      "start_cap_gbp": 10000.0
+    },
+    {
+      "mode": "policy",
+      "start_date": "2022-01-01",
+      "end_date": "2026-03-31",
+      "timescale_months": 51,
+      "start_cap_gbp": 10000.0
+    }
+  ],
+  "summary": [
+    {
+      "branch": "phantom_p3",
+      "mode": "full",
+      "start_cap_gbp": 10000.0,
+      "final_equity_gbp": 215287.54,
+      "net_pnl_gbp": 205287.54,
+      "net_return_pct": 2052.88,
+      "max_dd_amt_gbp": -1777.73,
+      "max_dd_pct": -4.384,
+      "months": 63
+    },
+    {
+      "branch": "phantom_p3",
+      "mode": "policy",
+      "start_cap_gbp": 10000.0,
+      "final_equity_gbp": 66577.76,
+      "net_pnl_gbp": 56577.76,
+      "net_return_pct": 565.78,
+      "max_dd_amt_gbp": -27.37,
+      "max_dd_pct": -0.263,
+      "months": 51
+    }
+  ],
+  "highlights": [
+    {
+      "branch": "phantom_p3",
+      "mode": "full",
+      "months": 63,
+      "start_cap_gbp": 10000.0,
+      "final_equity_gbp": 215287.54,
+      "net_return_pct": 2052.88,
+      "max_dd_pct": -4.384,
+      "max_dd_amt_gbp": -1777.73,
+      "positive_months": 57,
+      "negative_months": 6,
+      "flat_months": 0,
+      "positive_month_ratio_pct": 90.48,
+      "avg_monthly_pnl_gbp": 3258.53,
+      "median_monthly_pnl_gbp": 2333.03,
+      "best_month": "2025-07",
+      "best_month_pnl_gbp": 14429.09,
+      "worst_month": "2026-01",
+      "worst_month_pnl_gbp": -1362.83
+    },
+    {
+      "branch": "phantom_p3",
+      "mode": "policy",
+      "months": 51,
+      "start_cap_gbp": 10000.0,
+      "final_equity_gbp": 66577.76,
+      "net_return_pct": 565.78,
+      "max_dd_pct": -0.263,
+      "max_dd_amt_gbp": -27.37,
+      "positive_months": 50,
+      "negative_months": 1,
+      "flat_months": 0,
+      "positive_month_ratio_pct": 98.04,
+      "avg_monthly_pnl_gbp": 1109.37,
+      "median_monthly_pnl_gbp": 887.86,
+      "best_month": "2026-03",
+      "best_month_pnl_gbp": 5109.11,
+      "worst_month": "2022-03",
+      "worst_month_pnl_gbp": -27.37
+    }
+  ],
+  "monthly": {
+    "full": {
+      "phantom_p3": [
+        {
+          "month": "2021-01",
+          "monthly_pnl_gbp": 1097.02,
+          "month_end_equity_gbp": 11097.02,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -585.6,
+          "worst_intramonth_dd_pct": -1.17
+        },
+        {
+          "month": "2021-02",
+          "monthly_pnl_gbp": 1136.12,
+          "month_end_equity_gbp": 12233.14,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -366.55,
+          "worst_intramonth_dd_pct": -0.697
+        },
+        {
+          "month": "2021-03",
+          "monthly_pnl_gbp": -536.36,
+          "month_end_equity_gbp": 11696.78,
+          "month_end_drawdown_amt_gbp": -536.36,
+          "month_end_drawdown_pct": -4.384,
+          "worst_intramonth_dd_amt_gbp": -1108.99,
+          "worst_intramonth_dd_pct": -2.11
+        },
+        {
+          "month": "2021-04",
+          "monthly_pnl_gbp": 2188.54,
+          "month_end_equity_gbp": 13885.32,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -882.62,
+          "worst_intramonth_dd_pct": -1.679
+        },
+        {
+          "month": "2021-05",
+          "monthly_pnl_gbp": 1739.55,
+          "month_end_equity_gbp": 15624.87,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -366.49,
+          "worst_intramonth_dd_pct": -0.655
+        },
+        {
+          "month": "2021-06",
+          "monthly_pnl_gbp": 1223.08,
+          "month_end_equity_gbp": 16847.96,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -889.89,
+          "worst_intramonth_dd_pct": -1.578
+        },
+        {
+          "month": "2021-07",
+          "monthly_pnl_gbp": -565.34,
+          "month_end_equity_gbp": 16282.61,
+          "month_end_drawdown_amt_gbp": -565.34,
+          "month_end_drawdown_pct": -3.356,
+          "worst_intramonth_dd_amt_gbp": -754.46,
+          "worst_intramonth_dd_pct": -1.325
+        },
+        {
+          "month": "2021-08",
+          "monthly_pnl_gbp": -119.62,
+          "month_end_equity_gbp": 16163.0,
+          "month_end_drawdown_amt_gbp": -684.96,
+          "month_end_drawdown_pct": -4.066,
+          "worst_intramonth_dd_amt_gbp": -1591.96,
+          "worst_intramonth_dd_pct": -2.795
+        },
+        {
+          "month": "2021-09",
+          "monthly_pnl_gbp": 4231.72,
+          "month_end_equity_gbp": 20394.72,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1103.84,
+          "worst_intramonth_dd_pct": -1.938
+        },
+        {
+          "month": "2021-10",
+          "monthly_pnl_gbp": 104.93,
+          "month_end_equity_gbp": 20499.65,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -921.26,
+          "worst_intramonth_dd_pct": -1.501
+        },
+        {
+          "month": "2021-11",
+          "monthly_pnl_gbp": 6.89,
+          "month_end_equity_gbp": 20506.54,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1128.64,
+          "worst_intramonth_dd_pct": -1.838
+        },
+        {
+          "month": "2021-12",
+          "monthly_pnl_gbp": 2631.27,
+          "month_end_equity_gbp": 23137.81,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1058.29,
+          "worst_intramonth_dd_pct": -1.724
+        },
+        {
+          "month": "2022-01",
+          "monthly_pnl_gbp": 2333.03,
+          "month_end_equity_gbp": 25470.84,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -734.96,
+          "worst_intramonth_dd_pct": -1.116
+        },
+        {
+          "month": "2022-02",
+          "monthly_pnl_gbp": 448.16,
+          "month_end_equity_gbp": 25919.01,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -731.22,
+          "worst_intramonth_dd_pct": -1.11
+        },
+        {
+          "month": "2022-03",
+          "monthly_pnl_gbp": 934.04,
+          "month_end_equity_gbp": 26853.04,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -327.78,
+          "worst_intramonth_dd_pct": -0.49
+        },
+        {
+          "month": "2022-04",
+          "monthly_pnl_gbp": 1212.28,
+          "month_end_equity_gbp": 28065.33,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -249.26,
+          "worst_intramonth_dd_pct": -0.372
+        },
+        {
+          "month": "2022-05",
+          "monthly_pnl_gbp": 677.33,
+          "month_end_equity_gbp": 28742.66,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -328.91,
+          "worst_intramonth_dd_pct": -0.479
+        },
+        {
+          "month": "2022-06",
+          "monthly_pnl_gbp": 5749.11,
+          "month_end_equity_gbp": 34491.77,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -561.44,
+          "worst_intramonth_dd_pct": -0.759
+        },
+        {
+          "month": "2022-07",
+          "monthly_pnl_gbp": 981.74,
+          "month_end_equity_gbp": 35473.51,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -506.55,
+          "worst_intramonth_dd_pct": -0.669
+        },
+        {
+          "month": "2022-08",
+          "monthly_pnl_gbp": 28.53,
+          "month_end_equity_gbp": 35502.04,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1082.66,
+          "worst_intramonth_dd_pct": -1.426
+        },
+        {
+          "month": "2022-09",
+          "monthly_pnl_gbp": 2232.42,
+          "month_end_equity_gbp": 37734.46,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1117.82,
+          "worst_intramonth_dd_pct": -1.472
+        },
+        {
+          "month": "2022-10",
+          "monthly_pnl_gbp": 286.94,
+          "month_end_equity_gbp": 38021.4,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1247.85,
+          "worst_intramonth_dd_pct": -1.586
+        },
+        {
+          "month": "2022-11",
+          "monthly_pnl_gbp": 1019.22,
+          "month_end_equity_gbp": 39040.62,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1039.68,
+          "worst_intramonth_dd_pct": -1.318
+        },
+        {
+          "month": "2022-12",
+          "monthly_pnl_gbp": 4463.91,
+          "month_end_equity_gbp": 43504.53,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -588.78,
+          "worst_intramonth_dd_pct": -0.703
+        },
+        {
+          "month": "2023-01",
+          "monthly_pnl_gbp": 5107.98,
+          "month_end_equity_gbp": 48612.51,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1113.26,
+          "worst_intramonth_dd_pct": -1.288
+        },
+        {
+          "month": "2023-02",
+          "monthly_pnl_gbp": 1161.74,
+          "month_end_equity_gbp": 49774.25,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1029.51,
+          "worst_intramonth_dd_pct": -1.134
+        },
+        {
+          "month": "2023-03",
+          "monthly_pnl_gbp": 3252.61,
+          "month_end_equity_gbp": 53026.86,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1636.32,
+          "worst_intramonth_dd_pct": -1.803
+        },
+        {
+          "month": "2023-04",
+          "monthly_pnl_gbp": 7273.48,
+          "month_end_equity_gbp": 60300.33,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -963.43,
+          "worst_intramonth_dd_pct": -1.009
+        },
+        {
+          "month": "2023-05",
+          "monthly_pnl_gbp": 2595.88,
+          "month_end_equity_gbp": 62896.21,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1009.64,
+          "worst_intramonth_dd_pct": -0.985
+        },
+        {
+          "month": "2023-06",
+          "monthly_pnl_gbp": 5227.25,
+          "month_end_equity_gbp": 68123.46,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -594.04,
+          "worst_intramonth_dd_pct": -0.548
+        },
+        {
+          "month": "2023-07",
+          "monthly_pnl_gbp": 4905.6,
+          "month_end_equity_gbp": 73029.05,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1099.57,
+          "worst_intramonth_dd_pct": -0.987
+        },
+        {
+          "month": "2023-08",
+          "monthly_pnl_gbp": 2394.27,
+          "month_end_equity_gbp": 75423.32,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -760.02,
+          "worst_intramonth_dd_pct": -0.67
+        },
+        {
+          "month": "2023-09",
+          "monthly_pnl_gbp": 3728.82,
+          "month_end_equity_gbp": 79152.14,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1032.86,
+          "worst_intramonth_dd_pct": -0.861
+        },
+        {
+          "month": "2023-10",
+          "monthly_pnl_gbp": -419.88,
+          "month_end_equity_gbp": 78732.26,
+          "month_end_drawdown_amt_gbp": -419.88,
+          "month_end_drawdown_pct": -0.53,
+          "worst_intramonth_dd_amt_gbp": -1308.8,
+          "worst_intramonth_dd_pct": -1.091
+        },
+        {
+          "month": "2023-11",
+          "monthly_pnl_gbp": -1357.84,
+          "month_end_equity_gbp": 77374.42,
+          "month_end_drawdown_amt_gbp": -1777.73,
+          "month_end_drawdown_pct": -2.246,
+          "worst_intramonth_dd_amt_gbp": -2615.89,
+          "worst_intramonth_dd_pct": -2.181
+        },
+        {
+          "month": "2023-12",
+          "monthly_pnl_gbp": 873.75,
+          "month_end_equity_gbp": 78248.17,
+          "month_end_drawdown_amt_gbp": -903.97,
+          "month_end_drawdown_pct": -1.142,
+          "worst_intramonth_dd_amt_gbp": -3512.74,
+          "worst_intramonth_dd_pct": -2.928
+        },
+        {
+          "month": "2024-01",
+          "monthly_pnl_gbp": 6331.33,
+          "month_end_equity_gbp": 84579.5,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2052.35,
+          "worst_intramonth_dd_pct": -1.711
+        },
+        {
+          "month": "2024-02",
+          "monthly_pnl_gbp": 7016.2,
+          "month_end_equity_gbp": 91595.7,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -966.64,
+          "worst_intramonth_dd_pct": -0.757
+        },
+        {
+          "month": "2024-03",
+          "monthly_pnl_gbp": 564.83,
+          "month_end_equity_gbp": 92160.53,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1450.62,
+          "worst_intramonth_dd_pct": -1.101
+        },
+        {
+          "month": "2024-04",
+          "monthly_pnl_gbp": 260.27,
+          "month_end_equity_gbp": 92420.8,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1257.72,
+          "worst_intramonth_dd_pct": -0.942
+        },
+        {
+          "month": "2024-05",
+          "monthly_pnl_gbp": 762.85,
+          "month_end_equity_gbp": 93183.65,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -3277.53,
+          "worst_intramonth_dd_pct": -2.455
+        },
+        {
+          "month": "2024-06",
+          "monthly_pnl_gbp": 4057.38,
+          "month_end_equity_gbp": 97241.03,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1338.51,
+          "worst_intramonth_dd_pct": -0.985
+        },
+        {
+          "month": "2024-07",
+          "monthly_pnl_gbp": 4854.86,
+          "month_end_equity_gbp": 102095.89,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -809.24,
+          "worst_intramonth_dd_pct": -0.568
+        },
+        {
+          "month": "2024-08",
+          "monthly_pnl_gbp": 10085.48,
+          "month_end_equity_gbp": 112181.36,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -993.84,
+          "worst_intramonth_dd_pct": -0.697
+        },
+        {
+          "month": "2024-09",
+          "monthly_pnl_gbp": 5511.66,
+          "month_end_equity_gbp": 117693.02,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -966.9,
+          "worst_intramonth_dd_pct": -0.632
+        },
+        {
+          "month": "2024-10",
+          "monthly_pnl_gbp": 7446.85,
+          "month_end_equity_gbp": 125139.87,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2364.17,
+          "worst_intramonth_dd_pct": -1.491
+        },
+        {
+          "month": "2024-11",
+          "monthly_pnl_gbp": 620.45,
+          "month_end_equity_gbp": 125760.32,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2718.06,
+          "worst_intramonth_dd_pct": -1.616
+        },
+        {
+          "month": "2024-12",
+          "monthly_pnl_gbp": 3421.68,
+          "month_end_equity_gbp": 129182.0,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2904.1,
+          "worst_intramonth_dd_pct": -1.726
+        },
+        {
+          "month": "2025-01",
+          "monthly_pnl_gbp": 8361.53,
+          "month_end_equity_gbp": 137543.53,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -871.95,
+          "worst_intramonth_dd_pct": -0.499
+        },
+        {
+          "month": "2025-02",
+          "monthly_pnl_gbp": 5576.94,
+          "month_end_equity_gbp": 143120.47,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -731.47,
+          "worst_intramonth_dd_pct": -0.398
+        },
+        {
+          "month": "2025-03",
+          "monthly_pnl_gbp": 4240.85,
+          "month_end_equity_gbp": 147361.32,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1868.98,
+          "worst_intramonth_dd_pct": -1.001
+        },
+        {
+          "month": "2025-04",
+          "monthly_pnl_gbp": 11970.62,
+          "month_end_equity_gbp": 159331.94,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1087.18,
+          "worst_intramonth_dd_pct": -0.574
+        },
+        {
+          "month": "2025-05",
+          "monthly_pnl_gbp": 4896.14,
+          "month_end_equity_gbp": 164228.08,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1376.88,
+          "worst_intramonth_dd_pct": -0.674
+        },
+        {
+          "month": "2025-06",
+          "monthly_pnl_gbp": 6034.91,
+          "month_end_equity_gbp": 170263.0,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2054.4,
+          "worst_intramonth_dd_pct": -0.976
+        },
+        {
+          "month": "2025-07",
+          "monthly_pnl_gbp": 14429.09,
+          "month_end_equity_gbp": 184692.08,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1448.07,
+          "worst_intramonth_dd_pct": -0.665
+        },
+        {
+          "month": "2025-08",
+          "monthly_pnl_gbp": 4896.44,
+          "month_end_equity_gbp": 189588.53,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2487.59,
+          "worst_intramonth_dd_pct": -1.078
+        },
+        {
+          "month": "2025-09",
+          "monthly_pnl_gbp": 1746.35,
+          "month_end_equity_gbp": 191334.88,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2341.65,
+          "worst_intramonth_dd_pct": -1.013
+        },
+        {
+          "month": "2025-10",
+          "monthly_pnl_gbp": 7694.39,
+          "month_end_equity_gbp": 199029.27,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1609.3,
+          "worst_intramonth_dd_pct": -0.686
+        },
+        {
+          "month": "2025-11",
+          "monthly_pnl_gbp": 9632.25,
+          "month_end_equity_gbp": 208661.53,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -848.72,
+          "worst_intramonth_dd_pct": -0.349
+        },
+        {
+          "month": "2025-12",
+          "monthly_pnl_gbp": 30.77,
+          "month_end_equity_gbp": 208692.29,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1128.65,
+          "worst_intramonth_dd_pct": -0.454
+        },
+        {
+          "month": "2026-01",
+          "monthly_pnl_gbp": -1362.83,
+          "month_end_equity_gbp": 207329.46,
+          "month_end_drawdown_amt_gbp": -1362.83,
+          "month_end_drawdown_pct": -0.653,
+          "worst_intramonth_dd_amt_gbp": -2732.39,
+          "worst_intramonth_dd_pct": -1.096
+        },
+        {
+          "month": "2026-02",
+          "monthly_pnl_gbp": 2096.45,
+          "month_end_equity_gbp": 209425.91,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -2826.45,
+          "worst_intramonth_dd_pct": -1.133
+        },
+        {
+          "month": "2026-03",
+          "monthly_pnl_gbp": 5861.63,
+          "month_end_equity_gbp": 215287.54,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1537.45,
+          "worst_intramonth_dd_pct": -0.614
+        }
+      ]
+    },
+    "policy": {
+      "phantom_p3": [
+        {
+          "month": "2022-01",
+          "monthly_pnl_gbp": 345.95,
+          "month_end_equity_gbp": 10345.95,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -34.9,
+          "worst_intramonth_dd_pct": -0.337
+        },
+        {
+          "month": "2022-02",
+          "monthly_pnl_gbp": 77.26,
+          "month_end_equity_gbp": 10423.21,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -69.6,
+          "worst_intramonth_dd_pct": -0.663
+        },
+        {
+          "month": "2022-03",
+          "monthly_pnl_gbp": -27.37,
+          "month_end_equity_gbp": 10395.83,
+          "month_end_drawdown_amt_gbp": -27.37,
+          "month_end_drawdown_pct": -0.263,
+          "worst_intramonth_dd_amt_gbp": -138.29,
+          "worst_intramonth_dd_pct": -1.318
+        },
+        {
+          "month": "2022-04",
+          "monthly_pnl_gbp": 506.14,
+          "month_end_equity_gbp": 10901.97,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -72.51,
+          "worst_intramonth_dd_pct": -0.691
+        },
+        {
+          "month": "2022-05",
+          "monthly_pnl_gbp": 868.73,
+          "month_end_equity_gbp": 11770.7,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -38.33,
+          "worst_intramonth_dd_pct": -0.343
+        },
+        {
+          "month": "2022-06",
+          "monthly_pnl_gbp": 139.21,
+          "month_end_equity_gbp": 11909.91,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -105.55,
+          "worst_intramonth_dd_pct": -0.879
+        },
+        {
+          "month": "2022-07",
+          "monthly_pnl_gbp": 197.27,
+          "month_end_equity_gbp": 12107.17,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -124.25,
+          "worst_intramonth_dd_pct": -1.031
+        },
+        {
+          "month": "2022-08",
+          "monthly_pnl_gbp": 807.13,
+          "month_end_equity_gbp": 12914.31,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -40.29,
+          "worst_intramonth_dd_pct": -0.332
+        },
+        {
+          "month": "2022-09",
+          "monthly_pnl_gbp": 215.66,
+          "month_end_equity_gbp": 13129.97,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -98.29,
+          "worst_intramonth_dd_pct": -0.746
+        },
+        {
+          "month": "2022-10",
+          "monthly_pnl_gbp": 1182.86,
+          "month_end_equity_gbp": 14312.83,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -60.76,
+          "worst_intramonth_dd_pct": -0.434
+        },
+        {
+          "month": "2022-11",
+          "monthly_pnl_gbp": 1145.15,
+          "month_end_equity_gbp": 15457.97,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -120.1,
+          "worst_intramonth_dd_pct": -0.79
+        },
+        {
+          "month": "2022-12",
+          "monthly_pnl_gbp": 1009.63,
+          "month_end_equity_gbp": 16467.6,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -188.15,
+          "worst_intramonth_dd_pct": -1.201
+        },
+        {
+          "month": "2023-01",
+          "monthly_pnl_gbp": 895.67,
+          "month_end_equity_gbp": 17363.27,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -172.38,
+          "worst_intramonth_dd_pct": -0.992
+        },
+        {
+          "month": "2023-02",
+          "monthly_pnl_gbp": 1092.59,
+          "month_end_equity_gbp": 18455.85,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -78.43,
+          "worst_intramonth_dd_pct": -0.423
+        },
+        {
+          "month": "2023-03",
+          "monthly_pnl_gbp": 73.79,
+          "month_end_equity_gbp": 18529.64,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -415.37,
+          "worst_intramonth_dd_pct": -2.226
+        },
+        {
+          "month": "2023-04",
+          "monthly_pnl_gbp": 721.11,
+          "month_end_equity_gbp": 19250.75,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -306.9,
+          "worst_intramonth_dd_pct": -1.645
+        },
+        {
+          "month": "2023-05",
+          "monthly_pnl_gbp": 388.75,
+          "month_end_equity_gbp": 19639.49,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -296.39,
+          "worst_intramonth_dd_pct": -1.487
+        },
+        {
+          "month": "2023-06",
+          "monthly_pnl_gbp": 550.21,
+          "month_end_equity_gbp": 20189.71,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -337.95,
+          "worst_intramonth_dd_pct": -1.695
+        },
+        {
+          "month": "2023-07",
+          "monthly_pnl_gbp": 386.81,
+          "month_end_equity_gbp": 20576.52,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -270.24,
+          "worst_intramonth_dd_pct": -1.317
+        },
+        {
+          "month": "2023-08",
+          "monthly_pnl_gbp": 425.57,
+          "month_end_equity_gbp": 21002.09,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -196.65,
+          "worst_intramonth_dd_pct": -0.939
+        },
+        {
+          "month": "2023-09",
+          "monthly_pnl_gbp": 885.06,
+          "month_end_equity_gbp": 21887.15,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -211.31,
+          "worst_intramonth_dd_pct": -0.998
+        },
+        {
+          "month": "2023-10",
+          "monthly_pnl_gbp": 648.96,
+          "month_end_equity_gbp": 22536.11,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -292.32,
+          "worst_intramonth_dd_pct": -1.289
+        },
+        {
+          "month": "2023-11",
+          "monthly_pnl_gbp": 227.57,
+          "month_end_equity_gbp": 22763.68,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -303.35,
+          "worst_intramonth_dd_pct": -1.324
+        },
+        {
+          "month": "2023-12",
+          "monthly_pnl_gbp": 460.81,
+          "month_end_equity_gbp": 23224.49,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -356.05,
+          "worst_intramonth_dd_pct": -1.51
+        },
+        {
+          "month": "2024-01",
+          "monthly_pnl_gbp": 1310.97,
+          "month_end_equity_gbp": 24535.45,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -300.73,
+          "worst_intramonth_dd_pct": -1.275
+        },
+        {
+          "month": "2024-02",
+          "monthly_pnl_gbp": 685.29,
+          "month_end_equity_gbp": 25220.75,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -184.25,
+          "worst_intramonth_dd_pct": -0.736
+        },
+        {
+          "month": "2024-03",
+          "monthly_pnl_gbp": 1930.72,
+          "month_end_equity_gbp": 27151.47,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -239.93,
+          "worst_intramonth_dd_pct": -0.876
+        },
+        {
+          "month": "2024-04",
+          "monthly_pnl_gbp": 1511.45,
+          "month_end_equity_gbp": 28662.92,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -390.81,
+          "worst_intramonth_dd_pct": -1.427
+        },
+        {
+          "month": "2024-05",
+          "monthly_pnl_gbp": 46.89,
+          "month_end_equity_gbp": 28709.81,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -307.24,
+          "worst_intramonth_dd_pct": -1.059
+        },
+        {
+          "month": "2024-06",
+          "monthly_pnl_gbp": 1817.44,
+          "month_end_equity_gbp": 30527.25,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -361.07,
+          "worst_intramonth_dd_pct": -1.244
+        },
+        {
+          "month": "2024-07",
+          "monthly_pnl_gbp": 1263.59,
+          "month_end_equity_gbp": 31790.85,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -213.09,
+          "worst_intramonth_dd_pct": -0.674
+        },
+        {
+          "month": "2024-08",
+          "monthly_pnl_gbp": 1091.65,
+          "month_end_equity_gbp": 32882.49,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -482.15,
+          "worst_intramonth_dd_pct": -1.452
+        },
+        {
+          "month": "2024-09",
+          "monthly_pnl_gbp": 1020.57,
+          "month_end_equity_gbp": 33903.07,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -363.09,
+          "worst_intramonth_dd_pct": -1.094
+        },
+        {
+          "month": "2024-10",
+          "monthly_pnl_gbp": 2572.79,
+          "month_end_equity_gbp": 36475.85,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -199.71,
+          "worst_intramonth_dd_pct": -0.573
+        },
+        {
+          "month": "2024-11",
+          "monthly_pnl_gbp": 467.56,
+          "month_end_equity_gbp": 36943.41,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -440.34,
+          "worst_intramonth_dd_pct": -1.179
+        },
+        {
+          "month": "2024-12",
+          "monthly_pnl_gbp": 2389.62,
+          "month_end_equity_gbp": 39333.03,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -351.34,
+          "worst_intramonth_dd_pct": -0.904
+        },
+        {
+          "month": "2025-01",
+          "monthly_pnl_gbp": 1968.01,
+          "month_end_equity_gbp": 41301.04,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -300.81,
+          "worst_intramonth_dd_pct": -0.731
+        },
+        {
+          "month": "2025-02",
+          "monthly_pnl_gbp": 993.79,
+          "month_end_equity_gbp": 42294.83,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -284.25,
+          "worst_intramonth_dd_pct": -0.676
+        },
+        {
+          "month": "2025-03",
+          "monthly_pnl_gbp": 1210.47,
+          "month_end_equity_gbp": 43505.31,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -504.23,
+          "worst_intramonth_dd_pct": -1.192
+        },
+        {
+          "month": "2025-04",
+          "monthly_pnl_gbp": 887.86,
+          "month_end_equity_gbp": 44393.17,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -548.74,
+          "worst_intramonth_dd_pct": -1.256
+        },
+        {
+          "month": "2025-05",
+          "monthly_pnl_gbp": 1468.34,
+          "month_end_equity_gbp": 45861.51,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -461.44,
+          "worst_intramonth_dd_pct": -1.038
+        },
+        {
+          "month": "2025-06",
+          "monthly_pnl_gbp": 646.87,
+          "month_end_equity_gbp": 46508.38,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -602.51,
+          "worst_intramonth_dd_pct": -1.287
+        },
+        {
+          "month": "2025-07",
+          "monthly_pnl_gbp": 1285.84,
+          "month_end_equity_gbp": 47794.22,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -742.55,
+          "worst_intramonth_dd_pct": -1.584
+        },
+        {
+          "month": "2025-08",
+          "monthly_pnl_gbp": 2441.84,
+          "month_end_equity_gbp": 50236.06,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1163.45,
+          "worst_intramonth_dd_pct": -2.285
+        },
+        {
+          "month": "2025-09",
+          "monthly_pnl_gbp": 936.89,
+          "month_end_equity_gbp": 51172.95,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1138.39,
+          "worst_intramonth_dd_pct": -2.235
+        },
+        {
+          "month": "2025-10",
+          "monthly_pnl_gbp": 2692.05,
+          "month_end_equity_gbp": 53865.0,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -536.51,
+          "worst_intramonth_dd_pct": -1.037
+        },
+        {
+          "month": "2025-11",
+          "monthly_pnl_gbp": 2937.51,
+          "month_end_equity_gbp": 56802.51,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -757.27,
+          "worst_intramonth_dd_pct": -1.405
+        },
+        {
+          "month": "2025-12",
+          "monthly_pnl_gbp": 880.81,
+          "month_end_equity_gbp": 57683.31,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -831.41,
+          "worst_intramonth_dd_pct": -1.421
+        },
+        {
+          "month": "2026-01",
+          "monthly_pnl_gbp": 651.67,
+          "month_end_equity_gbp": 58334.99,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -778.96,
+          "worst_intramonth_dd_pct": -1.331
+        },
+        {
+          "month": "2026-02",
+          "monthly_pnl_gbp": 3133.67,
+          "month_end_equity_gbp": 61468.65,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -531.05,
+          "worst_intramonth_dd_pct": -0.901
+        },
+        {
+          "month": "2026-03",
+          "monthly_pnl_gbp": 5109.11,
+          "month_end_equity_gbp": 66577.76,
+          "month_end_drawdown_amt_gbp": 0.0,
+          "month_end_drawdown_pct": 0.0,
+          "worst_intramonth_dd_amt_gbp": -1124.39,
+          "worst_intramonth_dd_pct": -1.67
+        }
+      ]
+    }
+  }
+}

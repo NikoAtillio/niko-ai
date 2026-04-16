@@ -1,0 +1,3 @@
+mode,start_date,end_date,timescale_months,start_cap_gbp
+full,2021-01-01,2026-03-31,63,10000.0
+policy,2022-01-01,2026-03-31,51,10000.0
