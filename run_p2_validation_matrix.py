@@ -41,6 +41,7 @@ INSTRUMENTS = {
     'US100': {
         'label': 'Nasdaq 100',
         'data_dir': '/Users/niko/Documents/projects/niko-ai/data/US100',
+        'start_date': '2022-01-01',
         'files': {
             'm1':    'US100.cash_M1_2023.05.24-2026.03.31',
             'm5':    'US100.cash_M5_2021.01.21-2026.03.31',
@@ -84,6 +85,10 @@ def run_scenario(instrument, scenario, output_dir):
         '--scenario', f'p2{scenario}',
         '--output-dir', output_dir,
     ]
+
+    start_date = inst_config.get('start_date')
+    if start_date:
+        cmd.extend(['--start-date', start_date])
     
     try:
         print(f"  🔄 Running {instrument} Scenario {scenario}...")
