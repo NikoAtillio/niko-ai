@@ -45,9 +45,10 @@ ENGINE_VERSION = 'p2'
 # ══════════════════════════════════════════════════════════════════════════════
 INSTRUMENT_CONFIG = {
     'XAU': dict(
-        # Session: London open through NY close (07:00–20:00 UTC), weekdays only
-        session_start   = 7,
-        session_end     = 20,
+        # Session: tightened to 08:00–19:00 UTC; exclude 11:00 lunch lull
+        session_start   = 8,
+        session_end     = 19,
+        session_exclude_hours = [11],
         allow_weekend   = False,
         weekend_size    = 0.0,
         # TP at 1.3R — daily range ~1.43%, 1.3R is achievable within session
@@ -79,13 +80,15 @@ INSTRUMENT_CONFIG = {
         confirm_tf_mins = 60,    # H1 = 60 min bars
         regime_ema_fast = 50,
         regime_ema_slow = 200,
+        # Phase 2: keep shorts at base score threshold, require stronger longs
+        dir_score_offset = {'long': 1, 'short': 0},
         soft_session_start = None,
         soft_session_size  = 0.0,
     ),
     'BTC': dict(
-        # Session: 07:00–21:00 UTC; weekends allowed at 0.5x size
-        session_start   = 7,
-        session_end     = 21,
+        # Session tightened to 08:00–18:00 UTC; weekends allowed at 0.5x size
+        session_start   = 8,
+        session_end     = 18,
         allow_weekend   = True,
         weekend_size    = 0.5,   # 50% size on Sat/Sun
         # TP at 1.5R — BTC daily range ~3–5%, 2R is achievable but 1.5R is safer
@@ -118,6 +121,8 @@ DEFAULTS = {
     'breakeven_r'   : 0.8,       # move stop to entry at this R level
     'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
     'confidence_min' : 0.5,      # size multiplier when low confidence
+    'confidence_mode': 'inverted', # flat | inverted | score
+    'confidence_score_min': 7,
 }
 
 SCENARIOS = {
@@ -300,15 +305,21 @@ def get_session_size_mult(ts: pd.Timestamp, inst_cfg: dict) -> float:
     hour = ts.hour
     dow  = ts.dayofweek  # 0=Mon, 6=Sun
 
+    # Optional hard exclusion list for known weak hours.
+    exclude_hours = inst_cfg.get('session_exclude_hours', [])
+    if hour in exclude_hours:
+        return 0.0
+
+    in_core_session = inst_cfg['session_start'] <= hour < inst_cfg['session_end']
+
     # Weekend handling
     if dow >= 5:
         if not inst_cfg['allow_weekend']:
             return 0.0
-        else:
-            return inst_cfg['weekend_size']
+        return inst_cfg['weekend_size'] if in_core_session else 0.0
 
     # Core session
-    if inst_cfg['session_start'] <= hour < inst_cfg['session_end']:
+    if in_core_session:
         return 1.0
 
     # Soft session (XAU Asian hours)
@@ -698,7 +709,9 @@ def run_scenario(
                 continue
 
             total_score = h4_score + h1_score + ltf_score
-            if total_score < score_min:
+            dir_score_offset = inst_cfg.get('dir_score_offset', {})
+            effective_score_min = score_min + int(dir_score_offset.get(z_dir, 0))
+            if total_score < effective_score_min:
                 skipped['score'] += 1
                 continue
             if ltf_score > ltf_cap:
@@ -725,27 +738,28 @@ def run_scenario(
                     continue
 
             # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
-            # PHASE 1 OPTIMIZATION: Flatten confidence to 1.0x
-            # (User data showed 0.5x outperforms 1.5x, likely due to inverted clustering logic)
-            # All entries now use 1.0x position sizing regardless of confidence conditions.
+            # Phase 2 supports configurable confidence modes.
             cluster_count = cluster.count_in_window(ts_pd)
             in_peak_session = (
                 inst_cfg['session_start'] <= ts_pd.hour < inst_cfg['session_end']
                 and ts_pd.dayofweek < 5
             )
-            high_confidence = (
-                in_peak_session
-                and 1 <= cluster_count <= 2
-                and regime_mult == 1.0
-            )
-            low_confidence = (
-                not in_peak_session
-                or cluster_count == 0
-                or regime_mult < 1.0
-            )
+            confidence_mode = DEFAULTS.get('confidence_mode', 'flat')
+            confidence_score_min = int(DEFAULTS.get('confidence_score_min', 7))
 
-            # PHASE 1: All entries now 1.0x (flat sizing)
-            conf_mult = 1.0
+            if confidence_mode == 'flat':
+                conf_mult = 1.0
+            elif confidence_mode == 'inverted':
+                # True inverted confidence: first cluster touch gets the size premium.
+                conf_mult = DEFAULTS['confidence_mult'] if cluster_count == 0 else 1.0
+            elif confidence_mode == 'score':
+                conf_mult = (
+                    DEFAULTS['confidence_mult']
+                    if (in_peak_session and total_score >= confidence_score_min)
+                    else 1.0
+                )
+            else:
+                conf_mult = 1.0
 
             # ── Position sizing ───────────────────────────────────────────
             stop_dist  = atr_stop * atr_h4_v
