@@ -879,6 +879,11 @@ function mapSymbolToPhantomP2Instrument(symbolInput: string): 'XAU' | 'US100' | 
 	throw new Error(`Unsupported symbol for Phantom p2 instrument mapping: ${symbolInput}`);
 }
 
+function supportsPhantomP2Execution(symbolInput: string): boolean {
+	const symbol = canonicalizeDatasetSymbol(symbolInput);
+	return symbol.startsWith('XAU') || symbol.startsWith('US100') || symbol.startsWith('NAS100') || symbol.startsWith('BTC');
+}
+
 function guessSymbolFromPath(filePath: string): string {
 	const base = path.basename(filePath);
 	const baseNoExt = base.replace(/\.[^.]+$/, '');
@@ -1136,8 +1141,10 @@ function bucketLabelFromDate(dateText: string): string {
 function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
 	const normalizedEngineVersion = String(engineVersion || 'p1').toLowerCase();
+	const usePhantomP2 = normalizedEngineVersion === 'p2' || (normalizedEngineVersion === 'p3' && supportsPhantomP2Execution(symbol));
+	const tradeVersion = usePhantomP2 ? 'p2' : 'p1';
 	let p2Instrument: 'XAU' | 'US100' | 'BTC' | null = null;
-	if (normalizedEngineVersion === 'p2' || normalizedEngineVersion === 'p3') {
+	if (usePhantomP2) {
 		try {
 			p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
 		} catch {
@@ -1145,24 +1152,22 @@ function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number,
 		}
 	}
 
+	const symbolToken = p2Instrument || canonicalizeDatasetSymbol(symbol).replace(/[^A-Z0-9]/g, '');
+
 	for (const summary of summaries) {
 		const scenarioTag = String(summary.scenario || '').toUpperCase();
 		const scenarioTagP2Compat = scenarioTag.replace(/^P3/, 'P2');
-		const versionPrefixes = normalizedEngineVersion === 'p3'
-			? ['p3', 'p2']
-			: [normalizedEngineVersion];
 		const preferredCandidates: string[] = [];
-		for (const versionPrefix of versionPrefixes) {
-			preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${scenarioTag}.csv`));
-			if (scenarioTagP2Compat !== scenarioTag) {
-				preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${scenarioTagP2Compat}.csv`));
-			}
-			if (p2Instrument) {
-				preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${p2Instrument}_${scenarioTag}.csv`));
-				if (scenarioTagP2Compat !== scenarioTag) {
-					preferredCandidates.push(path.join(workingDir, `phantom_${versionPrefix}_trades_${p2Instrument}_${scenarioTagP2Compat}.csv`));
-				}
-			}
+		const scenarioToken = `${tradeVersion.toUpperCase()}${summary.scenarioKey}`;
+		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioToken}.csv`));
+		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioTag}.csv`));
+		if (scenarioTagP2Compat !== scenarioTag) {
+			preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioTagP2Compat}.csv`));
+		}
+		preferredCandidates.push(path.join(workingDir, `${symbolToken}_${tradeVersion}_trades_${scenarioToken}.csv`));
+		preferredCandidates.push(path.join(workingDir, `${symbolToken}_${tradeVersion}_trades_${scenarioTag}.csv`));
+		if (scenarioTagP2Compat !== scenarioTag) {
+			preferredCandidates.push(path.join(workingDir, `${symbolToken}_${tradeVersion}_trades_${scenarioTagP2Compat}.csv`));
 		}
 		const legacyScenario = summary.scenarioKey === 'C' ? 'D' : summary.scenarioKey;
 		const legacyTradeFile = path.join(workingDir, `phantom_v5_1_trades_${legacyScenario}.csv`);
@@ -3256,7 +3261,11 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			: requestedEngineVersionRaw === 'p2'
 				? 'p2'
 				: 'p1';
-		const executionEngineVersion = requestedEngineVersion === 'p1' ? 'p1' : 'p2';
+		const executionEngineVersion = requestedEngineVersion === 'p1'
+			? 'p1'
+			: supportsPhantomP2Execution(symbol)
+				? 'p2'
+				: 'p1';
 		const spreadBps = Math.max(0, toNumber(req.body?.spreadBps, 0));
 		const slippageBps = Math.max(0, toNumber(req.body?.slippageBps, 0));
 		const commissionPerTrade = Math.max(0, toNumber(req.body?.commissionPerTrade, 0));
@@ -3269,7 +3278,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			h4: resolveMarketTimeframeFile(symbol, '4h'),
 			daily: resolveMarketTimeframeFile(symbol, '1d'),
 		};
-		const p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
+		const p2Instrument = executionEngineVersion === 'p2' ? mapSymbolToPhantomP2Instrument(symbol) : null;
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
 		const scriptCandidates = executionEngineVersion === 'p2'
@@ -3299,7 +3308,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--commission-per-trade', String(commissionPerTrade),
 		];
 
-		if (executionEngineVersion === 'p2') {
+		if (executionEngineVersion === 'p2' && p2Instrument) {
 			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
 

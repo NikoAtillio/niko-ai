@@ -18,6 +18,20 @@ function walk(dir, out = []) {
   return out;
 }
 
+function walkDashboards(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkDashboards(p, out);
+      continue;
+    }
+    if (entry.isFile() && /^dashboard_data_phantom_p[123]\.json$/i.test(entry.name)) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
 function instrumentFromPath(filePath) {
   const up = filePath.toUpperCase();
   const candidates = ['XAUUSD', 'BTCUSD', 'US100', 'EURUSD', 'GBPUSD', 'USDCHF', 'USDJPY', 'NZDUSD', 'EURGBP', 'XAU', 'BTC'];
@@ -36,6 +50,46 @@ function strategyFromName(name) {
   const match = up.match(/P([123])([ABC])/);
   if (!match) return 'UNKNOWN';
   return `P${match[1]}${match[2]}`;
+}
+
+function strategyFromBranchName(name) {
+  const up = String(name || '').toUpperCase();
+  const match = up.match(/PHANTOM[_-]?P([123])/);
+  if (!match) return 'UNKNOWN';
+  return `P${match[1]}`;
+}
+
+function parseDashboardSummaryMetrics(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '').trim();
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    const summary = Array.isArray(payload.summary)
+      ? payload.summary.find((row) => String(row.mode || '').toLowerCase() === 'full') || payload.summary[0]
+      : null;
+    if (!summary) return null;
+
+    const strategy = strategyFromBranchName(summary.branch || payload?.meta?.strategyLabel || '');
+    if (strategy === 'UNKNOWN') return null;
+
+    const net = Number(summary.net_pnl_gbp);
+    const retPct = Number(summary.net_return_pct);
+    const maxDdRaw = Number(summary.max_dd_amt_gbp);
+    if (!Number.isFinite(net) || !Number.isFinite(retPct) || !Number.isFinite(maxDdRaw)) return null;
+
+    return {
+      strategy,
+      net,
+      retPct,
+      maxDrawdown: Math.abs(maxDdRaw),
+      trades: Number(summary.months) || 0,
+      wins: 0,
+      losses: 0,
+      profitFactor: Number.NaN,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseMetrics(filePath) {
@@ -116,6 +170,10 @@ function main() {
     filePath,
     mtimeMs: fs.statSync(filePath).mtimeMs,
   }));
+  const dashboardFiles = walkDashboards(ROOT).map((filePath) => ({
+    filePath,
+    mtimeMs: fs.statSync(filePath).mtimeMs,
+  }));
 
   const latestByInstrumentStrategy = new Map();
   for (const file of files) {
@@ -140,6 +198,28 @@ function main() {
       filePath: item.filePath,
       ...metrics,
     });
+  }
+
+  // Fallback source: branch-comparison dashboard summaries (captures P3 where raw trade CSV naming may differ).
+  const latestDashByInstrumentStrategy = new Map();
+  for (const file of dashboardFiles) {
+    const instrument = instrumentFromPath(file.filePath);
+    if (instrument === 'UNKNOWN') continue;
+    const metrics = parseDashboardSummaryMetrics(file.filePath);
+    if (!metrics) continue;
+    const key = `${instrument}::${metrics.strategy}`;
+    const prev = latestDashByInstrumentStrategy.get(key);
+    if (!prev || file.mtimeMs > prev.mtimeMs) {
+      latestDashByInstrumentStrategy.set(key, { instrument, filePath: file.filePath, ...metrics });
+    }
+  }
+
+  const existingKeys = new Set(rows.map((row) => `${row.instrument}::${row.strategy}`));
+  for (const row of latestDashByInstrumentStrategy.values()) {
+    const key = `${row.instrument}::${row.strategy}`;
+    if (existingKeys.has(key)) continue;
+    rows.push(row);
+    existingKeys.add(key);
   }
 
   rows.sort((a, b) => a.instrument.localeCompare(b.instrument) || a.strategy.localeCompare(b.strategy));

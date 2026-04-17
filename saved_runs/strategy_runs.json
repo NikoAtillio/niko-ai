@@ -1,5 +1,473 @@
 [
   {
+    "id": "run_1776424684454_rcaxpwiq",
+    "createdAt": "2026-04-17T11:18:04.454Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:18:04.449Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 5,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 1825.6799485664988,
+        "compoundedProfit": 91283.99742832495,
+        "compounded": 96283.99742832495,
+        "worstDD": -59.87948358244823,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 1825.6799485664988,
+            "endCap": 96283.99742832495,
+            "endProfit": 91283.99742832495,
+            "ddPct": -59.87948358244823,
+            "ddPrice": 2993.974179122412,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 554.9096308108167,
+            "endCap": 32745.481540540834,
+            "endProfit": 27745.481540540834,
+            "ddPct": -39.002332718525565,
+            "ddPrice": 1950.1166359262784,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 267.6049021310317,
+            "endCap": 18380.245106551585,
+            "endProfit": 13380.245106551585,
+            "ddPct": -43.15507224125009,
+            "ddPrice": 2157.7536120625045,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 1825.6799485664988,
+          "avgPf": 1.154,
+          "worstDD": -59.87948358244823,
+          "compounded": 96283.99742832495
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 554.9096308108167,
+          "avgPf": 1.168,
+          "worstDD": -39.002332718525565,
+          "compounded": 32745.481540540834
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 267.6049021310317,
+          "avgPf": 1.13,
+          "worstDD": -43.15507224125009,
+          "compounded": 18380.245106551585
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776424683788_nzu7jvla",
+    "createdAt": "2026-04-17T11:18:03.788Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:18:03.785Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 101.4547327712474,
+        "compoundedProfit": 5072.73663856237,
+        "compounded": 10072.73663856237,
+        "worstDD": -15.359804608553027,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 101.4547327712474,
+            "endCap": 10072.73663856237,
+            "endProfit": 5072.73663856237,
+            "ddPct": -15.359804608553027,
+            "ddPrice": 767.9902304276513,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 50.960050033984714,
+            "endCap": 7548.002501699236,
+            "endProfit": 2548.002501699236,
+            "ddPct": -8.9376194936606,
+            "ddPrice": 446.88097468303005,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 34.12455124027929,
+            "endCap": 6706.227562013964,
+            "endProfit": 1706.2275620139644,
+            "ddPct": -10.21039499491291,
+            "ddPrice": 510.5197497456455,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 101.4547327712474,
+          "avgPf": 1.154,
+          "worstDD": -15.359804608553027,
+          "compounded": 10072.73663856237
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 50.960050033984714,
+          "avgPf": 1.168,
+          "worstDD": -8.9376194936606,
+          "compounded": 7548.002501699236
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 34.12455124027929,
+          "avgPf": 1.13,
+          "worstDD": -10.21039499491291,
+          "compounded": 6706.227562013964
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776424682294_rnwd6kal",
+    "createdAt": "2026-04-17T11:18:02.294Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:18:02.291Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 3,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 593.5435810083777,
+        "compoundedProfit": 29677.179050418883,
+        "compounded": 34677.17905041888,
+        "worstDD": -40.80172543736623,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 593.5435810083777,
+            "endCap": 34677.17905041888,
+            "endProfit": 29677.179050418883,
+            "ddPct": -40.80172543736623,
+            "ddPrice": 2040.0862718683115,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 225.86446283295226,
+            "endCap": 16293.223141647612,
+            "endProfit": 11293.223141647612,
+            "ddPct": -25.0814101856314,
+            "ddPrice": 1254.07050928157,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 129.49436162690716,
+            "endCap": 11474.71808134536,
+            "endProfit": 6474.71808134536,
+            "ddPct": -28.18184169221659,
+            "ddPrice": 1409.0920846108295,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 593.5435810083777,
+          "avgPf": 1.154,
+          "worstDD": -40.80172543736623,
+          "compounded": 34677.17905041888
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 225.86446283295226,
+          "avgPf": 1.168,
+          "worstDD": -25.0814101856314,
+          "compounded": 16293.223141647612
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 129.49436162690716,
+          "avgPf": 1.13,
+          "worstDD": -28.18184169221659,
+          "compounded": 11474.71808134536
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776424681919_62b8tb9q",
+    "createdAt": "2026-04-17T11:18:01.919Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:18:01.915Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 101.4547327712474,
+        "compoundedProfit": 5072.73663856237,
+        "compounded": 10072.73663856237,
+        "worstDD": -15.359804608553027,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 101.4547327712474,
+            "endCap": 10072.73663856237,
+            "endProfit": 5072.73663856237,
+            "ddPct": -15.359804608553027,
+            "ddPrice": 767.9902304276513,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 50.960050033984714,
+            "endCap": 7548.002501699236,
+            "endProfit": 2548.002501699236,
+            "ddPct": -8.9376194936606,
+            "ddPrice": 446.88097468303005,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 34.12455124027929,
+            "endCap": 6706.227562013964,
+            "endProfit": 1706.2275620139644,
+            "ddPct": -10.21039499491291,
+            "ddPrice": 510.5197497456455,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 101.4547327712474,
+          "avgPf": 1.154,
+          "worstDD": -15.359804608553027,
+          "compounded": 10072.73663856237
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 50.960050033984714,
+          "avgPf": 1.168,
+          "worstDD": -8.9376194936606,
+          "compounded": 7548.002501699236
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 34.12455124027929,
+          "avgPf": 1.13,
+          "worstDD": -10.21039499491291,
+          "compounded": 6706.227562013964
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776424674405_tkv44f7d",
+    "createdAt": "2026-04-17T11:17:54.405Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:17:54.400Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 2,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 284.0945222097011,
+        "compoundedProfit": 14204.726110485055,
+        "compounded": 19204.726110485055,
+        "worstDD": -28.93294086578802,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 284.0945222097011,
+            "endCap": 19204.726110485055,
+            "endProfit": 14204.726110485055,
+            "ddPct": -28.93294086578802,
+            "ddPrice": 1446.647043289401,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 123.7977191752933,
+            "endCap": 11189.885958764666,
+            "endProfit": 6189.885958764666,
+            "ddPct": -17.294699044805103,
+            "ddPrice": 864.7349522402552,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 76.90815934837221,
+            "endCap": 8845.40796741861,
+            "endProfit": 3845.4079674186105,
+            "ddPct": -19.591483151140086,
+            "ddPrice": 979.5741575570042,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 284.0945222097011,
+          "avgPf": 1.154,
+          "worstDD": -28.93294086578802,
+          "compounded": 19204.726110485055
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 123.7977191752933,
+          "avgPf": 1.168,
+          "worstDD": -17.294699044805103,
+          "compounded": 11189.885958764666
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 76.90815934837221,
+          "avgPf": 1.13,
+          "worstDD": -19.591483151140086,
+          "compounded": 8845.40796741861
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776424586630_gxkqfefc",
+    "createdAt": "2026-04-17T11:16:26.630Z",
+    "summary": {
+      "generatedAt": "2026-04-17T11:16:26.609Z",
+      "datasetTitle": "Imported market data for 13 years 9 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE P3 VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "Phantom P3 • Scenario B",
+        "avgRet": 101.4547327712474,
+        "compoundedProfit": 5072.73663856237,
+        "compounded": 10072.73663856237,
+        "worstDD": -15.359804608553027,
+        "avgWin": 39.1,
+        "avgPf": 1.154,
+        "yearly": [
+          {
+            "period": "P3B",
+            "ret": 101.4547327712474,
+            "endCap": 10072.73663856237,
+            "endProfit": 5072.73663856237,
+            "ddPct": -15.359804608553027,
+            "ddPrice": 767.9902304276513,
+            "win": 39.1,
+            "pf": 1.154
+          },
+          {
+            "period": "P3C",
+            "ret": 50.960050033984714,
+            "endCap": 7548.002501699236,
+            "endProfit": 2548.002501699236,
+            "ddPct": -8.9376194936606,
+            "ddPrice": 446.88097468303005,
+            "win": 39.1,
+            "pf": 1.168
+          },
+          {
+            "period": "P3A",
+            "ret": 34.12455124027929,
+            "endCap": 6706.227562013964,
+            "endProfit": 1706.2275620139644,
+            "ddPct": -10.21039499491291,
+            "ddPrice": 510.5197497456455,
+            "win": 39.3,
+            "pf": 1.13
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "Phantom P3 • Scenario B",
+          "avgRet": 101.4547327712474,
+          "avgPf": 1.154,
+          "worstDD": -15.359804608553027,
+          "compounded": 10072.73663856237
+        },
+        {
+          "label": "Phantom P3 • Scenario C",
+          "avgRet": 50.960050033984714,
+          "avgPf": 1.168,
+          "worstDD": -8.9376194936606,
+          "compounded": 7548.002501699236
+        },
+        {
+          "label": "Phantom P3 • Scenario A",
+          "avgRet": 34.12455124027929,
+          "avgPf": 1.13,
+          "worstDD": -10.21039499491291,
+          "compounded": 6706.227562013964
+        }
+      ],
+      "note": "Live p3 validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2022-01-01 to 2026-01-01. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
     "id": "run_1776378548959_b78tvj2n",
     "createdAt": "2026-04-16T22:29:08.959Z",
     "summary": {

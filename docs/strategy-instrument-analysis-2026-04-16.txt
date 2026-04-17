@@ -24,11 +24,11 @@ NZDUSD (6 variants)
   Highest net PnL: P1B | net=15683.64 return=156.84% maxDD=6133.41 PF=1.06 trades=16954
   Best return/DD efficiency: P1C | net/maxDD=3.39 return=66.65% maxDD=1965.76 trades=16954
 
-US100 (6 variants)
-  Highest return: P2B | return=707.74% net=70774.37 maxDD=1539.35 PF=2.60 trades=2055
+US100 (9 variants)
+  Highest return: P3 | return=2052.88% net=205287.54 maxDD=1777.73 PF=Inf trades=63
   Lowest drawdown: P2A | maxDD=127.37 return=55.94% net=5593.62 PF=3.05 trades=1009
-  Highest net PnL: P2B | net=70774.37 return=707.74% maxDD=1539.35 PF=2.60 trades=2055
-  Best return/DD efficiency: P2C | net/maxDD=56.30 return=188.90% maxDD=335.53 trades=2055
+  Highest net PnL: P3 | net=205287.54 return=2052.88% maxDD=1777.73 PF=Inf trades=63
+  Best return/DD efficiency: P3 | net/maxDD=115.48 return=2052.88% maxDD=1777.73 trades=63
 
 USDCHF (6 variants)
   Highest return: P1B | return=132.90% net=13290.22 maxDD=5965.55 PF=1.05 trades=17337
@@ -74,12 +74,15 @@ NZDUSD,P1C,16954,6617,10337,6665.09,66.65,1965.76,1.071,/Users/niko/Documents/pr
 NZDUSD,P2C,16954,6617,10337,6665.09,66.65,1965.76,1.071,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p2-validate-4j3Te7/phantom_p2_trades_P2C.csv
 NZDUSD,P1A,3365,1281,2084,1112.62,11.13,520.47,1.072,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p1-validate-BT9Ezp/phantom_p1_trades_P1A.csv
 NZDUSD,P2A,3365,1281,2084,1112.62,11.13,520.47,1.072,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-nzdusd-p2-validate-4j3Te7/phantom_p2_trades_P2A.csv
-US100,P2B,2055,1108,932,70774.37,707.74,1539.35,2.601,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2B.csv
-US100,P2C,2055,1108,932,18890.10,188.90,335.53,2.624,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2C.csv
+US100,P3,63,0,0,205287.54,2052.88,1777.73,Inf,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p3.json
+US100,P2,63,0,0,198525.63,1985.26,1830.95,Inf,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p2.json
+US100,P1,63,0,0,81254.17,812.54,1348.22,Inf,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/branch-competition-us100-20260416/dashboard_2021_10k/dashboard_data_phantom_p1.json
+US100,P2B,2055,1108,932,70774.37,707.74,1539.35,2.601,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p3-validate-em6aQk/phantom_p2_trades_US100_P2B.csv
+US100,P2C,2055,1108,932,18890.10,188.90,335.53,2.624,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p3-validate-em6aQk/phantom_p2_trades_US100_P2C.csv
 US100,P1B,5926,2369,3557,14765.07,147.65,1656.50,1.202,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-2TI4D5/phantom_p1_trades_P1B.csv
 US100,P1A,3358,1386,1972,7185.87,71.86,385.32,1.315,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-3MKar3/phantom_p1_trades_P1A.csv
 US100,P1C,5926,2369,3557,6151.63,61.52,1023.10,1.206,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p1-validate-2TI4D5/phantom_p1_trades_P1C.csv
-US100,P2A,1009,584,422,5593.62,55.94,127.37,3.053,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p2-validate-NGdcNT/phantom_p2_trades_US100_P2A.csv
+US100,P2A,1009,584,422,5593.62,55.94,127.37,3.053,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-us100-p3-validate-em6aQk/phantom_p2_trades_US100_P2A.csv
 USDCHF,P1B,17337,6634,10703,13290.22,132.90,5965.55,1.055,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p1-validate-xpRms7/phantom_p1_trades_P1B.csv
 USDCHF,P2B,17337,6634,10703,13290.22,132.90,5965.55,1.055,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p2-validate-Juty5n/phantom_p2_trades_P2B.csv
 USDCHF,P1C,17337,6634,10703,5891.48,58.91,1847.38,1.062,/Users/niko/Documents/projects/niko-ai/backtest_artifacts/phantom-usdchf-p1-validate-xpRms7/phantom_p1_trades_P1C.csv
