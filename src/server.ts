@@ -1141,10 +1141,17 @@ function bucketLabelFromDate(dateText: string): string {
 function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
 	const normalizedEngineVersion = String(engineVersion || 'p1').toLowerCase();
-	const usePhantomP2 = normalizedEngineVersion === 'p2' || (normalizedEngineVersion === 'p3' && supportsPhantomP2Execution(symbol));
-	const tradeVersion = usePhantomP2 ? 'p2' : 'p1';
+	const executionEngineVersion = normalizedEngineVersion === 'p1'
+		? 'p1'
+		: supportsPhantomP2Execution(symbol)
+			? normalizedEngineVersion === 'p3'
+				? 'p3'
+				: 'p2'
+			: 'p1';
+	const usePhantomAdvancedEngine = executionEngineVersion === 'p2' || executionEngineVersion === 'p3';
+	const tradeVersion = executionEngineVersion === 'p3' ? 'p3' : executionEngineVersion === 'p2' ? 'p2' : 'p1';
 	let p2Instrument: 'XAU' | 'US100' | 'BTC' | null = null;
-	if (usePhantomP2) {
+	if (usePhantomAdvancedEngine) {
 		try {
 			p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
 		} catch {
@@ -3264,7 +3271,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const executionEngineVersion = requestedEngineVersion === 'p1'
 			? 'p1'
 			: supportsPhantomP2Execution(symbol)
-				? 'p2'
+				? requestedEngineVersion
 				: 'p1';
 		const spreadBps = Math.max(0, toNumber(req.body?.spreadBps, 0));
 		const slippageBps = Math.max(0, toNumber(req.body?.slippageBps, 0));
@@ -3278,18 +3285,25 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			h4: resolveMarketTimeframeFile(symbol, '4h'),
 			daily: resolveMarketTimeframeFile(symbol, '1d'),
 		};
-		const p2Instrument = executionEngineVersion === 'p2' ? mapSymbolToPhantomP2Instrument(symbol) : null;
+		const p2Instrument = (executionEngineVersion === 'p2' || executionEngineVersion === 'p3')
+			? mapSymbolToPhantomP2Instrument(symbol)
+			: null;
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-		const scriptCandidates = executionEngineVersion === 'p2'
+		const scriptCandidates = executionEngineVersion === 'p3'
 			? [
+				path.join(WORKSPACE_ROOT, 'phantom', 'v3', 'phantom_p3.py'),
 				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
-				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py'),
 			]
-			: [
-				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_p1.py'),
-				path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
-			];
+			: executionEngineVersion === 'p2'
+				? [
+					path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
+					path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py'),
+				]
+				: [
+					path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_p1.py'),
+					path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
+				];
 		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
 		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${requestedEngineVersion}-validate-`;
 		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, artifactPrefix));
@@ -3308,7 +3322,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--commission-per-trade', String(commissionPerTrade),
 		];
 
-		if (executionEngineVersion === 'p2' && p2Instrument) {
+		if ((executionEngineVersion === 'p2' || executionEngineVersion === 'p3') && p2Instrument) {
 			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
 

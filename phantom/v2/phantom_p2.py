@@ -31,7 +31,6 @@ import argparse
 import os
 import sys
 import warnings
-from typing import Optional
 import numpy as np
 import pandas as pd
 
@@ -99,8 +98,6 @@ INSTRUMENT_CONFIG = {
         # Confirmation: require 2 H4 bars (8h) holding zone before entry
         min_confirm_bars= 2,
         confirm_tf_mins = 240,
-        # Phase 3 test: allow BTC setups more time before stop exits.
-        min_hold_hours  = 4,
         regime_ema_fast = 50,
         regime_ema_slow = 200,
         soft_session_start = None,
@@ -237,13 +234,6 @@ def add_daily_regime(daily: pd.DataFrame, inst_cfg: dict) -> pd.DataFrame:
         daily['regime_ema_fast'] > daily['regime_ema_slow'], 'bull', 'bear'
     )
     return daily
-
-def apply_start_date(df: pd.DataFrame, start_date: Optional[str]) -> pd.DataFrame:
-    """Optionally filter a dataframe to rows on/after a UTC date string."""
-    if not start_date:
-        return df
-    ts = pd.Timestamp(start_date)
-    return df[df.index >= ts]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FAST LOOKUP HELPERS
@@ -531,14 +521,15 @@ def run_scenario(
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
 
-            # Minimum-hold stop filter (instrument-specific, timeframe-aware).
+            # PHASE 1: Minimum 2-hour hold time filter
+            # Prevent stop exits on trades held <2h. Data showed these trades are -22% to -36% WR.
+            # Short trades get stopped before trailing stop has time to activate.
             hold_bars = bar_i - p['entry_bar']
-            bar_minutes = 1 if cfg['entry_tf'] == 'm1' else 5
-            bars_per_hour = max(1, 60 // bar_minutes)
-            min_hold_hours = int(inst_cfg.get('min_hold_hours', 2))
-            min_hold_bars = min_hold_hours * bars_per_hour
+            hold_hours = hold_bars / (60 / 5) if hold_bars > 0 else 0  # Assuming M5 bars = 5min each
+            min_hold_bars = 24  # 2 hours * 60 min / 5 min per bar = 24 bars
 
-            # Only exit on stop if hold threshold is met, or trade is at/above breakeven.
+            # Check stop (with 2h minimum hold time filter)
+            # Only exit on stop if: hold time >= 2h, OR trade is already profitable
             allow_stop_exit = hold_bars >= min_hold_bars
             if not allow_stop_exit:
                 # Allow stop exit even under 2h if we're at/past BE or in profit
@@ -967,8 +958,6 @@ def main():
                         help='Adverse slippage per side in bps')
     parser.add_argument('--commission-per-trade', type=float, default=0.0,
                         help='Fixed commission per closed trade')
-    parser.add_argument('--start-date', default=None,
-                        help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
     args = parser.parse_args()
 
     output_dir = args.output_dir or '.'
@@ -982,12 +971,12 @@ def main():
           f"  | Confirm: {inst_cfg['min_confirm_bars']} bars")
 
     print("\nLoading data...")
-    m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
-    m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date)
-    h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date)
-    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date)
-    m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date)
-    daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date)
+    m1    = add_indicators(load_csv(args.m1))
+    m5    = add_indicators(load_csv(args.m5))
+    h1    = add_indicators(load_csv(args.h1))
+    h4    = add_indicators(load_csv(args.h4))
+    m15   = add_indicators(load_csv(args.m15))
+    daily = add_indicators(load_csv(args.daily))
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
     print(f"  Range: {m1.index[0]} → {m1.index[-1]}")
