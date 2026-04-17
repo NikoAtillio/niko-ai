@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE="/Users/niko/Documents/projects/niko-ai/backtest_artifacts/branch-competition-us100-20260416"
 PY="/Users/niko/Documents/projects/niko-ai/.venv/bin/python"
-P2="/Users/niko/Documents/projects/niko-ai/phantom/v2/phantom_p2.py"
+P2_BASE="/Users/niko/Documents/projects/niko-ai/phantom/phantom_US100"
 
 M1="/Users/niko/Documents/projects/niko-ai/data/US100/US100.cash_M1_2023.05.24-2026.03.31"
 M5_FULL="/Users/niko/Documents/projects/niko-ai/data/US100/US100.cash_M5_2021.01.21-2026.03.31"
@@ -33,6 +33,11 @@ run_triplet() {
   mkdir -p "$out"
 
   for sc in A B C; do
+    case "$sc" in
+      A) P2="$P2_BASE/phantom_US100_high.py" ;;
+      B) P2="$P2_BASE/phantom_US100_median.py" ;;
+      C) P2="$P2_BASE/phantom_US100_low.py" ;;
+    esac
     echo "Running $br $mode US100 P2$sc"
     "$PY" "$P2" --instrument US100 --m1 "$M1" --m5 "$m5" --m15 "$m15" --h1 "$h1" --h4 "$h4" --daily "$d" --scenario "p2$sc" --output-dir "$out/US100_P2$sc" > "$out/US100_P2${sc}.log" 2>&1
   done

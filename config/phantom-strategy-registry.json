@@ -1,0 +1,88 @@
+{
+  "version": "2026-04-17-instrument-risk",
+  "updatedAt": "2026-04-17",
+  "notes": [
+    "Runtime selection is now based on phantom_<instrument>_<risk> files.",
+    "Risk ladder convention is C=low, B=median baseline, A=high.",
+    "Symbol routing resolves stems automatically: XAU, US100, BTC, and fx fallback."
+  ],
+  "runtimeProfiles": {
+    "phantom_XAU": {
+      "median": "phantom/phantom_XAU/phantom_XAU_median.py",
+      "high": "phantom/phantom_XAU/phantom_XAU_high.py",
+      "low": "phantom/phantom_XAU/phantom_XAU_low.py"
+    },
+    "phantom_US100": {
+      "median": "phantom/phantom_US100/phantom_US100_median.py",
+      "high": "phantom/phantom_US100/phantom_US100_high.py",
+      "low": "phantom/phantom_US100/phantom_US100_low.py"
+    },
+    "phantom_BTC": {
+      "median": "phantom/phantom_BTC/phantom_BTC_median.py",
+      "high": "phantom/phantom_BTC/phantom_BTC_high.py",
+      "low": "phantom/phantom_BTC/phantom_BTC_low.py"
+    },
+    "phantom_fx": {
+      "median": "phantom/phantom_fx/phantom_fx_median.py",
+      "high": "phantom/phantom_fx/phantom_fx_high.py",
+      "low": "phantom/phantom_fx/phantom_fx_low.py"
+    }
+  },
+  "phase1Matrix": {
+    "artifactDir": "backtest_artifacts/phantom-p2-fixed-20260417_203820",
+    "capital": 5000,
+    "runType": "p2-baseline-abc-matrix",
+    "results": {
+      "BTC": {
+        "A": { "trades": 878, "winRatePct": 54.4, "profitFactor": 2.512, "netReturnPct": 56.06, "maxDrawdownPct": -2.02 },
+        "B": { "trades": 3157, "winRatePct": 51.6, "profitFactor": 2.402, "netReturnPct": 2186.52, "maxDrawdownPct": -6.23 },
+        "C": { "trades": 3157, "winRatePct": 51.6, "profitFactor": 2.437, "netReturnPct": 505.02, "maxDrawdownPct": -3.60 },
+        "bestByReturn": "B"
+      },
+      "XAU": {
+        "A": { "trades": 1376, "winRatePct": 52.0, "profitFactor": 2.423, "netReturnPct": 73.40, "maxDrawdownPct": -1.85 },
+        "B": { "trades": 7494, "winRatePct": 50.0, "profitFactor": 2.201, "netReturnPct": 15810.50, "maxDrawdownPct": -5.37 },
+        "C": { "trades": 7494, "winRatePct": 50.0, "profitFactor": 2.202, "netReturnPct": 1744.29, "maxDrawdownPct": -3.10 },
+        "bestByReturn": "B"
+      },
+      "US100": {
+        "A": { "trades": 1009, "winRatePct": 57.9, "profitFactor": 3.053, "netReturnPct": 111.87, "maxDrawdownPct": -1.56 },
+        "B": { "trades": 1771, "winRatePct": 56.0, "profitFactor": 2.653, "netReturnPct": 1240.59, "maxDrawdownPct": -3.25 },
+        "C": { "trades": 1771, "winRatePct": 56.0, "profitFactor": 2.746, "netReturnPct": 344.87, "maxDrawdownPct": -1.87 },
+        "bestByReturn": "B"
+      }
+    }
+  },
+  "stems": {
+    "Phantom BTC": {
+      "instrument": "BTCUSD",
+      "engine": "p2",
+      "bestScenario": "P2B",
+      "riskVariants": {
+        "conservative": "low",
+        "balanced": "median",
+        "aggressive": "high"
+      }
+    },
+    "Phantom XAU": {
+      "instrument": "XAUUSD",
+      "engine": "p2",
+      "bestScenario": "P2B",
+      "riskVariants": {
+        "conservative": "low",
+        "balanced": "median",
+        "aggressive": "high"
+      }
+    },
+    "Phantom US100": {
+      "instrument": "US100",
+      "engine": "p2",
+      "bestScenario": "P2B",
+      "riskVariants": {
+        "conservative": "low",
+        "balanced": "median",
+        "aggressive": "high"
+      }
+    }
+  }
+}

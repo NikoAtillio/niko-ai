@@ -7,11 +7,18 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 
 run_one() {
   local inst="$1" m1="$2" m5="$3" h1="$4" h4="$5" d1="$6"
+  local script=""
+  case "$inst" in
+    XAU) script="phantom/phantom_XAU/phantom_XAU_median.py" ;;
+    US100) script="phantom/phantom_US100/phantom_US100_median.py" ;;
+    BTC) script="phantom/phantom_BTC/phantom_BTC_median.py" ;;
+    *) echo "Unsupported instrument for stem mapping: $inst"; return 1 ;;
+  esac
   local inst_lc
   inst_lc=$(printf '%s' "$inst" | tr '[:upper:]' '[:lower:]')
   local outdir="backtest_artifacts/phantom-${inst_lc}-p2-manual-${STAMP}"
   mkdir -p "$outdir"
-  "$PY" phantom/v2/phantom_p2.py \
+  "$PY" "$script" \
     --instrument "$inst" \
     --m1 "$m1" --m5 "$m5" --h1 "$h1" --h4 "$h4" --daily "$d1" \
     --scenario ALL --capital 5000 --output-dir "$outdir" \

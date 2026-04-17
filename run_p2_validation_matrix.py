@@ -53,6 +53,18 @@ INSTRUMENTS = {
     },
 }
 
+RISK_FILE_BY_SCENARIO = {
+    'A': 'high',
+    'B': 'median',
+    'C': 'low',
+}
+
+STEM_BY_INSTRUMENT = {
+    'BTC': 'BTC',
+    'US100': 'US100',
+    'XAU': 'XAU',
+}
+
 def run_scenario(instrument, scenario, output_dir):
     """Run a single scenario for an instrument."""
     inst_config = INSTRUMENTS[instrument]
@@ -71,10 +83,14 @@ def run_scenario(instrument, scenario, output_dir):
             print(f"  ❌ Missing data file: {path}")
             return False
     
+    stem = STEM_BY_INSTRUMENT[instrument]
+    risk_profile = RISK_FILE_BY_SCENARIO[scenario]
+    script_path = f'/Users/niko/Documents/projects/niko-ai/phantom/phantom_{stem}/phantom_{stem}_{risk_profile}.py'
+
     # Build command
     cmd = [
         PYTHON_BIN,
-        '/Users/niko/Documents/projects/niko-ai/phantom/v2/phantom_p2.py',
+        script_path,
         '--instrument', instrument,
         '--m1', m1_path,
         '--m5', m5_path,

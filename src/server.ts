@@ -871,17 +871,51 @@ function canonicalizeDatasetSymbol(input: string): string {
 	return symbol;
 }
 
-function mapSymbolToPhantomP2Instrument(symbolInput: string): 'XAU' | 'US100' | 'BTC' {
+function mapSymbolToPhantomInstrumentCode(symbolInput: string): 'XAU' | 'US100' | 'BTC' | 'FX' {
 	const symbol = canonicalizeDatasetSymbol(symbolInput);
 	if (symbol.startsWith('XAU')) return 'XAU';
 	if (symbol.startsWith('US100') || symbol.startsWith('NAS100')) return 'US100';
 	if (symbol.startsWith('BTC')) return 'BTC';
-	throw new Error(`Unsupported symbol for Phantom p2 instrument mapping: ${symbolInput}`);
+	return 'FX';
 }
 
-function supportsPhantomP2Execution(symbolInput: string): boolean {
+function supportsPhantomExecution(symbolInput: string): boolean {
+	const stem = mapSymbolToPhantomStem(symbolInput);
+	return ['XAU', 'US100', 'BTC', 'fx'].includes(stem);
+}
+
+function mapScenarioOrRiskToRiskProfile(inputValue: string): 'high' | 'median' | 'low' {
+	const normalized = String(inputValue || 'B').trim().toUpperCase();
+	if (normalized === 'A' || normalized === 'P2A' || normalized === 'P3A' || normalized === 'HIGH' || normalized === 'AGGRESSIVE') return 'high';
+	if (normalized === 'C' || normalized === 'P2C' || normalized === 'P3C' || normalized === 'LOW' || normalized === 'CONSERVATIVE') return 'low';
+	return 'median';
+}
+
+function mapRiskProfileToScenarioKey(riskProfile: 'high' | 'median' | 'low'): 'A' | 'B' | 'C' {
+	if (riskProfile === 'high') return 'A';
+	if (riskProfile === 'low') return 'C';
+	return 'B';
+}
+
+function mapSymbolToPhantomStem(symbolInput: string): 'XAU' | 'US100' | 'BTC' | 'fx' {
 	const symbol = canonicalizeDatasetSymbol(symbolInput);
-	return symbol.startsWith('XAU') || symbol.startsWith('US100') || symbol.startsWith('NAS100') || symbol.startsWith('BTC');
+	if (symbol.startsWith('BTC')) return 'BTC';
+	if (symbol.startsWith('US100') || symbol.startsWith('NAS100')) return 'US100';
+	if (symbol.startsWith('XAU')) return 'XAU';
+	return 'fx';
+}
+
+function resolvePhantomScriptCandidates(symbolInput: string, riskProfileInput: string): string[] {
+	const stem = mapSymbolToPhantomStem(symbolInput);
+	const riskProfile = mapScenarioOrRiskToRiskProfile(riskProfileInput);
+	const stemFolder = `phantom_${stem}`;
+	const stemFile = `phantom_${stem}_${riskProfile}.py`;
+
+	return [
+		path.join(WORKSPACE_ROOT, 'phantom', stemFolder, stemFile),
+		path.join(WORKSPACE_ROOT, 'phantom', '_archive', 'v2_runtime', 'phantom_p2.py'),
+		path.join(WORKSPACE_ROOT, 'phantom', '_archive', 'v3_runtime', 'phantom_p3.py'),
+	];
 }
 
 function guessSymbolFromPath(filePath: string): string {
@@ -1077,13 +1111,8 @@ interface PhantomV2ValidationResult {
 	stdout: string;
 }
 
-function normalizePhantomScenario(rawScenario: string, engineVersion: string): { version: string; scenarioKey: string; scenario: string } {
-	const normalizedEngine = String(engineVersion || 'p1').toLowerCase();
-	const version = normalizedEngine === 'p3'
-		? 'p3'
-		: normalizedEngine === 'p2'
-			? 'p2'
-			: 'p1';
+function normalizePhantomScenario(rawScenario: string): { version: string; scenarioKey: string; scenario: string } {
+	const version = 'phantom';
 	let token = String(rawScenario || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 	token = token.replace(/^P[123]/, '');
 	if (token === 'D') token = 'C';
@@ -1095,7 +1124,7 @@ function normalizePhantomScenario(rawScenario: string, engineVersion: string): {
 	};
 }
 
-function parsePhantomV2ValidationOutput(stdout: string, engineVersion: string): PhantomV2ScenarioSummary[] {
+function parsePhantomV2ValidationOutput(stdout: string): PhantomV2ScenarioSummary[] {
 	const blocks = [...stdout.matchAll(/=+\n\s*(.+?)\n=+\n([\s\S]*?)(?=\n=+\n\s*.+?\n=+|\n\n=== v5\.0 → v5\.1 COMPARISON ===|$)/g)];
 	return blocks.map((match) => {
 		const label = match[1].trim();
@@ -1106,7 +1135,7 @@ function parsePhantomV2ValidationOutput(stdout: string, engineVersion: string): 
 			return Number(String(found).replace(/,/g, ''));
 		};
 		const rawScenario = label.match(/Scenario\s+([A-Za-z0-9.]+)/i)?.[1] || '';
-		const normalizedScenario = normalizePhantomScenario(rawScenario, engineVersion);
+		const normalizedScenario = normalizePhantomScenario(rawScenario);
 		return {
 			version: normalizedScenario.version,
 			scenarioKey: normalizedScenario.scenarioKey,
@@ -1138,28 +1167,12 @@ function bucketLabelFromDate(dateText: string): string {
 	return `${startYear}-${String(startYear + 1).slice(-2)}`;
 }
 
-function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[], engineVersion: string): Record<string, unknown> {
+function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number, workingDir: string, summaries: PhantomV2ScenarioSummary[]): Record<string, unknown> {
 	const periods: Record<string, Array<Record<string, unknown>>> = {};
-	const normalizedEngineVersion = String(engineVersion || 'p1').toLowerCase();
-	const executionEngineVersion = normalizedEngineVersion === 'p1'
-		? 'p1'
-		: supportsPhantomP2Execution(symbol)
-			? normalizedEngineVersion === 'p3'
-				? 'p3'
-				: 'p2'
-			: 'p1';
-	const usePhantomAdvancedEngine = executionEngineVersion === 'p2' || executionEngineVersion === 'p3';
-	const tradeVersion = executionEngineVersion === 'p3' ? 'p3' : executionEngineVersion === 'p2' ? 'p2' : 'p1';
-	let p2Instrument: 'XAU' | 'US100' | 'BTC' | null = null;
-	if (usePhantomAdvancedEngine) {
-		try {
-			p2Instrument = mapSymbolToPhantomP2Instrument(symbol);
-		} catch {
-			p2Instrument = null;
-		}
-	}
+	const tradeVersion = 'p2';
+	const strategyInstrumentCode = mapSymbolToPhantomInstrumentCode(symbol);
 
-	const symbolToken = p2Instrument || canonicalizeDatasetSymbol(symbol).replace(/[^A-Z0-9]/g, '');
+	const symbolToken = strategyInstrumentCode || canonicalizeDatasetSymbol(symbol).replace(/[^A-Z0-9]/g, '');
 
 	for (const summary of summaries) {
 		const scenarioTag = String(summary.scenario || '').toUpperCase();
@@ -1242,7 +1255,7 @@ function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number,
 	return {
 		startCapital: capital,
 		market: symbol,
-		sourceType: `live ${engineVersion.toLowerCase()} validation`,
+		sourceType: 'live phantom validation',
 		timeframe: 'multi-timeframe',
 		sourceFile: workingDir,
 		periods,
@@ -3261,18 +3274,12 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 	try {
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
-		const scenario = String(req.body?.scenario || 'ALL').toUpperCase();
-		const requestedEngineVersionRaw = String(req.body?.engineVersion || 'p1').toLowerCase();
-		const requestedEngineVersion = requestedEngineVersionRaw === 'p3'
-			? 'p3'
-			: requestedEngineVersionRaw === 'p2'
-				? 'p2'
-				: 'p1';
-		const executionEngineVersion = requestedEngineVersion === 'p1'
-			? 'p1'
-			: supportsPhantomP2Execution(symbol)
-				? requestedEngineVersion
-				: 'p1';
+		const scenarioInput = String(req.body?.scenario || req.body?.riskProfile || 'B');
+		const riskProfile = mapScenarioOrRiskToRiskProfile(scenarioInput);
+		const scenario = mapRiskProfileToScenarioKey(riskProfile);
+		if (!supportsPhantomExecution(symbol)) {
+			throw new Error(`Unsupported symbol for Phantom routing: ${symbol}`);
+		}
 		const spreadBps = Math.max(0, toNumber(req.body?.spreadBps, 0));
 		const slippageBps = Math.max(0, toNumber(req.body?.slippageBps, 0));
 		const commissionPerTrade = Math.max(0, toNumber(req.body?.commissionPerTrade, 0));
@@ -3285,27 +3292,13 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			h4: resolveMarketTimeframeFile(symbol, '4h'),
 			daily: resolveMarketTimeframeFile(symbol, '1d'),
 		};
-		const p2Instrument = (executionEngineVersion === 'p2' || executionEngineVersion === 'p3')
-			? mapSymbolToPhantomP2Instrument(symbol)
-			: null;
+		const strategyInstrumentCode = mapSymbolToPhantomInstrumentCode(symbol);
+		const strategyStem = mapSymbolToPhantomStem(symbol);
 
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-		const scriptCandidates = executionEngineVersion === 'p3'
-			? [
-				path.join(WORKSPACE_ROOT, 'phantom', 'v3', 'phantom_p3.py'),
-				path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
-			]
-			: executionEngineVersion === 'p2'
-				? [
-					path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_p2.py'),
-					path.join(WORKSPACE_ROOT, 'phantom', 'v2', 'phantom_v2.py'),
-				]
-				: [
-					path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_p1.py'),
-					path.join(WORKSPACE_ROOT, 'phantom', 'v1', 'phantom_v2.py'),
-				];
+		const scriptCandidates = resolvePhantomScriptCandidates(symbol, riskProfile);
 		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
-		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${requestedEngineVersion}-validate-`;
+		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${riskProfile}-validate-`;
 		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, artifactPrefix));
 
 		const args = [
@@ -3322,8 +3315,8 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--commission-per-trade', String(commissionPerTrade),
 		];
 
-		if ((executionEngineVersion === 'p2' || executionEngineVersion === 'p3') && p2Instrument) {
-			args.push('--instrument', p2Instrument, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
+		if (strategyInstrumentCode) {
+			args.push('--instrument', strategyInstrumentCode, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
 
 		const stdout = await new Promise<string>((resolve, reject) => {
@@ -3362,9 +3355,9 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			});
 		});
 
-		const summaries = parsePhantomV2ValidationOutput(stdout, requestedEngineVersion);
+		const summaries = parsePhantomV2ValidationOutput(stdout);
 		const best = pickBestPhantomV2Summary(summaries);
-		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries, requestedEngineVersion);
+		const curveData = buildValidationCurveDataFromTradeFiles(symbol, capital, workingDir, summaries);
 
 		res.json({
 			ok: true,
@@ -3373,7 +3366,8 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			spreadBps,
 			slippageBps,
 			commissionPerTrade,
-			engineVersion: requestedEngineVersion,
+			strategy: `phantom_${strategyStem}_${riskProfile}`,
+			riskProfile,
 			scenario,
 			dataFiles,
 			workingDir,

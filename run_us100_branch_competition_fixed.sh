@@ -5,7 +5,7 @@ BASE="/Users/niko/Documents/projects/niko-ai/backtest_artifacts/branch-competiti
 mkdir -p "$BASE"
 
 PY="/Users/niko/Documents/projects/niko-ai/.venv/bin/python"
-P2="/Users/niko/Documents/projects/niko-ai/phantom/v2/phantom_p2.py"
+P2_BASE="/Users/niko/Documents/projects/niko-ai/phantom/phantom_US100"
 
 M1="/Users/niko/Documents/projects/niko-ai/data/US100/US100.cash_M1_2023.05.24-2026.03.31"
 M5_FULL="/Users/niko/Documents/projects/niko-ai/data/US100/US100.cash_M5_2021.01.21-2026.03.31"
@@ -35,6 +35,11 @@ for BR in p2_filter_test1 p2_filter_test2 p2_filter_test3; do
     fi
 
     for SC in A B C; do
+      case "$SC" in
+        A) P2="$P2_BASE/phantom_US100_high.py" ;;
+        B) P2="$P2_BASE/phantom_US100_median.py" ;;
+        C) P2="$P2_BASE/phantom_US100_low.py" ;;
+      esac
       echo "Running $BR $MODE US100 P2$SC"
       "$PY" "$P2" \
         --instrument US100 \

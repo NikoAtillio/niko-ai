@@ -77,25 +77,25 @@ data = {
 }
 
 p23 = data['periods']['2023-24']
-p23.append(load_curve(root / 'phantom/v1/phantom_v4_D_trades_23_24.csv', 'v1 D (pre-fix)', 'v1', 'D'))
-p23.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_D_23_24.csv', 'v2 D', 'v2', 'D'))
-p23.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_B_23_24.csv', 'v2 B', 'v2', 'B'))
-p23.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_A_23_24.csv', 'v2 A', 'v2', 'A'))
-p23.append(load_curve(root / 'phantom/v4/phantom_v5_1_B_trades_23_24.csv', 'v4 B (alt)', 'v4', 'B'))
+p23.append(load_curve(root / 'phantom/_archive/v1_runtime/phantom_v4_D_trades_23_24.csv', 'v1 D (pre-fix)', 'v1', 'D'))
+p23.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_D_23_24.csv', 'v2 D', 'v2', 'D'))
+p23.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_B_23_24.csv', 'v2 B', 'v2', 'B'))
+p23.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_A_23_24.csv', 'v2 A', 'v2', 'A'))
+p23.append(load_curve(root / 'phantom/_archive/v4/phantom_v5_1_B_trades_23_24.csv', 'v4 B (alt)', 'v4', 'B'))
 
 p24 = data['periods']['2024-25']
-p24.append(load_curve(root / 'phantom/v1/phantom_v4_D_trades_24_25.csv', 'v1 D (pre-fix)', 'v1', 'D'))
-p24.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_D_24_25.csv', 'v2 D', 'v2', 'D'))
-p24.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_B_24_25.csv', 'v2 B', 'v2', 'B'))
-p24.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_A_24_25.csv', 'v2 A', 'v2', 'A'))
-p24.append(load_curve(root / 'phantom/v4/phantom_v5_1_B_trades_24_25.csv', 'v4 B (alt)', 'v4', 'B'))
+p24.append(load_curve(root / 'phantom/_archive/v1_runtime/phantom_v4_D_trades_24_25.csv', 'v1 D (pre-fix)', 'v1', 'D'))
+p24.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_D_24_25.csv', 'v2 D', 'v2', 'D'))
+p24.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_B_24_25.csv', 'v2 B', 'v2', 'B'))
+p24.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_A_24_25.csv', 'v2 A', 'v2', 'A'))
+p24.append(load_curve(root / 'phantom/_archive/v4/phantom_v5_1_B_trades_24_25.csv', 'v4 B (alt)', 'v4', 'B'))
 
 p25 = data['periods']['2025-26']
-p25.append(load_curve(root / 'phantom/v1/phantom_v4_D_trades_25_26.csv', 'v1 D (pre-fix)', 'v1', 'D'))
-p25.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_D_25_26.csv', 'v2 D', 'v2', 'D'))
-p25.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_B_25_26.csv', 'v2 B', 'v2', 'B'))
-p25.append(load_curve(root / 'phantom/v2/phantom_v5_1_trades_A_25_26.csv', 'v2 A', 'v2', 'A'))
-p25.append(load_curve(root / 'phantom/v4/phantom_v5_1_B_trades_25_26.csv', 'v4 B (alt)', 'v4', 'B'))
+p25.append(load_curve(root / 'phantom/_archive/v1_runtime/phantom_v4_D_trades_25_26.csv', 'v1 D (pre-fix)', 'v1', 'D'))
+p25.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_D_25_26.csv', 'v2 D', 'v2', 'D'))
+p25.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_B_25_26.csv', 'v2 B', 'v2', 'B'))
+p25.append(load_curve(root / 'phantom/_archive/v2_runtime/phantom_v5_1_trades_A_25_26.csv', 'v2 A', 'v2', 'A'))
+p25.append(load_curve(root / 'phantom/_archive/v4/phantom_v5_1_B_trades_25_26.csv', 'v4 B (alt)', 'v4', 'B'))
 
 out = root / 'public/phantom-curves.json'
 out.write_text(json.dumps(data, indent=2))
