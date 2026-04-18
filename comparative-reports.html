@@ -544,9 +544,9 @@
     };
 
     const BRANCH_LABELS = {
-      p2_filter_test1: 'Test 1 (Phase 1)',
-      p2_filter_test2: 'Test 2 (Phase 2)',
-      p2_filter_test3: 'Test 3 (Phase 3)'
+      p2_filter_test1: 'Variant A',
+      p2_filter_test2: 'Variant B',
+      p2_filter_test3: 'Variant C'
     };
 
     const TABS = [
@@ -625,8 +625,23 @@
       return state.availableReports.find((report) => report.id === reportId) || null;
     }
 
+    function normalizeReportTitle(title) {
+      const value = String(title || '').trim();
+      const lowered = value.toLowerCase();
+      if (lowered.includes('phantom p1')) return 'Phantom Median Strategy A';
+      if (lowered.includes('phantom p2')) return 'Phantom Median Strategy B';
+      if (lowered.includes('phantom p3')) return 'Phantom Median Strategy C';
+      if (lowered.includes('branch competition')) return 'Phantom Variant Comparison';
+      return value;
+    }
+
     function getBranchLabel(branchKey) {
-      return state.branchLabels[branchKey] || BRANCH_LABELS[branchKey] || branchKey;
+      const raw = String(branchKey || '').trim();
+      const upper = raw.toUpperCase();
+      if (upper === 'PHANTOM_P1' || upper === 'P1' || upper === 'V1') return 'Variant A';
+      if (upper === 'PHANTOM_P2' || upper === 'P2' || upper === 'V2') return 'Variant B';
+      if (upper === 'PHANTOM_P3' || upper === 'P3' || upper === 'V3') return 'Variant C';
+      return state.branchLabels[branchKey] || BRANCH_LABELS[branchKey] || raw;
     }
 
     function getBranchColor(branchKey) {
@@ -700,7 +715,7 @@
 
     function renderReportHeader() {
       const strategyNames = state.selectedReportIds
-        .map((reportId) => getReportById(reportId)?.title || reportId)
+          .map((reportId) => normalizeReportTitle(getReportById(reportId)?.title || reportId))
         .join(' + ');
 
       if (!strategyNames) {
@@ -1315,7 +1330,7 @@
             if (!derived) continue;
 
             const branchKey = `${reportId}::${branch}`;
-            const branchLabel = `${reportMeta.title} / ${BRANCH_LABELS[branch] || branch}`;
+            const branchLabel = `${normalizeReportTitle(reportMeta.title)} / ${getBranchLabel(branch)}`;
             state.branchLabels[branchKey] = branchLabel;
             monthly[mode][branchKey] = derived.rows;
             summary.push({
@@ -1424,6 +1439,22 @@
       }
 
       const payload = await res.json();
+      if (payload && typeof payload === 'object') {
+        if (typeof payload.title === 'string') {
+          payload.title = normalizeReportTitle(payload.title);
+        }
+        if (typeof payload.reportTitle === 'string') {
+          payload.reportTitle = normalizeReportTitle(payload.reportTitle);
+        }
+        if (payload.data && typeof payload.data === 'object') {
+          if (typeof payload.data.title === 'string') {
+            payload.data.title = normalizeReportTitle(payload.data.title);
+          }
+          if (typeof payload.data.reportTitle === 'string') {
+            payload.data.reportTitle = normalizeReportTitle(payload.data.reportTitle);
+          }
+        }
+      }
       state.reportDataById[reportId] = payload;
       return payload;
     }
@@ -1439,7 +1470,7 @@
         return `
           <label class="strategy-item">
             <input type="checkbox" data-report-id="${escapeHtml(report.id)}" ${report.hasData ? '' : 'disabled'} />
-            <span>${escapeHtml(report.title + suffix)}</span>
+            <span>${escapeHtml(normalizeReportTitle(report.title) + suffix)}</span>
           </label>
         `;
       }).join('');
@@ -1462,7 +1493,7 @@
 
     function getCurrentSetName(reportIds) {
       const names = reportIds
-        .map((reportId) => getReportById(reportId)?.title || reportId)
+        .map((reportId) => normalizeReportTitle(getReportById(reportId)?.title || reportId))
         .filter(Boolean);
       return names.join(' + ') || 'Saved Strategy Comparison';
     }
@@ -1473,7 +1504,9 @@
         throw new Error(`Failed to load comparative reports: ${res.status}`);
       }
       const data = await res.json();
-      state.availableReports = Array.isArray(data.reports) ? data.reports : [];
+      state.availableReports = Array.isArray(data.reports)
+        ? data.reports.map((report) => ({ ...report, title: normalizeReportTitle(report.title) }))
+        : [];
       populateStrategyOptions();
 
       if (!state.availableReports.length) {
