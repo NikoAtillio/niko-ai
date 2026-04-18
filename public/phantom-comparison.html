@@ -704,9 +704,10 @@
             </select>
             <label for="phantomEngineSelect" style="margin-top:8px;">Strategy</label>
             <select id="phantomEngineSelect">
-              <option value="p1" selected>Phantom P1</option>
-              <option value="p2">Phantom P2</option>
-              <option value="p3">Phantom P3</option>
+              <option value="phantom_XAU_median" selected>phantom_XAU_median</option>
+              <option value="phantom_US100_median">phantom_US100_median</option>
+              <option value="phantom_BTC_median">phantom_BTC_median</option>
+              <option value="phantom_fx_median">phantom_fx_median</option>
             </select>
           </div>
           <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
@@ -716,18 +717,20 @@
 
       <div class="curve-toolbar">
         <div style="display:none;">
-          <label for="curveYearSelect">Capital Curve Year</label>
-          <select id="curveYearSelect"></select>
-        </div>
+              <option value="phantom_XAU_median" selected>phantom_XAU_median</option>
+              <option value="phantom_US100_median">phantom_US100_median</option>
+              <option value="phantom_BTC_median">phantom_BTC_median</option>
+              <option value="phantom_fx_median">phantom_fx_median</option>
         <div>
           <label for="curveStartDateInput">From Date</label>
           <input id="curveStartDateInput" type="date" />
         </div>
         <div>
           <label for="curveEndDateInput">To Date</label>
-          <input id="curveEndDateInput" type="date" />
-        </div>
-        <div>
+              <option value="phantom_XAU_median">phantom_XAU_median</option>
+              <option value="phantom_US100_median">phantom_US100_median</option>
+              <option value="phantom_BTC_median">phantom_BTC_median</option>
+              <option value="phantom_fx_median">phantom_fx_median</option>
           <label for="curveMode">Curve Scale</label>
           <select id="curveMode">
             <option value="absolute">Absolute Capital</option>
@@ -786,9 +789,10 @@
           <label for="versionFilter">Strategy</label>
           <select id="versionFilter">
             <option value="ALL">All</option>
-            <option value="p1">Phantom P1</option>
-            <option value="p2">Phantom P2</option>
-            <option value="p3">Phantom P3</option>
+            <option value="phantom_XAU_median">phantom_XAU_median</option>
+            <option value="phantom_US100_median">phantom_US100_median</option>
+            <option value="phantom_BTC_median">phantom_BTC_median</option>
+            <option value="phantom_fx_median">phantom_fx_median</option>
           </select>
         </div>
         <div>
@@ -996,10 +1000,7 @@
 
     function formatVersionLabel(version) {
       const v = String(version || '').trim().toLowerCase();
-      if (v === 'p1' || v === 'v1') return 'Phantom P1';
-      if (v === 'p2' || v === 'v2') return 'Phantom P2';
-      if (v === 'p3' || v === 'v3') return 'Phantom P3';
-      if (v === 'v4') return 'Phantom V4';
+      if (v.startsWith('phantom_')) return v;
       return String(version || 'Unknown');
     }
 
@@ -1654,7 +1655,7 @@
         ? `${scenarioFromNameRaw.slice(0, -1)}C`
         : scenarioFromNameRaw;
       const versionFromNameMatch = (fileName || '').match(/(?:^|[^A-Za-z0-9])(p[123]|v\d+(?:[._]\d+)?)(?:[^A-Za-z0-9]|$)/i);
-      const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'p1';
+      const versionFromName = versionFromNameMatch ? versionFromNameMatch[1].toLowerCase().replace('_', '.') : 'phantom_median';
 
       let parsedRows = 0;
       let cumulativeCapital = out.startCapital;
@@ -1681,7 +1682,7 @@
 
       const period = periodFromName || bucketLabelFromDate(firstDate) || 'Imported';
       const version = versionFromName;
-      const scenario = scenarioFromName || 'P1B';
+      const scenario = scenarioFromName || 'B';
       const label = `${labelStem} (${version} ${scenario})`;
 
       out.periods[period] = [{ version, scenario, label, trades: points.length, points }];
@@ -2099,7 +2100,11 @@
         body: JSON.stringify({
           symbol,
           scenario: 'ALL',
-          engineVersion: String(phantomEngineSelect?.value || 'p1').toLowerCase(),
+          riskProfile: String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_high')
+            ? 'high'
+            : String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_low')
+              ? 'low'
+              : 'median',
           capital: Number(startCapitalInput.value || 5000),
           spreadBps: Number(spreadBpsInput?.value || 0),
           slippageBps: Number(slippageBpsInput?.value || 0),
@@ -2351,7 +2356,7 @@
       if (validationSummary) {
         const { startCapital } = getScenarioSettings();
         const rangeLabel = formatRangeLabel(getDateFilterRange());
-        const currentVersion = String(validationSummary.engineVersion || 'p1').toLowerCase();
+        const currentVersion = String(validationSummary.strategy || 'phantom_median').toLowerCase();
         return getLiveValidationRangeSummaries().map((summary) => ({
           period: rangeLabel,
           version: currentVersion,
@@ -2595,7 +2600,7 @@
         const summaries = getLiveValidationRangeSummaries();
         const best = summaries[0] || null;
         const rangeLabel = formatRangeLabel(getDateFilterRange());
-        const currentVersion = String(validationSummary.engineVersion || 'p1').toLowerCase();
+        const currentVersion = String(validationSummary.strategy || 'phantom_median').toLowerCase();
 
         if (!best) {
           recCards.innerHTML = `<div class="rec-card"><h4>No Validation</h4><div class="rec-sub">No live ${currentVersion} result was returned.</div></div>`;
@@ -2611,7 +2616,7 @@
           <div class="rec-card">
             <h4>Recommended Strategy</h4>
             <div class="rec-big">${formatStrategyBadge(currentVersion, best.scenario)}</div>
-            <div class="rec-sub">Best live ${currentVersion} validation across the loaded market files.</div>
+            <div class="rec-sub">Best live validation across the loaded market files.</div>
           </div>
           <div class="rec-card">
             <h4>Net Return</h4>
@@ -2632,7 +2637,7 @@
 
         recRows.innerHTML = summaries.map((summary) => `
           <tr>
-            <td>${formatStrategyBadge(validationSummary.engineVersion || 'p1', summary.scenario)}</td>
+            <td>${formatStrategyBadge(validationSummary.strategy || 'phantom_median', summary.scenario)}</td>
             <td>${validationSummary.symbol}</td>
             <td>${summary.netReturnPct.toFixed(2)}%</td>
             <td>£${summary.finalCapital.toFixed(2)}</td>
@@ -2644,7 +2649,7 @@
           </tr>
         `).join('');
 
-        recNote.textContent = `Live ${currentVersion} validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.`;
+        recNote.textContent = `Live validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.`;
 
         latestResultsSummary = {
           generatedAt: new Date().toISOString(),
@@ -2806,7 +2811,7 @@
       const withdrawalText = withdrawalPct > 0
         ? `monthly withdrawal ${withdrawalPct.toFixed(0)}% of each month's positive profit`
         : 'no monthly withdrawals (full compounding)';
-      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed Phantom P1/P2/P3 comparison data.`;
+      recNote.textContent = `Model uses scenario settings: start £${startCapital.toLocaleString()}, risk x${riskMultiplier.toFixed(2)}, ${withdrawalText}. End-year and drawdown £ values are scaled from modelled percentages; accumulated profit is period-to-period compounded. Recommendation is computed from the currently loaded completed comparison data.`;
 
       latestResultsSummary = {
         generatedAt: new Date().toISOString(),
@@ -3262,7 +3267,7 @@
 
     async function loadSelectedPreloadedMarket() {
       const symbol = preloadedMarketSelect.value;
-      const engineVersion = String(phantomEngineSelect?.value || 'p1').toLowerCase();
+      const selectedStrategy = String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase();
       if (!symbol) {
         setDataDropStatus('Select a preloaded instrument first.', true);
         return;
@@ -3270,8 +3275,8 @@
 
       try {
         enableMarketChartMode(false);
-        setDataDropStatus(`Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${symbol}...`);
-        preloadedSummary.textContent = `Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${symbol}... please wait.`;
+        setDataDropStatus(`Loading ${selectedStrategy} scenario set (A/B/C) for ${symbol}...`);
+        preloadedSummary.textContent = `Loading ${selectedStrategy} scenario set (A/B/C) for ${symbol}... please wait.`;
         validationSummary = await validateCurrentDataset({ market: symbol });
 
         if (!validationSummary?.curveData || !validationSummary?.summaries?.length) {
@@ -3401,8 +3406,8 @@
 
         let validationFailed = false;
         try {
-          const engineVersion = String(phantomEngineSelect?.value || 'p1').toLowerCase();
-          setDataDropStatus(`Loading PHANTOM ${engineVersion.toUpperCase()} scenario set (A/B/C) for ${curveData.market}...`);
+          const selectedStrategy = String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase();
+          setDataDropStatus(`Loading ${selectedStrategy} scenario set (A/B/C) for ${curveData.market}...`);
           validationSummary = await validateCurrentDataset(curveData);
           if (validationSummary?.curveData && validationSummary?.summaries?.length) {
             curveData = validationSummary.curveData;
@@ -3428,8 +3433,8 @@
         if (validationFailed) {
           setDataDropStatus(`Loaded ${files.length} file${files.length > 1 ? 's' : ''}, but live validation failed. See curve note for details.`, true);
         } else {
-          const loadedVersion = String(validationSummary?.engineVersion || phantomEngineSelect?.value || 'p1').toLowerCase().toUpperCase();
-          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and PHANTOM ${loadedVersion} scenario set (A/B/C).`);
+          const loadedVersion = String(validationSummary?.strategy || phantomEngineSelect?.value || 'phantom_median').toLowerCase();
+          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and ${loadedVersion} scenario set (A/B/C).`);
         }
         dataFileInput.value = '';
       } catch (err) {

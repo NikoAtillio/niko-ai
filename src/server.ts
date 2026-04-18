@@ -973,8 +973,8 @@ function walkDatasetFiles(rootDir: string, depth = 0, maxDepth = 6): string[] {
 }
 
 function getMarketDatasets(): MarketDataset[] {
-	const uploadsRoot = DATASET_STORAGE_DIR;
-	const discoveredFiles = walkDatasetFiles(uploadsRoot);
+	const datasetRoots = [DATASET_STORAGE_DIR, path.join(WORKSPACE_ROOT, 'data')];
+	const discoveredFiles = datasetRoots.flatMap((rootDir) => walkDatasetFiles(rootDir));
 	const byMarket = new Map<string, Map<string, DatasetFileRef>>();
 
 	for (const filePath of discoveredFiles) {
@@ -2014,6 +2014,87 @@ function readComparativeReportData(report: ComparativeReportRecord): unknown {
 	return JSON.parse(raw);
 }
 
+function normalizeReportTitle(title: string): string {
+	const value = String(title || '').trim();
+	const lowered = value.toLowerCase();
+	if (lowered.includes('phantom p1')) return 'Phantom Median Strategy A';
+	if (lowered.includes('phantom p2')) return 'Phantom Median Strategy B';
+	if (lowered.includes('phantom p3')) return 'Phantom Median Strategy C';
+	if (lowered.includes('branch competition')) return 'Phantom Variant Comparison';
+	return value;
+}
+
+function normalizeComparativeBranchKey(branchKey: string): string {
+	const upper = String(branchKey || '').trim().toUpperCase();
+	if (upper === 'PHANTOM_P1' || upper === 'P1' || upper === 'V1') return 'variant_a';
+	if (upper === 'PHANTOM_P2' || upper === 'P2' || upper === 'V2') return 'variant_b';
+	if (upper === 'PHANTOM_P3' || upper === 'P3' || upper === 'V3') return 'variant_c';
+	return String(branchKey || '');
+}
+
+function normalizeComparativeReportData(rawData: unknown): unknown {
+	if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
+		return rawData;
+	}
+
+	const data = JSON.parse(JSON.stringify(rawData)) as Record<string, unknown>;
+	if (typeof data.title === 'string') {
+		data.title = normalizeReportTitle(data.title);
+	}
+	if (typeof data.reportTitle === 'string') {
+		data.reportTitle = normalizeReportTitle(data.reportTitle);
+	}
+	if (data.meta && typeof data.meta === 'object' && !Array.isArray(data.meta)) {
+		const meta = data.meta as Record<string, unknown>;
+		if (typeof meta.strategyLabel === 'string') {
+			meta.strategyLabel = normalizeReportTitle(meta.strategyLabel);
+		}
+		if (typeof meta.title === 'string') {
+			meta.title = normalizeReportTitle(meta.title);
+		}
+		if (typeof meta.sourceBranch === 'string') {
+			meta.sourceBranch = normalizeComparativeBranchKey(meta.sourceBranch);
+		}
+	}
+
+	if (data.summary && Array.isArray(data.summary)) {
+		data.summary = data.summary.map((row) => {
+			if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+			const item = { ...(row as Record<string, unknown>) };
+			if (typeof item.branch === 'string') {
+				item.branch = normalizeComparativeBranchKey(item.branch);
+			}
+			return item;
+		});
+	}
+
+	if (data.highlights && Array.isArray(data.highlights)) {
+		data.highlights = data.highlights.map((row) => {
+			if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+			const item = { ...(row as Record<string, unknown>) };
+			if (typeof item.branch === 'string') {
+				item.branch = normalizeComparativeBranchKey(item.branch);
+			}
+			return item;
+		});
+	}
+
+	if (data.monthly && typeof data.monthly === 'object' && !Array.isArray(data.monthly)) {
+		const monthly = data.monthly as Record<string, unknown>;
+		for (const [mode, modeValue] of Object.entries(monthly)) {
+			if (!modeValue || typeof modeValue !== 'object' || Array.isArray(modeValue)) continue;
+			const modeRows = modeValue as Record<string, unknown>;
+			const normalizedRows: Record<string, unknown> = {};
+			for (const [branchKey, rows] of Object.entries(modeRows)) {
+				normalizedRows[normalizeComparativeBranchKey(branchKey)] = rows;
+			}
+			monthly[mode] = normalizedRows;
+		}
+	}
+
+	return data;
+}
+
 function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 	try {
 		if (!fileExists(COMPARATIVE_PROFILE_SETS_FILE)) {
@@ -2693,11 +2774,11 @@ app.get('/platform/comparative-reports/:id', (req: Request, res: Response): void
 	}
 
 	try {
-		const data = readComparativeReportData(report);
+		const data = normalizeComparativeReportData(readComparativeReportData(report));
 		res.json({
 			report: {
 				id: report.id,
-				title: report.title,
+				title: normalizeReportTitle(report.title),
 				description: report.description,
 				generatedAt: report.generatedAt,
 				windowStart: report.windowStart,
@@ -3274,6 +3355,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 	try {
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
+		const startDate = String(req.body?.startDate || req.body?.start_date || '2021-01-01').trim();
 		const scenarioInput = String(req.body?.scenario || req.body?.riskProfile || 'B');
 		const riskProfile = mapScenarioOrRiskToRiskProfile(scenarioInput);
 		const scenario = mapRiskProfileToScenarioKey(riskProfile);
@@ -3309,6 +3391,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--h1', dataFiles.h1,
 			'--h4', dataFiles.h4,
 			'--scenario', scenario,
+			'--start-date', startDate,
 			'--capital', String(capital),
 			'--spread-bps', String(spreadBps),
 			'--slippage-bps', String(slippageBps),
