@@ -1180,9 +1180,12 @@ function buildValidationCurveDataFromTradeFiles(symbol: string, capital: number,
 		const preferredCandidates: string[] = [];
 		const scenarioToken = `${tradeVersion.toUpperCase()}${summary.scenarioKey}`;
 		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioToken}.csv`));
+		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${symbolToken}_${scenarioToken}.csv`));
 		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioTag}.csv`));
+		preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${symbolToken}_${scenarioTag}.csv`));
 		if (scenarioTagP2Compat !== scenarioTag) {
 			preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${scenarioTagP2Compat}.csv`));
+			preferredCandidates.push(path.join(workingDir, `phantom_${tradeVersion}_trades_${symbolToken}_${scenarioTagP2Compat}.csv`));
 		}
 		preferredCandidates.push(path.join(workingDir, `${symbolToken}_${tradeVersion}_trades_${scenarioToken}.csv`));
 		preferredCandidates.push(path.join(workingDir, `${symbolToken}_${tradeVersion}_trades_${scenarioTag}.csv`));

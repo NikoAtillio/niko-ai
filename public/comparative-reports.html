@@ -475,7 +475,7 @@
         <label for="pageSelect">Navigate</label>
         <select id="pageSelect" onchange="window.location.assign(this.value)">
           <option value="strategy-lab.html">Strategy Lab</option>
-          <option value="phantom-comparison.html">Strategy Tests</option>
+          <option value="strategy-test.html">Strategy Tests</option>
           <option value="comparative-reports.html" selected>Comparative Reports</option>
           <option value="profile.html">My Profile</option>
           <option value="data.html">Data</option>
@@ -485,7 +485,7 @@
 
     <nav class="quick-menu" aria-label="Workspace sections">
       <a href="strategy-lab.html">Strategy Lab</a>
-      <a href="phantom-comparison.html">Strategy Tests</a>
+      <a href="strategy-test.html">Strategy Tests</a>
       <a href="comparative-reports.html" class="active">Comparative Reports</a>
       <a href="profile.html">My Profile</a>
       <a href="data.html">Data</a>
@@ -633,6 +633,124 @@
       if (lowered.includes('phantom p3')) return 'Phantom Median Strategy C';
       if (lowered.includes('branch competition')) return 'Phantom Variant Comparison';
       return value;
+    }
+
+    function monthTokenFromIso(isoText) {
+      const dt = new Date(String(isoText || ''));
+      if (Number.isNaN(dt.getTime())) {
+        const fallback = new Date();
+        return `${fallback.getUTCFullYear()}-${String(fallback.getUTCMonth() + 1).padStart(2, '0')}`;
+      }
+      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function toFiniteNumber(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function buildComparativePayloadFromRun(run) {
+      const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
+      const generatedAt = String(summary.generatedAt || run.createdAt || new Date().toISOString());
+      const month = monthTokenFromIso(generatedAt);
+      const mode = 'full';
+
+      const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
+      const strategyLabel = normalizeReportTitle(String(best.label || summary.periodKey || run.id || 'Live Validation Snapshot'));
+      const startCapital = toFiniteNumber(summary.startCapital, 5000);
+      const finalCapital = toFiniteNumber(best.compounded ?? best.finalCapital, startCapital);
+      const netPnl = finalCapital - startCapital;
+      const returnPct = toFiniteNumber(best.avgRet ?? best.netReturnPct, startCapital ? ((netPnl / startCapital) * 100) : 0);
+      const maxDdPct = toFiniteNumber(best.worstDD ?? best.maxDrawdownPct, 0);
+      const maxDdAmt = Math.abs(toFiniteNumber(best.ddPrice, (Math.abs(maxDdPct) / 100) * startCapital));
+      const branchKey = 'variant_b';
+
+      return {
+        title: strategyLabel,
+        reportTitle: strategyLabel,
+        windows: [{
+          mode,
+          start_date: `${month}-01`,
+          end_date: `${month}-01`,
+          timescale_months: 1,
+        }],
+        summary: [{
+          branch: branchKey,
+          mode,
+          start_cap_gbp: startCapital,
+          final_equity_gbp: finalCapital,
+          net_pnl_gbp: netPnl,
+          net_return_pct: returnPct,
+          max_dd_amt_gbp: -maxDdAmt,
+          max_dd_pct: -Math.abs(maxDdPct),
+          months: 1,
+        }],
+        highlights: [{
+          branch: branchKey,
+          mode,
+          positive_month_ratio_pct: netPnl >= 0 ? 100 : 0,
+          best_month_pnl_gbp: netPnl,
+          worst_month_pnl_gbp: netPnl,
+          positive_months: netPnl > 0 ? 1 : 0,
+          negative_months: netPnl < 0 ? 1 : 0,
+          flat_months: netPnl === 0 ? 1 : 0,
+        }],
+        monthly: {
+          [mode]: {
+            [branchKey]: [{
+              month,
+              monthly_pnl_gbp: netPnl,
+              month_end_equity_gbp: finalCapital,
+              month_end_drawdown_amt_gbp: -maxDdAmt,
+              month_end_drawdown_pct: -Math.abs(maxDdPct),
+              worst_intramonth_dd_amt_gbp: -maxDdAmt,
+              worst_intramonth_dd_pct: -Math.abs(maxDdPct),
+            }],
+          },
+        },
+      };
+    }
+
+    function buildRunBasedReports(runs) {
+      const byStrategy = new Map();
+      for (const run of (Array.isArray(runs) ? runs : [])) {
+        const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
+        const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
+        const strategyLabel = normalizeReportTitle(String(best.label || summary.periodKey || '').trim());
+        if (!strategyLabel) continue;
+        const existing = byStrategy.get(strategyLabel);
+        if (!existing || Date.parse(run.createdAt || 0) > Date.parse(existing.createdAt || 0)) {
+          byStrategy.set(strategyLabel, run);
+        }
+      }
+
+      return Array.from(byStrategy.values()).map((run) => {
+        const summary = run.summary && typeof run.summary === 'object' ? run.summary : {};
+        const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
+        const strategyLabel = normalizeReportTitle(String(best.label || summary.periodKey || run.id));
+        const market = String(summary.market || '').trim();
+        const createdAt = String(run.createdAt || summary.generatedAt || '');
+        const id = `run-${run.id}`;
+        state.reportDataById[id] = {
+          report: {
+            id,
+            title: strategyLabel,
+            description: `Live validation snapshot${market ? ` for ${market}` : ''}`,
+            generatedAt: createdAt,
+          },
+          data: buildComparativePayloadFromRun(run),
+        };
+        return {
+          id,
+          title: strategyLabel,
+          description: `Live validation snapshot${market ? ` for ${market}` : ''}`,
+          generatedAt: createdAt,
+          windowStart: '',
+          windowEnd: '',
+          hasData: true,
+          source: 'runs',
+        };
+      });
     }
 
     function getBranchLabel(branchKey) {
@@ -1432,6 +1550,11 @@
         return state.reportDataById[reportId];
       }
 
+      const reportMeta = getReportById(reportId);
+      if (reportMeta && reportMeta.source === 'runs' && state.reportDataById[reportId]) {
+        return state.reportDataById[reportId];
+      }
+
       const res = await fetch(`/platform/comparative-reports/${encodeURIComponent(reportId)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `Failed: ${res.status}` }));
@@ -1467,10 +1590,11 @@
 
       strategyChecklist.innerHTML = state.availableReports.map((report) => {
         const suffix = report.hasData ? '' : ' (missing data)';
+        const sourceHint = report.source === 'runs' ? ' • live snapshot' : '';
         return `
           <label class="strategy-item">
             <input type="checkbox" data-report-id="${escapeHtml(report.id)}" ${report.hasData ? '' : 'disabled'} />
-            <span>${escapeHtml(normalizeReportTitle(report.title) + suffix)}</span>
+            <span>${escapeHtml(normalizeReportTitle(report.title) + sourceHint + suffix)}</span>
           </label>
         `;
       }).join('');
@@ -1499,14 +1623,27 @@
     }
 
     async function loadAvailableReports() {
-      const res = await fetch('/platform/comparative-reports');
-      if (!res.ok) {
-        throw new Error(`Failed to load comparative reports: ${res.status}`);
+      const [reportsRes, runsRes] = await Promise.all([
+        fetch('/platform/comparative-reports'),
+        fetch('/platform/runs').catch(() => null),
+      ]);
+
+      if (!reportsRes.ok) {
+        throw new Error(`Failed to load comparative reports: ${reportsRes.status}`);
       }
-      const data = await res.json();
-      state.availableReports = Array.isArray(data.reports)
-        ? data.reports.map((report) => ({ ...report, title: normalizeReportTitle(report.title) }))
+
+      const reportsData = await reportsRes.json();
+      const comparativeReports = Array.isArray(reportsData.reports)
+        ? reportsData.reports.map((report) => ({ ...report, title: normalizeReportTitle(report.title), source: 'comparative' }))
         : [];
+
+      let runBasedReports = [];
+      if (runsRes && runsRes.ok) {
+        const runsData = await runsRes.json().catch(() => ({ runs: [] }));
+        runBasedReports = buildRunBasedReports(Array.isArray(runsData.runs) ? runsData.runs : []);
+      }
+
+      state.availableReports = [...runBasedReports, ...comparativeReports];
       populateStrategyOptions();
 
       if (!state.availableReports.length) {
@@ -1568,6 +1705,14 @@
       const selectedIds = getSelectedStrategyIdsFromUi();
       if (!selectedIds.length) {
         throw new Error('Select at least one strategy before saving to profile.');
+      }
+
+      const includesRunSnapshots = selectedIds.some((reportId) => {
+        const report = getReportById(reportId);
+        return report && report.source === 'runs';
+      });
+      if (includesRunSnapshots) {
+        throw new Error('Live validation snapshots can be loaded for comparison, but cannot be saved to profile sets yet.');
       }
 
       const payload = {
