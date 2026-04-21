@@ -323,6 +323,48 @@
     .card .value { margin-top: 5px; font-size: 1.2rem; font-weight: 800; color: var(--brand); }
     .card .meta { margin-top: 4px; font-size: 0.82rem; color: var(--muted); }
 
+    .status-panel {
+      margin-top: 10px;
+      border: 1px solid #d6e0d8;
+      border-radius: 10px;
+      background: #f7fbf8;
+      padding: 10px;
+    }
+
+    .status-panel h3 {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #234336;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-panel p {
+      margin: 6px 0 0;
+      font-size: 0.8rem;
+      color: #556659;
+    }
+
+    .status-pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      display: inline-block;
+    }
+
+    .status-pill.ok {
+      background: rgba(31, 157, 93, 0.14);
+      color: #1f9d5d;
+      border: 1px solid rgba(31, 157, 93, 0.35);
+    }
+
+    .status-pill.missing {
+      background: rgba(209, 73, 91, 0.1);
+      color: #b23747;
+      border: 1px solid rgba(209, 73, 91, 0.3);
+    }
+
     .report-title {
       margin-top: 8px;
       font-size: 1.08rem;
@@ -557,6 +599,13 @@
       { id: 'comparison', label: 'Full Comparison' }
     ];
 
+    const CANONICAL_MEDIAN_MARKETS = [
+      { key: 'US100', title: 'Phantom US100 median', tokens: ['US100', 'NAS100', 'USTEC'] },
+      { key: 'XAUUSD', title: 'Phantom XAU median', tokens: ['XAU', 'XAUUSD', 'GOLD'] },
+      { key: 'BTCUSD', title: 'Phantom BTC median', tokens: ['BTC', 'BTCUSD'] },
+      { key: 'FX', title: 'Phantom FX median', tokens: ['FX_MEDIAN', 'PHANTOM_FX_MEDIAN'] },
+    ];
+
     const state = {
       availableReports: [],
       savedSets: [],
@@ -568,7 +617,8 @@
       activeTab: 'overview',
       windowStart: '',
       windowEnd: '',
-      branchLabels: {}
+      branchLabels: {},
+      instrumentMedianStatus: []
     };
 
     const modeSelect = document.getElementById('modeSelect');
@@ -649,6 +699,24 @@
       return Number.isFinite(n) ? n : fallback;
     }
 
+    function inferCanonicalMedianDefinition(run) {
+      const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
+      const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
+      const market = String(summary.market || '').trim();
+      const label = String(best.label || '').trim();
+      const periodKey = String(summary.periodKey || '').trim();
+      const haystack = `${market} ${label} ${periodKey}`.toUpperCase();
+      if (!haystack.includes('MEDIAN')) {
+        return null;
+      }
+      for (const definition of CANONICAL_MEDIAN_MARKETS) {
+        if (definition.tokens.some((token) => haystack.includes(token))) {
+          return definition;
+        }
+      }
+      return null;
+    }
+
     function buildComparativePayloadFromRun(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
       const generatedAt = String(summary.generatedAt || run.createdAt || new Date().toISOString());
@@ -712,29 +780,41 @@
     }
 
     function buildRunBasedReports(runs) {
-      const byStrategy = new Map();
+      const byCanonical = new Map();
+
       for (const run of (Array.isArray(runs) ? runs : [])) {
-        const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
-        const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
-        const strategyLabel = normalizeReportTitle(String(best.label || summary.periodKey || '').trim());
-        if (!strategyLabel) continue;
-        const existing = byStrategy.get(strategyLabel);
+        const canonical = inferCanonicalMedianDefinition(run);
+        if (!canonical) continue;
+        const existing = byCanonical.get(canonical.key);
         if (!existing || Date.parse(run.createdAt || 0) > Date.parse(existing.createdAt || 0)) {
-          byStrategy.set(strategyLabel, run);
+          byCanonical.set(canonical.key, run);
         }
       }
 
-      return Array.from(byStrategy.values()).map((run) => {
+      return CANONICAL_MEDIAN_MARKETS.map((definition) => {
+        const run = byCanonical.get(definition.key);
+        if (!run) {
+          return {
+            id: `run-missing-${definition.key.toLowerCase()}`,
+            title: definition.title,
+            description: 'No live median snapshot found yet',
+            generatedAt: '',
+            windowStart: '',
+            windowEnd: '',
+            hasData: false,
+            source: 'runs',
+            isCanonicalMedian: true,
+          };
+        }
+
         const summary = run.summary && typeof run.summary === 'object' ? run.summary : {};
-        const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
-        const strategyLabel = normalizeReportTitle(String(best.label || summary.periodKey || run.id));
         const market = String(summary.market || '').trim();
         const createdAt = String(run.createdAt || summary.generatedAt || '');
         const id = `run-${run.id}`;
         state.reportDataById[id] = {
           report: {
             id,
-            title: strategyLabel,
+            title: definition.title,
             description: `Live validation snapshot${market ? ` for ${market}` : ''}`,
             generatedAt: createdAt,
           },
@@ -742,15 +822,137 @@
         };
         return {
           id,
-          title: strategyLabel,
+          title: definition.title,
           description: `Live validation snapshot${market ? ` for ${market}` : ''}`,
           generatedAt: createdAt,
           windowStart: '',
           windowEnd: '',
           hasData: true,
           source: 'runs',
+          isCanonicalMedian: true,
         };
       });
+    }
+
+    function buildInstrumentMedianStatus(runs) {
+      const byCanonical = new Map();
+      const latestSeenByInstrument = new Map();
+      for (const run of (Array.isArray(runs) ? runs : [])) {
+        const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
+        const market = String(summary.market || '').toUpperCase();
+        for (const definition of CANONICAL_MEDIAN_MARKETS) {
+          if (definition.key === 'FX') continue;
+          const marketMatch = definition.tokens.some((token) => market.includes(token));
+          if (!marketMatch) continue;
+          const existingSeen = latestSeenByInstrument.get(definition.key);
+          if (!existingSeen || Date.parse(run.createdAt || 0) > Date.parse(existingSeen.createdAt || 0)) {
+            latestSeenByInstrument.set(definition.key, run);
+          }
+        }
+
+        const canonical = inferCanonicalMedianDefinition(run);
+        if (!canonical) continue;
+        const existing = byCanonical.get(canonical.key);
+        if (!existing || Date.parse(run.createdAt || 0) > Date.parse(existing.createdAt || 0)) {
+          byCanonical.set(canonical.key, run);
+        }
+      }
+
+      state.instrumentMedianStatus = CANONICAL_MEDIAN_MARKETS.map((definition) => {
+        const run = byCanonical.get(definition.key);
+        const latestSeen = latestSeenByInstrument.get(definition.key);
+        if (!run) {
+          const seenSummary = latestSeen && latestSeen.summary && typeof latestSeen.summary === 'object' ? latestSeen.summary : {};
+          return {
+            key: definition.key,
+            title: definition.title,
+            available: false,
+            runId: String((latestSeen && latestSeen.id) || ''),
+            createdAt: String((latestSeen && latestSeen.createdAt) || (seenSummary.generatedAt || '')),
+            avgRet: null,
+            avgPf: null,
+            maxDd: null,
+          };
+        }
+
+        const summary = run.summary && typeof run.summary === 'object' ? run.summary : {};
+        const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
+        const avgRet = Number(best.avgRet);
+        const avgPf = Number(best.avgPf);
+        const maxDdRaw = Number.isFinite(Number(best.worstDD)) ? Number(best.worstDD) : Number(best.maxDrawdownPct);
+
+        return {
+          key: definition.key,
+          title: definition.title,
+          available: true,
+          runId: String(run.id || ''),
+          createdAt: String(run.createdAt || summary.generatedAt || ''),
+          avgRet: Number.isFinite(avgRet) ? avgRet : null,
+          avgPf: Number.isFinite(avgPf) ? avgPf : null,
+          maxDd: Number.isFinite(maxDdRaw) ? maxDdRaw : null,
+        };
+      });
+    }
+
+    function renderInstrumentStatusPanel() {
+      const rows = state.instrumentMedianStatus.length
+        ? state.instrumentMedianStatus
+        : CANONICAL_MEDIAN_MARKETS.map((definition) => ({
+            key: definition.key,
+            title: definition.title,
+            available: false,
+            runId: '',
+            createdAt: '',
+            avgRet: null,
+            avgPf: null,
+            maxDd: null,
+          }));
+
+      const body = rows.map((item) => {
+        const statusClass = item.available ? 'ok' : 'missing';
+        const statusText = item.available ? 'Available' : 'Missing';
+        const ts = item.createdAt
+          ? new Date(item.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+          : '-';
+        const retText = Number.isFinite(Number(item.avgRet)) ? fmtPct(item.avgRet) : '-';
+        const pfText = Number.isFinite(Number(item.avgPf)) ? Number(item.avgPf).toFixed(3) : '-';
+        const ddText = Number.isFinite(Number(item.maxDd)) ? `${Number(item.maxDd).toFixed(2)}%` : '-';
+        const runIdText = item.runId || '-';
+        return `
+          <tr>
+            <td>${escapeHtml(item.title)}</td>
+            <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+            <td>${escapeHtml(runIdText)}</td>
+            <td>${escapeHtml(ts)}</td>
+            <td class="num ${Number(item.avgRet) >= 0 ? 'good' : 'bad'}">${escapeHtml(retText)}</td>
+            <td class="num">${escapeHtml(pfText)}</td>
+            <td class="num ${Number(item.maxDd) < 0 ? 'bad' : ''}">${escapeHtml(ddText)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="status-panel">
+          <h3>Instrument Median Status</h3>
+          <p>Tracks current availability, latest run id/timestamp, and side-by-side metrics. US100 and XAU populate automatically once new median runs are generated.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Instrument Strategy</th>
+                  <th>Status</th>
+                  <th>Latest Run Id</th>
+                  <th>Latest Timestamp</th>
+                  <th class="num">Return</th>
+                  <th class="num">PF</th>
+                  <th class="num">Max DD %</th>
+                </tr>
+              </thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
     }
 
     function getBranchLabel(branchKey) {
@@ -808,12 +1010,83 @@
 
     function getSummaryRows() {
       const rows = (state.reportData && state.reportData.summary) || [];
-      return rows.filter((r) => r.mode === state.selectedMode);
+      const mode = getResolvedMode();
+      const modeRows = rows.filter((r) => r.mode === mode);
+      if (modeRows.length) return modeRows;
+      return rows;
     }
 
     function getHighlightRows() {
       const rows = (state.reportData && state.reportData.highlights) || [];
-      return rows.filter((r) => r.mode === state.selectedMode);
+      const mode = getResolvedMode();
+      const modeRows = rows.filter((r) => r.mode === mode);
+      if (modeRows.length) return modeRows;
+      return rows;
+    }
+
+    function getModeStats() {
+      const reportData = state.reportData || {};
+      const modeStats = new Map();
+
+      const ensureMode = (mode) => {
+        const key = String(mode || '').trim();
+        if (!key) return null;
+        if (!modeStats.has(key)) {
+          modeStats.set(key, { mode: key, monthlyPoints: 0, summaryRows: 0, highlightRows: 0 });
+        }
+        return modeStats.get(key);
+      };
+
+      (Array.isArray(reportData.windows) ? reportData.windows : []).forEach((windowRow) => {
+        ensureMode(windowRow.mode);
+      });
+
+      (Array.isArray(reportData.summary) ? reportData.summary : []).forEach((row) => {
+        const stat = ensureMode(row.mode);
+        if (stat) stat.summaryRows += 1;
+      });
+
+      (Array.isArray(reportData.highlights) ? reportData.highlights : []).forEach((row) => {
+        const stat = ensureMode(row.mode);
+        if (stat) stat.highlightRows += 1;
+      });
+
+      const monthly = reportData.monthly && typeof reportData.monthly === 'object' ? reportData.monthly : {};
+      Object.entries(monthly).forEach(([mode, modeRows]) => {
+        const stat = ensureMode(mode);
+        if (!stat || !modeRows || typeof modeRows !== 'object') return;
+        const points = Object.values(modeRows).reduce((acc, rows) => acc + (Array.isArray(rows) ? rows.length : 0), 0);
+        stat.monthlyPoints += points;
+      });
+
+      return Array.from(modeStats.values());
+    }
+
+    function getResolvedMode() {
+      const modeStats = getModeStats();
+      if (!modeStats.length) {
+        state.selectedMode = 'full';
+        return state.selectedMode;
+      }
+
+      const hasData = (stat) => stat.monthlyPoints > 0 || stat.summaryRows > 0 || stat.highlightRows > 0;
+      const selected = modeStats.find((stat) => stat.mode === state.selectedMode);
+      if (selected && hasData(selected)) {
+        return state.selectedMode;
+      }
+
+      const withMonthly = modeStats.find((stat) => stat.monthlyPoints > 0);
+      const withSummary = modeStats.find((stat) => stat.summaryRows > 0);
+      const fallbackMode = (withMonthly && withMonthly.mode)
+        || (withSummary && withSummary.mode)
+        || modeStats[0].mode
+        || 'full';
+
+      state.selectedMode = fallbackMode;
+      if (modeSelect) {
+        modeSelect.value = fallbackMode;
+      }
+      return fallbackMode;
     }
 
     function buildTabs() {
@@ -913,7 +1186,8 @@
     }
 
     function renderGrowth() {
-      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const mode = getResolvedMode();
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[mode]) || {};
       const branches = Object.keys(modeMonthly);
       if (!branches.length) {
         view.innerHTML = '<div class="empty">No monthly series found to render growth curves.</div>';
@@ -1113,7 +1387,8 @@
     }
 
     function renderMonthly() {
-      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const mode = getResolvedMode();
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[mode]) || {};
       const branches = Object.keys(modeMonthly);
       if (!branches.length) {
         view.innerHTML = '<div class="empty">No monthly rows available for this mode.</div>';
@@ -1169,7 +1444,8 @@
     }
 
     function renderDrawdown() {
-      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[state.selectedMode]) || {};
+      const mode = getResolvedMode();
+      const modeMonthly = (state.reportData && state.reportData.monthly && state.reportData.monthly[mode]) || {};
       const branches = Object.keys(modeMonthly);
       if (!branches.length) {
         view.innerHTML = '<div class="empty">No drawdown rows available for this mode.</div>';
@@ -1231,7 +1507,7 @@
       const summary = getSummaryRows();
       const highlights = getHighlightRows();
       if (!summary.length) {
-        view.innerHTML = '<div class="empty">No comparison rows found for this mode.</div>';
+        view.innerHTML = `${renderInstrumentStatusPanel()}<div class="empty">No comparison rows found for this mode.</div>`;
         return;
       }
 
@@ -1255,6 +1531,7 @@
       }).join('');
 
       view.innerHTML = `
+        ${renderInstrumentStatusPanel()}
         <div class="table-wrap">
           <table>
             <thead>
@@ -1280,6 +1557,7 @@
 
     function renderView() {
       clearAlerts();
+      getResolvedMode();
       renderReportHeader();
 
       if (!state.reportData) {
@@ -1308,17 +1586,18 @@
     }
 
     function refreshModeOptions() {
-      const windows = Array.isArray(state.reportData && state.reportData.windows) ? state.reportData.windows : [];
-      const modes = windows.map((entry) => String(entry.mode || '').trim()).filter(Boolean);
-      const uniqueModes = Array.from(new Set(modes.length ? modes : ['full']));
-      if (!uniqueModes.includes(state.selectedMode)) {
-        state.selectedMode = uniqueModes[0] || 'full';
-      }
+      const modeStats = getModeStats();
+      const uniqueModes = modeStats.length
+        ? modeStats.map((item) => item.mode)
+        : ['full'];
+      const resolvedMode = getResolvedMode();
 
       modeSelect.innerHTML = uniqueModes.map((mode) => {
         const selected = mode === state.selectedMode ? 'selected' : '';
         return `<option value="${mode}" ${selected}>${escapeHtml(String(mode).toUpperCase())}</option>`;
       }).join('');
+
+      modeSelect.value = resolvedMode;
     }
 
     function applyWindowFilterRows(rows, startDate, endDate) {
@@ -1634,13 +1913,22 @@
 
       const reportsData = await reportsRes.json();
       const comparativeReports = Array.isArray(reportsData.reports)
-        ? reportsData.reports.map((report) => ({ ...report, title: normalizeReportTitle(report.title), source: 'comparative' }))
+        ? reportsData.reports.map((report) => ({
+            ...report,
+            title: normalizeReportTitle(report.title),
+            source: 'comparative',
+            hasData: true,
+          }))
         : [];
 
       let runBasedReports = [];
       if (runsRes && runsRes.ok) {
         const runsData = await runsRes.json().catch(() => ({ runs: [] }));
-        runBasedReports = buildRunBasedReports(Array.isArray(runsData.runs) ? runsData.runs : []);
+        const runs = Array.isArray(runsData.runs) ? runsData.runs : [];
+        buildInstrumentMedianStatus(runs);
+        runBasedReports = buildRunBasedReports(runs);
+      } else {
+        buildInstrumentMedianStatus([]);
       }
 
       state.availableReports = [...runBasedReports, ...comparativeReports];
@@ -1660,11 +1948,31 @@
       state.savedSets = Array.isArray(data.sets) ? data.sets : [];
 
       if (!state.savedSets.length && state.availableReports.length) {
-        const preferredReport = state.availableReports.find((report) => report.hasData) || state.availableReports[0];
+        const strategyCReport = state.availableReports.find((report) => report.id === 'phantom-p3-strategy-2021-gbp10k')
+          || state.availableReports.find((report) => report.source === 'comparative' && normalizeReportTitle(report.title) === 'Phantom Median Strategy C');
+
+        const defaultMedianRuns = state.availableReports
+          .filter((report) => report.source === 'runs' && report.hasData && report.isCanonicalMedian)
+          .map((report) => report.id);
+
+        const defaultRunAndStrategy = defaultMedianRuns.slice();
+        if (strategyCReport && strategyCReport.hasData && !defaultRunAndStrategy.includes(strategyCReport.id)) {
+          defaultRunAndStrategy.push(strategyCReport.id);
+        }
+
+        const defaultStaticReports = state.availableReports
+          .filter((report) => report.source === 'comparative' && report.hasData)
+          .map((report) => report.id);
+
+        const defaultIds = defaultRunAndStrategy.length
+          ? defaultRunAndStrategy
+          : (defaultStaticReports.length
+            ? defaultStaticReports
+            : [(state.availableReports.find((report) => report.hasData) || state.availableReports[0]).id]);
         state.savedSets = [{
           id: 'default-live-selection',
-          name: getCurrentSetName([preferredReport.id]),
-          reportIds: [preferredReport.id],
+          name: getCurrentSetName(defaultIds),
+          reportIds: defaultIds,
           windowStart: '',
           windowEnd: ''
         }];
