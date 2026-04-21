@@ -1,5 +1,126 @@
 [
   {
+    "id": "strategy_1776683868935_t5d560tw",
+    "createdAt": "2026-04-20T11:17:48.935Z",
+    "updatedAt": "2026-04-20T11:17:48.935Z",
+    "status": "confirmed",
+    "theoryText": "Support and resistance breakout retest on H1 with ATR stop and 2R target in London session.",
+    "recognition": {
+      "name": "Structured Rule Strategy",
+      "strategyType": "Support / Resistance Breakout",
+      "confidence": 0.9400000000000002,
+      "confidenceBand": "high",
+      "market": "US100",
+      "primaryTimeframe": "H1",
+      "tradeHorizonTimeframe": "H1",
+      "timeframes": [
+        "H1"
+      ],
+      "sessions": [
+        "London"
+      ],
+      "indicators": [
+        "ATR"
+      ],
+      "entryStyle": "Break and retest",
+      "stopStyle": "ATR based",
+      "targetStyle": "R multiple target",
+      "bias": "both",
+      "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints.",
+      "rules": {
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "confirmation": "Break and retest",
+        "riskPerTradePct": 0.4,
+        "entryBias": "trade momentum continuation",
+        "invalidation": "close beyond zone boundary",
+        "positionSizing": "fixed risk per trade",
+        "rrTarget": 2,
+        "templateName": "Structured Rule Strategy",
+        "parserVersion": "v2",
+        "matchedTerms": {
+          "strategyType": "Support / Resistance Breakout",
+          "entryStyle": "Break and retest",
+          "stopStyle": "ATR based",
+          "targetStyle": "R multiple target",
+          "sessions": [
+            "London"
+          ],
+          "indicators": [
+            "ATR"
+          ]
+        }
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    },
+    "strategyConfig": {
+      "schemaVersion": "1.0",
+      "emittedAt": "2026-04-20T11:17:48.935Z",
+      "name": "Structured Rule Strategy",
+      "market": "US100",
+      "execution": {
+        "entryTimeframe": "H1",
+        "primaryTimeframe": "H1",
+        "tradeHorizonTimeframe": "H1",
+        "engineInterval": "1h",
+        "timeframes": [
+          "H1"
+        ],
+        "bias": "both",
+        "sessions": [
+          "London"
+        ]
+      },
+      "risk": {
+        "riskPerTradePct": 0.4,
+        "zoneWidthPct": 0.15,
+        "minTouches": 3,
+        "rrTarget": 2
+      },
+      "entry": {
+        "style": "Break and retest",
+        "confirmation": "Break and retest",
+        "invalidation": "close beyond zone boundary"
+      },
+      "exit": {
+        "targetStyle": "R multiple target",
+        "objective": "Aim for approximately 2.00R per trade while respecting drawdown and stability constraints."
+      },
+      "indicators": [
+        "ATR"
+      ],
+      "metadata": {
+        "strategyType": "Support / Resistance Breakout",
+        "confidence": 0.9400000000000002,
+        "confidenceBand": "high",
+        "parserVersion": "v2",
+        "templateName": "Structured Rule Strategy",
+        "dataFile": ""
+      },
+      "notes": [
+        "Converted from plain-language theory into deterministic rule blocks.",
+        "Detected archetype: Support / Resistance Breakout.",
+        "Entry style: Break and retest.",
+        "Stop model: ATR based.",
+        "Target model: R multiple target.",
+        "Directional bias: both.",
+        "Trading sessions: London.",
+        "Indicators referenced: ATR.",
+        "Structural logic suggests a breakout variant."
+      ]
+    }
+  },
+  {
     "id": "strategy_1776586870214_hcqx6ep4",
     "createdAt": "2026-04-19T08:21:10.214Z",
     "updatedAt": "2026-04-19T08:21:10.214Z",

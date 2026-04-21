@@ -351,6 +351,7 @@
         <select id="pageSelect">
           <option value="strategy-lab.html">Strategy Lab</option>
           <option value="strategy-test.html">Strategy Tests</option>
+          <option value="comparative-reports.html">Comparative Reports</option>
           <option value="profile.html" selected>My Profile</option>
           <option value="data.html">Data</option>
         </select>
@@ -360,16 +361,17 @@
     <nav class="quick-menu" aria-label="Workspace sections">
       <a href="strategy-lab.html">Strategy Lab</a>
       <a href="strategy-test.html">Strategy Tests</a>
+      <a href="comparative-reports.html">Comparative Reports</a>
       <a href="profile.html" class="active">My Profile</a>
       <a href="data.html">Data</a>
     </nav>
 
     <section class="hero">
       <h1>My Profile</h1>
-      <p>Browse saved strategy runs, inspect imported data and artifacts, and export run history as CSV or JSON.</p>
+      <p>Browse saved strategy runs, inspect imported data and artifacts, and export run history as CSV or PDF.</p>
       <div class="toolbar">
         <a class="btn" href="/platform/admin/export/runs.csv">Download Runs CSV</a>
-        <a class="btn" href="/platform/admin/export/runs.json">Download Runs JSON</a>
+        <a class="btn" href="/platform/admin/export/runs.pdf">Download Runs PDF</a>
         <a class="btn secondary" href="strategy-test.html">Open Comparison Dashboard</a>
         <button class="btn secondary" id="refreshBtn" type="button">Refresh</button>
       </div>
@@ -497,52 +499,112 @@
     }
 
     function renderSummaryCards(data) {
+      const toNumber = (value, fallback = 0) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+      };
+
+      const toRunView = (run) => {
+        const summary = (run && run.summary && typeof run.summary === 'object') ? run.summary : {};
+        const best = (summary.best && typeof summary.best === 'object') ? summary.best : {};
+        const strategy = summary.strategy || summary.strategyName || best.label || summary.periodKey || 'Untitled';
+        const startCapital = toNumber(summary.startCapital, 0);
+        const finalCapital = toNumber(best.compounded ?? best.finalCapital, startCapital);
+        const netPnl = finalCapital - startCapital;
+        const ret = toNumber(summary.return ?? best.avgRet ?? summary.avgReturnPct, startCapital > 0 ? ((netPnl / startCapital) * 100) : 0);
+        const pf = toNumber(summary.profitFactor ?? best.avgPf, 1);
+
+        return {
+          strategy,
+          returnPct: ret,
+          pf,
+          market: summary.market || 'N/A',
+          engine: summary.engine || summary.source || 'N/A',
+          scenario: summary.scenario || summary.riskProfile || summary.periodKey || 'N/A',
+          tradeCount: Number(summary.tradeCount ?? best.trades ?? 0) || 0,
+        };
+      };
+
       const summaries = (data.runs || []).slice(0, 4).map(r => ({
-        title: r.summary?.strategy || 'Untitled',
-        return: r.summary?.return || '0',
-        pf: r.summary?.profitFactor || '1.0',
+        title: toRunView(r).strategy,
+        return: toRunView(r).returnPct,
+        pf: toRunView(r).pf,
         date: new Date(r.createdAt).toLocaleDateString(),
       }));
 
       summaryGrid.innerHTML = summaries.map(s => `
         <div class="card">
           <h3>${escapeHtml(s.title)}</h3>
-          <div class="meta">Return: ${s.return}% | PF: ${s.pf}</div>
+          <div class="meta">Return: ${Number(s.return || 0).toFixed(2)}% | PF: ${Number(s.pf || 1).toFixed(2)}</div>
           <div class="meta">${s.date}</div>
         </div>
       `).join('');
     }
 
     function updateMarketFilterOptions(runs) {
-      const markets = new Set(runs.map(r => r.summary?.market).filter(Boolean));
+      const markets = new Set(runs.map(r => {
+        const summary = (r && r.summary && typeof r.summary === 'object') ? r.summary : {};
+        return summary.market;
+      }).filter(Boolean));
       const options = Array.from(markets).map(m => `<option value="${m}">${m}</option>`).join('');
       marketFilter.innerHTML = '<option value="ALL">All Markets</option>' + options;
     }
 
     function applyFilters() {
+      const toNumber = (value, fallback = 0) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+      };
+
+      const toRunView = (run) => {
+        const summary = (run && run.summary && typeof run.summary === 'object') ? run.summary : {};
+        const best = (summary.best && typeof summary.best === 'object') ? summary.best : {};
+        const strategy = summary.strategy || summary.strategyName || best.label || summary.periodKey || 'Untitled';
+        const startCapital = toNumber(summary.startCapital, 0);
+        const finalCapital = toNumber(best.compounded ?? best.finalCapital, startCapital);
+        const netPnl = finalCapital - startCapital;
+        const returnPct = toNumber(summary.return ?? best.avgRet ?? summary.avgReturnPct, startCapital > 0 ? ((netPnl / startCapital) * 100) : 0);
+        const profitFactor = toNumber(summary.profitFactor ?? best.avgPf, 1);
+        const tradeCount = Number(summary.tradeCount ?? best.trades ?? 0) || 0;
+        return {
+          strategy,
+          market: summary.market || 'N/A',
+          engine: summary.engine || summary.source || 'N/A',
+          scenario: summary.scenario || summary.riskProfile || summary.periodKey || 'N/A',
+          returnPct,
+          profitFactor,
+          tradeCount,
+        };
+      };
+
+      const fromDate = fromDateFilter.value ? new Date(`${fromDateFilter.value}T00:00:00`) : null;
+      const toDate = toDateFilter.value ? new Date(`${toDateFilter.value}T23:59:59.999`) : null;
+
       const filtered = allRuns.filter(r => {
-        const summary = r.summary || {};
-        if (marketFilter.value !== 'ALL' && summary.market !== marketFilter.value) return false;
-        if (strategyFilter.value && !summary.strategy?.toLowerCase().includes(strategyFilter.value.toLowerCase())) return false;
-        if (fromDateFilter.value && new Date(r.createdAt) < new Date(fromDateFilter.value)) return false;
-        if (toDateFilter.value && new Date(r.createdAt) > new Date(toDateFilter.value)) return false;
-        if (minReturnFilter.value && (summary.return || 0) < parseFloat(minReturnFilter.value)) return false;
+        const runView = toRunView(r);
+        if (marketFilter.value !== 'ALL' && runView.market !== marketFilter.value) return false;
+        if (strategyFilter.value && !String(runView.strategy || '').toLowerCase().includes(strategyFilter.value.toLowerCase())) return false;
+        if (fromDate && new Date(r.createdAt) < fromDate) return false;
+        if (toDate && new Date(r.createdAt) > toDate) return false;
+        if (minReturnFilter.value && runView.returnPct < parseFloat(minReturnFilter.value)) return false;
         return true;
       });
 
       filterMeta.textContent = `Showing ${filtered.length} of ${allRuns.length} runs`;
       runsBody.innerHTML = filtered.map(r => {
-        const s = r.summary || {};
+        const s = toRunView(r);
+        const runExportHref = `/platform/runs/${encodeURIComponent(r.id)}/pdf`;
+        const runExportName = `${String(r.id || 'run').replace(/[^a-zA-Z0-9._-]+/g, '_')}.pdf`;
         return `<tr>
           <td>${new Date(r.createdAt).toLocaleDateString()}</td>
           <td><span class="pill">${s.market || 'N/A'}</span></td>
           <td>${escapeHtml(s.strategy || 'Untitled')}</td>
           <td><span class="pill">${s.engine || 'N/A'}</span></td>
           <td><span class="pill">${s.scenario || 'N/A'}</span></td>
-          <td>${(s.return || 0).toFixed(2)}%</td>
+          <td>${(s.returnPct || 0).toFixed(2)}%</td>
           <td>${(s.profitFactor || 1).toFixed(2)}</td>
           <td>${s.tradeCount || 0}</td>
-          <td><a href="#" onclick="alert('Export coming soon')">↓</a></td>
+          <td><a href="${escapeHtml(runExportHref)}" download="${escapeHtml(runExportName)}">↓</a></td>
         </tr>`;
       }).join('');
     }
@@ -565,8 +627,8 @@
         <td>${r.timeframe || 'N/A'}</td>
         <td>${r.status || 'completed'}</td>
         <td>${r.testResult || 'pending'}</td>
-        <td><a href="#">view</a></td>
-        <td><a href="#">export</a></td>
+        <td><a href="/platform/runs/${encodeURIComponent(r.id || '')}" target="_blank" rel="noreferrer">view</a></td>
+        <td><a href="/platform/runs/${encodeURIComponent(r.id || '')}/pdf" download="${escapeHtml(String(r.id || 'lab-run').replace(/[^a-zA-Z0-9._-]+/g, '_'))}.pdf">export</a></td>
       </tr>`).join('');
     }
 

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import PDFDocument from 'pdfkit';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { ChartAIAnalyzer } from './services/ChartAIAnalyzer';
 
@@ -1877,6 +1878,130 @@ function flattenRunSummary(run: StrategyRunRecord): Record<string, unknown> {
 	};
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getRunPresentationData(run: StrategyRunRecord): {
+	title: string;
+	market: string;
+	scenario: string;
+	periodKey: string;
+	createdAt: string;
+	startCapital: number;
+	finalCapital: number;
+	returnPct: number;
+	profitFactor: number;
+	winRatePct: number;
+	maxDrawdownPct: number;
+	tradeCount: number;
+	note: string;
+} {
+	const summary = (run.summary && typeof run.summary === 'object') ? run.summary as Record<string, unknown> : {};
+	const best = (summary.best && typeof summary.best === 'object') ? summary.best as Record<string, unknown> : {};
+	const title = String(
+		summary.strategy
+			|| summary.strategyName
+			|| best.label
+			|| summary.periodKey
+			|| 'Untitled',
+	).trim();
+	const market = String(summary.market || 'N/A').trim() || 'N/A';
+	const scenario = String(summary.scenario || summary.riskProfile || 'N/A').trim() || 'N/A';
+	const periodKey = String(summary.periodKey || '').trim();
+	const startCapital = toFiniteNumber(summary.startCapital, 0);
+	const finalCapital = toFiniteNumber(best.compounded ?? best.finalCapital, startCapital);
+	const netPnl = finalCapital - startCapital;
+	const returnPct = toFiniteNumber(
+		summary.return ?? best.avgRet ?? summary.avgReturnPct,
+		startCapital > 0 ? (netPnl / startCapital) * 100 : 0,
+	);
+	const profitFactor = toFiniteNumber(summary.profitFactor ?? best.avgPf, 1);
+	const winRatePct = toFiniteNumber(summary.winRate ?? best.avgWin, 0);
+	const maxDrawdownPct = toFiniteNumber(summary.maxDrawdownPct ?? best.worstDD, 0);
+	const tradeCount = parsePositiveInt(summary.tradeCount ?? best.trades, 0);
+	const note = String(summary.note || '').trim();
+
+	return {
+		title,
+		market,
+		scenario,
+		periodKey,
+		createdAt: run.createdAt,
+		startCapital,
+		finalCapital,
+		returnPct,
+		profitFactor,
+		winRatePct,
+		maxDrawdownPct,
+		tradeCount,
+		note,
+	};
+}
+
+function writeRunPdf(doc: PDFKit.PDFDocument, run: StrategyRunRecord): void {
+	const data = getRunPresentationData(run);
+	const netPnl = data.finalCapital - data.startCapital;
+	const generatedAt = new Date().toISOString();
+
+	doc.fontSize(20).text('Strategy Run Report', { align: 'left' });
+	doc.moveDown(0.2);
+	doc.fontSize(11).fillColor('#4b5563').text(`Run ID: ${run.id}`);
+	doc.text(`Generated: ${generatedAt}`);
+	doc.text(`Created: ${data.createdAt}`);
+	doc.moveDown(0.8);
+
+	doc.fillColor('#111827').fontSize(14).text('Overview');
+	doc.moveDown(0.3);
+	doc.fontSize(11);
+	doc.text(`Strategy: ${data.title}`);
+	doc.text(`Market: ${data.market}`);
+	doc.text(`Scenario: ${data.scenario}`);
+	if (data.periodKey) {
+		doc.text(`Period Key: ${data.periodKey}`);
+	}
+	doc.moveDown(0.8);
+
+	doc.fontSize(14).text('Performance');
+	doc.moveDown(0.3);
+	doc.fontSize(11);
+	doc.text(`Start Capital: £${data.startCapital.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`);
+	doc.text(`Final Capital: £${data.finalCapital.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`);
+	doc.text(`Net P&L: £${netPnl.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`);
+	doc.text(`Return: ${data.returnPct.toFixed(2)}%`);
+	doc.text(`Profit Factor: ${data.profitFactor.toFixed(2)}`);
+	doc.text(`Win Rate: ${data.winRatePct.toFixed(2)}%`);
+	doc.text(`Max Drawdown: ${data.maxDrawdownPct.toFixed(2)}%`);
+	doc.text(`Trades: ${data.tradeCount}`);
+
+	if (data.note) {
+		doc.moveDown(0.8);
+		doc.fontSize(14).text('Notes');
+		doc.moveDown(0.3);
+		doc.fontSize(11).text(data.note, { width: 500 });
+	}
+}
+
+function writeRunsOverviewPdf(doc: PDFKit.PDFDocument, runs: StrategyRunRecord[]): void {
+	doc.fontSize(20).text('Strategy Runs Export');
+	doc.moveDown(0.2);
+	doc.fontSize(11).fillColor('#4b5563').text(`Generated: ${new Date().toISOString()}`);
+	doc.text(`Runs: ${runs.length}`);
+	doc.moveDown(0.8);
+	doc.fillColor('#111827').fontSize(12).text('Summary');
+	doc.moveDown(0.3);
+
+	runs.forEach((run, index) => {
+		const data = getRunPresentationData(run);
+		doc.fontSize(10).fillColor('#111827').text(
+			`${index + 1}. ${data.title} | ${data.market} | Return ${data.returnPct.toFixed(2)}% | PF ${data.profitFactor.toFixed(2)} | ${new Date(data.createdAt).toLocaleDateString('en-GB')}`,
+			{ width: 510 },
+		);
+		doc.moveDown(0.2);
+	});
+}
+
 function toCsvValue(value: unknown): string {
 	const text = value === null || value === undefined ? '' : String(value);
 	if (/[",\n]/.test(text)) {
@@ -2562,6 +2687,67 @@ function handleOutputChunk(chunk: Buffer): void {
 	}
 }
 
+function resolvePhantomBacktestCommand(symbolInput: string, capital: number): {
+	pythonExec: string;
+	scriptPath: string;
+	args: string[];
+	instrumentCode: 'XAU' | 'US100' | 'BTC' | 'FX';
+	scenarioKey: 'A' | 'B' | 'C';
+	riskProfile: 'high' | 'median' | 'low';
+	periodKey: string;
+	strategyLabel: string;
+} {
+	const symbol = canonicalizeDatasetSymbol(String(symbolInput || ''));
+	const riskProfile: 'high' | 'median' | 'low' = 'median';
+	const scenarioKey = mapRiskProfileToScenarioKey(riskProfile);
+	const instrumentCode = mapSymbolToPhantomInstrumentCode(symbol);
+	const stem = mapSymbolToPhantomStem(symbol);
+	const scriptCandidates = resolvePhantomScriptCandidates(symbol, riskProfile);
+	const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate));
+
+	if (!scriptPath) {
+		throw new Error(`No phantom runtime script found for ${symbol} (${riskProfile})`);
+	}
+
+	const m1 = resolveMarketTimeframeFile(symbol, '1m');
+	const m5 = resolveMarketTimeframeFile(symbol, '5m');
+	const m15 = resolveMarketTimeframeFile(symbol, '15m');
+	const h1 = resolveMarketTimeframeFile(symbol, '1h');
+	const h4 = resolveMarketTimeframeFile(symbol, '4h');
+	const daily = resolveMarketTimeframeFile(symbol, '1d');
+
+	const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
+	const args = [
+		'-u',
+		scriptPath,
+		'--instrument', instrumentCode,
+		'--m1', m1,
+		'--m5', m5,
+		'--m15', m15,
+		'--h1', h1,
+		'--h4', h4,
+		'--daily', daily,
+		'--scenario', `p2${scenarioKey}`,
+		'--capital', String(capital),
+		'--output-dir', ARTIFACT_DIR,
+	];
+
+	if (instrumentCode === 'US100') {
+		args.push('--start-date', '2021-01-01');
+	}
+
+	return {
+		pythonExec,
+		scriptPath,
+		args,
+		instrumentCode,
+		scenarioKey,
+		riskProfile,
+		periodKey: `LIVE PHANTOM_${stem.toUpperCase()}_MEDIAN VALIDATION`,
+		strategyLabel: `phantom_${stem.toLowerCase()}_median • Scenario ${scenarioKey}`,
+	};
+}
+
 function startBacktestExecution(params: {
 	symbol: string;
 	interval: string;
@@ -2606,35 +2792,63 @@ function startBacktestExecution(params: {
 
 	broadcast('status', backtestState);
 
-	const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
-	const scriptPath = path.join(WORKSPACE_ROOT, 'phantom_xauusd_backtest.py');
-	const args = [
-		'-u',
-		scriptPath,
-		'--symbol', symbol,
-		'--interval', interval,
-		'--days', String(lookbackDays),
-		'--capital', String(capital),
-		'--risk', String(risk),
-		'--outdir', ARTIFACT_DIR,
-	];
-	if (skipPlots) {
-		args.push('--skip-plots');
+	let command: ReturnType<typeof resolvePhantomBacktestCommand>;
+	try {
+		command = resolvePhantomBacktestCommand(symbol, capital);
+	} catch (error) {
+		const message = (error as Error).message || 'Failed to resolve phantom runtime command';
+		pushLog(message);
+		backtestState.status = 'failed';
+		backtestState.endedAt = new Date().toISOString();
+		if (linkedRunId) {
+			updateRunSummary(linkedRunId, {
+				status: 'failed',
+				endedAt: backtestState.endedAt,
+				error: message,
+			});
+		}
+		broadcast('status', backtestState);
+		return { ok: false, error: message };
 	}
+
+	const { pythonExec, args } = command;
 
 	backtestProc = spawn(pythonExec, args, {
 		cwd: WORKSPACE_ROOT,
 		env: { ...process.env, PYTHONUNBUFFERED: '1' },
 	});
 	pushLog(`Started backtest: ${pythonExec} ${args.join(' ')}`);
+	let outputBuffer = '';
 
-	backtestProc.stdout.on('data', handleOutputChunk);
-	backtestProc.stderr.on('data', handleOutputChunk);
+	backtestProc.stdout.on('data', (chunk: Buffer) => {
+		outputBuffer += chunk.toString();
+		handleOutputChunk(chunk);
+	});
+	backtestProc.stderr.on('data', (chunk: Buffer) => {
+		outputBuffer += chunk.toString();
+		handleOutputChunk(chunk);
+	});
 
 	backtestProc.on('close', (code) => {
 		backtestState.exitCode = code ?? -1;
 		backtestState.status = code === 0 ? 'completed' : 'failed';
 		backtestState.endedAt = new Date().toISOString();
+
+		if (code === 0) {
+			const parsedSummaries = parsePhantomV2ValidationOutput(outputBuffer);
+			const bestSummary = pickBestPhantomV2Summary(parsedSummaries);
+			if (bestSummary) {
+				backtestState.metrics = {
+					...backtestState.metrics,
+					finalCapital: bestSummary.finalCapital,
+					totalReturnPct: bestSummary.netReturnPct,
+					totalTrades: bestSummary.trades,
+					winRatePct: bestSummary.winRatePct,
+					maxDrawdownPct: bestSummary.maxDrawdownPct,
+				};
+				broadcast('metrics', backtestState.metrics);
+			}
+		}
 
 		addArtifactIfExists('phantom_backtest_trades.csv');
 		addArtifactIfExists('phantom_backtest_report.md');
@@ -2642,12 +2856,36 @@ function startBacktestExecution(params: {
 		addArtifactIfExists('phantom_backtest_zones.png');
 
 		if (linkedRunId) {
-			updateRunSummary(linkedRunId, {
+			const parsedSummaries = parsePhantomV2ValidationOutput(outputBuffer);
+			const bestSummary = pickBestPhantomV2Summary(parsedSummaries);
+			const summaryPatch: Record<string, unknown> = {
 				status: backtestState.status,
 				endedAt: backtestState.endedAt,
 				exitCode: backtestState.exitCode,
 				metrics: backtestState.metrics,
 				artifacts: backtestState.artifacts,
+			};
+
+			if (bestSummary) {
+				summaryPatch.periodKey = command.periodKey;
+				summaryPatch.riskProfile = command.riskProfile;
+				summaryPatch.scenario = bestSummary.scenarioKey;
+				summaryPatch.startCapital = capital;
+				summaryPatch.market = symbol;
+				summaryPatch.best = {
+					label: command.strategyLabel,
+					avgRet: bestSummary.netReturnPct,
+					avgPf: bestSummary.profitFactor,
+					avgWin: bestSummary.winRatePct,
+					worstDD: bestSummary.maxDrawdownPct,
+					compounded: bestSummary.finalCapital,
+					finalCapital: bestSummary.finalCapital,
+					trades: bestSummary.trades,
+				};
+			}
+
+			updateRunSummary(linkedRunId, {
+				...summaryPatch,
 			});
 		}
 
@@ -3535,6 +3773,24 @@ app.get('/platform/runs/:id', (req: Request, res: Response): void => {
 	res.json(run);
 });
 
+app.get('/platform/runs/:id/pdf', (req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	const run = runs.find((entry) => entry.id === req.params.id);
+	if (!run) {
+		res.status(404).json({ error: 'Run not found' });
+		return;
+	}
+
+	const safeRunId = String(run.id || 'run').replace(/[^a-zA-Z0-9._-]+/g, '_');
+	res.setHeader('Content-Type', 'application/pdf');
+	res.setHeader('Content-Disposition', `attachment; filename="${safeRunId}.pdf"`);
+
+	const doc = new PDFDocument({ margin: 48, size: 'A4' });
+	doc.pipe(res);
+	writeRunPdf(doc, run);
+	doc.end();
+});
+
 app.get('/platform/admin/overview', (_req: Request, res: Response): void => {
 	const runs = loadRunHistory();
 	const labRuns = getStrategyLabRuns(12).map((run) => {
@@ -3583,6 +3839,17 @@ app.get('/platform/admin/export/runs.csv', (_req: Request, res: Response): void 
 	res.setHeader('Content-Type', 'text/csv; charset=utf-8');
 	res.setHeader('Content-Disposition', 'attachment; filename="strategy-runs.csv"');
 	res.send(runsToCsv(runs));
+});
+
+app.get('/platform/admin/export/runs.pdf', (_req: Request, res: Response): void => {
+	const runs = loadRunHistory();
+	res.setHeader('Content-Type', 'application/pdf');
+	res.setHeader('Content-Disposition', 'attachment; filename="strategy-runs.pdf"');
+
+	const doc = new PDFDocument({ margin: 48, size: 'A4' });
+	doc.pipe(res);
+	writeRunsOverviewPdf(doc, runs);
+	doc.end();
 });
 
 app.get('/admin', (_req: Request, res: Response): void => {
