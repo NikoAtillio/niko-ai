@@ -1,5 +1,137 @@
 [
   {
+    "id": "run_1776776154664_fwz3o68l",
+    "createdAt": "2026-04-21T12:55:54.664Z",
+    "summary": {
+      "generatedAt": "2026-04-21T12:55:54.660Z",
+      "datasetTitle": "Imported market data for 5 years 2 months for US100",
+      "market": "US100",
+      "periodKey": "LIVE PHANTOM_US100_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_us100_median • Scenario B",
+        "avgRet": 1393.6742745599356,
+        "compoundedProfit": 69683.71372799679,
+        "compounded": 74683.71372799679,
+        "worstDD": -12.271631198152246,
+        "avgWin": 53.9,
+        "avgPf": 2.599,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 1393.6742745599356,
+            "endCap": 74683.71372799679,
+            "endProfit": 69683.71372799679,
+            "ddPct": -12.271631198152246,
+            "ddPrice": 613.5815599076122,
+            "win": 53.9,
+            "pf": 2.599
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_us100_median • Scenario B",
+          "avgRet": 1393.6742745599356,
+          "avgPf": 2.599,
+          "worstDD": -12.271631198152246,
+          "compounded": 74683.71372799679
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/H1/H4 files for US100, filtered to 2021-02-02 to 2026-03-26. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776776067221_ofc78omq",
+    "createdAt": "2026-04-21T12:54:27.221Z",
+    "summary": {
+      "generatedAt": "2026-04-21T12:54:27.217Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
+      "market": "BTCUSD",
+      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_btc_median • Scenario B",
+        "avgRet": 718.126053558569,
+        "compoundedProfit": 35906.30267792845,
+        "compounded": 40906.30267792845,
+        "worstDD": -4.261291293143775,
+        "avgWin": 51.7,
+        "avgPf": 2.401,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 718.126053558569,
+            "endCap": 40906.30267792845,
+            "endProfit": 35906.30267792845,
+            "ddPct": -4.261291293143775,
+            "ddPrice": 213.06456465718875,
+            "win": 51.7,
+            "pf": 2.401
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_btc_median • Scenario B",
+          "avgRet": 718.126053558569,
+          "avgPf": 2.401,
+          "worstDD": -4.261291293143775,
+          "compounded": 40906.30267792845
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2021-01-25 to 2026-03-30. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1776776008236_f9ijvdgj",
+    "createdAt": "2026-04-21T12:53:28.236Z",
+    "summary": {
+      "generatedAt": "2026-04-21T12:53:28.230Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for XAUUSD",
+      "market": "XAUUSD",
+      "periodKey": "LIVE PHANTOM_XAU_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_xau_median • Scenario B",
+        "avgRet": 457.42968631217525,
+        "compoundedProfit": 22871.48431560876,
+        "compounded": 27871.48431560876,
+        "worstDD": -5.356902155379588,
+        "avgWin": 50.7,
+        "avgPf": 2.184,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 457.42968631217525,
+            "endCap": 27871.48431560876,
+            "endProfit": 22871.48431560876,
+            "ddPct": -5.356902155379588,
+            "ddPrice": 267.8451077689794,
+            "win": 50.7,
+            "pf": 2.184
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_xau_median • Scenario B",
+          "avgRet": 457.42968631217525,
+          "avgPf": 2.184,
+          "worstDD": -5.356902155379588,
+          "compounded": 27871.48431560876
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/H1/H4 files for XAUUSD, filtered to 2021-01-14 to 2026-03-30. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
     "id": "run_1776775120790_oqq8fco4",
     "createdAt": "2026-04-21T12:38:40.790Z",
     "summary": {
@@ -4262,138 +4394,6 @@
           "avgPf": 0,
           "worstDD": -100.11139752635569,
           "compounded": -5.569876317785422
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776680873522_f9mv3799",
-    "createdAt": "2026-04-20T10:27:53.522Z",
-    "summary": {
-      "generatedAt": "2026-04-20T10:27:53.520Z",
-      "datasetTitle": "Imported market data for 9 months for USDJPY",
-      "market": "USDJPY",
-      "periodKey": "LIVE PHANTOM_FX_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_fx_median • Scenario B",
-        "avgRet": -100.05086212695097,
-        "compoundedProfit": -5002.543106347549,
-        "compounded": -2.543106347548758,
-        "worstDD": -100.05086212695097,
-        "avgWin": 0,
-        "avgPf": 0,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": -100.05086212695097,
-            "endCap": -2.543106347548758,
-            "endProfit": -5002.543106347549,
-            "ddPct": -100.05086212695097,
-            "ddPrice": 5002.543106347549,
-            "win": 0,
-            "pf": 0
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_fx_median • Scenario B",
-          "avgRet": -100.05086212695097,
-          "avgPf": 0,
-          "worstDD": -100.05086212695097,
-          "compounded": -2.543106347548758
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776680872375_qtkzo05o",
-    "createdAt": "2026-04-20T10:27:52.375Z",
-    "summary": {
-      "generatedAt": "2026-04-20T10:27:52.371Z",
-      "datasetTitle": "Imported market data for 1 year 3 months for USDJPY",
-      "market": "USDJPY",
-      "periodKey": "LIVE PHANTOM_FX_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_fx_median • Scenario B",
-        "avgRet": 20.68696255604734,
-        "compoundedProfit": 1034.3481278023673,
-        "compounded": 6034.348127802367,
-        "worstDD": -12.53597915816093,
-        "avgWin": 40.3,
-        "avgPf": 1.318,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 20.68696255604734,
-            "endCap": 6034.348127802367,
-            "endProfit": 1034.3481278023673,
-            "ddPct": -12.53597915816093,
-            "ddPrice": 626.7989579080465,
-            "win": 40.3,
-            "pf": 1.318
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_fx_median • Scenario B",
-          "avgRet": 20.68696255604734,
-          "avgPf": 1.318,
-          "worstDD": -12.53597915816093,
-          "compounded": 6034.348127802367
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776680872280_bnys7489",
-    "createdAt": "2026-04-20T10:27:52.280Z",
-    "summary": {
-      "generatedAt": "2026-04-20T10:27:52.160Z",
-      "datasetTitle": "Imported market data for 1 year 3 months for USDJPY",
-      "market": "USDJPY",
-      "periodKey": "LIVE PHANTOM_FX_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_fx_median • Scenario B",
-        "avgRet": 20.80859116454741,
-        "compoundedProfit": 1040.4295582273708,
-        "compounded": 6040.429558227371,
-        "worstDD": -12.508191900637147,
-        "avgWin": 40.3,
-        "avgPf": 1.32,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 20.80859116454741,
-            "endCap": 6040.429558227371,
-            "endProfit": 1040.4295582273708,
-            "ddPct": -12.508191900637147,
-            "ddPrice": 625.4095950318574,
-            "win": 40.3,
-            "pf": 1.32
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_fx_median • Scenario B",
-          "avgRet": 20.80859116454741,
-          "avgPf": 1.32,
-          "worstDD": -12.508191900637147,
-          "compounded": 6040.429558227371
         }
       ],
       "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
