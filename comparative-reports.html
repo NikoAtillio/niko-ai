@@ -719,6 +719,11 @@
 
     function buildComparativePayloadFromRun(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
+      const comparativeData = summary.comparativeData && typeof summary.comparativeData === 'object' ? summary.comparativeData : null;
+      if (comparativeData && comparativeData.monthly && comparativeData.summary && comparativeData.highlights) {
+        return comparativeData;
+      }
+
       const generatedAt = String(summary.generatedAt || run.createdAt || new Date().toISOString());
       const month = monthTokenFromIso(generatedAt);
       const mode = 'full';
@@ -967,6 +972,15 @@
     function getBranchColor(branchKey) {
       const parts = String(branchKey || '').split('::');
       const rawBranch = parts.length > 1 ? parts[1] : branchKey;
+      if (parts.length > 1 && String(parts[0] || '').startsWith('run-')) {
+        const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6', '#84cc16'];
+        let hash = 0;
+        for (let idx = 0; idx < String(branchKey).length; idx += 1) {
+          hash = ((hash << 5) - hash) + String(branchKey).charCodeAt(idx);
+          hash |= 0;
+        }
+        return palette[Math.abs(hash) % palette.length];
+      }
       if (BRANCH_COLORS[rawBranch]) {
         return BRANCH_COLORS[rawBranch];
       }
