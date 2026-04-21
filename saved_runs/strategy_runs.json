@@ -1,5 +1,49 @@
 [
   {
+    "id": "run_1776775120790_oqq8fco4",
+    "createdAt": "2026-04-21T12:38:40.790Z",
+    "summary": {
+      "generatedAt": "2026-04-21T12:38:40.786Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for US100",
+      "market": "US100",
+      "periodKey": "LIVE PHANTOM_US100_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_us100_median • Scenario B",
+        "avgRet": 1417.5748217219793,
+        "compoundedProfit": 70878.74108609896,
+        "compounded": 75878.74108609896,
+        "worstDD": -11.472077073046275,
+        "avgWin": 53.9,
+        "avgPf": 2.601,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 1417.5748217219793,
+            "endCap": 75878.74108609896,
+            "endProfit": 70878.74108609896,
+            "ddPct": -11.472077073046275,
+            "ddPrice": 573.6038536523138,
+            "win": 53.9,
+            "pf": 2.601
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_us100_median • Scenario B",
+          "avgRet": 1417.5748217219793,
+          "avgPf": 2.601,
+          "worstDD": -11.472077073046275,
+          "compounded": 75878.74108609896
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/H1/H4 files for US100, filtered to 2021-01-29 to 2026-03-26. Best scenario is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
     "id": "run_1776774737286_wh672eve",
     "createdAt": "2026-04-21T12:32:17.286Z",
     "summary": {
@@ -4350,50 +4394,6 @@
           "avgPf": 1.32,
           "worstDD": -12.508191900637147,
           "compounded": 6040.429558227371
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776680872276_x9qfs7sp",
-    "createdAt": "2026-04-20T10:27:52.276Z",
-    "summary": {
-      "generatedAt": "2026-04-20T10:27:52.071Z",
-      "datasetTitle": "Imported market data for 1 year 3 months for USDJPY",
-      "market": "USDJPY",
-      "periodKey": "LIVE PHANTOM_FX_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_fx_median • Scenario B",
-        "avgRet": -41.7349100601665,
-        "compoundedProfit": -2086.7455030083247,
-        "compounded": 2913.2544969916753,
-        "worstDD": -42.89272362651514,
-        "avgWin": 23.6,
-        "avgPf": 0.503,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": -41.7349100601665,
-            "endCap": 2913.2544969916753,
-            "endProfit": -2086.7455030083247,
-            "ddPct": -42.89272362651514,
-            "ddPrice": 2144.636181325757,
-            "win": 23.6,
-            "pf": 0.503
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_fx_median • Scenario B",
-          "avgRet": -41.7349100601665,
-          "avgPf": 0.503,
-          "worstDD": -42.89272362651514,
-          "compounded": 2913.2544969916753
         }
       ],
       "note": "Live validation run against hosted M1/M5/H1/H4 files for USDJPY, filtered to 2025-01-01 to 2026-03-31. Best scenario is ranked by net return, then PF, then drawdown."
