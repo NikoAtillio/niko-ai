@@ -314,6 +314,7 @@ const volatileRunHistory = new Map<string, StrategyRunRecord>();
 const dataCache = new Map<string, DataCacheEntry>();
 const tradesCache = new Map<string, TradeRecord[]>();
 const reportCache = new Map<string, Record<string, string>>();
+const comparativeDataCache = new Map<string, Record<string, unknown> | null>();
 
 function loadRunHistory(): StrategyRunRecord[] {
 	try {
@@ -2556,10 +2557,10 @@ function getOrLoadTrades(tradesFile: string): TradeRecord[] {
 
 	const rows = parseSimpleCsvRows(absPath);
 	const out: TradeRecord[] = rows.map((r) => ({
-		direction: r.direction || '',
-		entry_time: r.entry_time || '',
+		direction: r.direction || r.dir || '',
+		entry_time: r.entry_time || r.entry_ts || r.entry || '',
 		entry_price: Number(r.entry_price || 0),
-		exit_time: r.exit_time || '',
+		exit_time: r.exit_time || r.exit_ts || r.exit || '',
 		exit_price: Number(r.exit_price || 0),
 		exit_reason: r.exit_reason || '',
 		qty: Number(r.qty || 0),
@@ -2571,6 +2572,258 @@ function getOrLoadTrades(tradesFile: string): TradeRecord[] {
 
 	tradesCache.set(absPath, out);
 	return out;
+}
+
+function findLatestTradesFileForMarket(marketInput: string): string | null {
+	const market = canonicalizeDatasetSymbol(String(marketInput || '')).toUpperCase();
+	const instrumentCode = mapSymbolToPhantomInstrumentCode(market);
+	const tokenVariants = Array.from(new Set([
+		instrumentCode,
+		market,
+		market.replace(/USD$/i, ''),
+	])).filter(Boolean);
+	const candidateRoots = [
+		ARTIFACT_DIR,
+		ARCHIVE_ARTIFACT_DIR,
+		path.join(WORKSPACE_ROOT, '_docs_archive', 'backtest_artifacts'),
+	];
+
+	let bestPath: string | null = null;
+	let bestMtime = -1;
+
+	for (const root of candidateRoots) {
+		if (!fs.existsSync(root)) {
+			continue;
+		}
+
+		const stack = [root];
+		while (stack.length) {
+			const dirPath = stack.pop();
+			if (!dirPath) continue;
+
+			let entries: fs.Dirent[] = [];
+			try {
+				entries = fs.readdirSync(dirPath, { withFileTypes: true });
+			} catch {
+				continue;
+			}
+
+			for (const entry of entries) {
+				const fullPath = path.join(dirPath, entry.name);
+				if (entry.isDirectory()) {
+					stack.push(fullPath);
+					continue;
+				}
+
+				const upperName = entry.name.toUpperCase();
+				if (!upperName.includes('TRADE') || !upperName.endsWith('.CSV')) {
+					continue;
+				}
+
+				const matchesMarket = tokenVariants.some((token) => token && upperName.includes(String(token).toUpperCase()));
+				if (!matchesMarket) {
+					continue;
+				}
+
+				try {
+					const stat = fs.statSync(fullPath);
+					if (stat.mtimeMs > bestMtime) {
+						bestMtime = stat.mtimeMs;
+						bestPath = fullPath;
+					}
+				} catch {
+					// Skip files that disappear mid-scan.
+				}
+			}
+		}
+	}
+
+	return bestPath;
+}
+
+function buildMonthlyComparativeDataFromTrades(trades: TradeRecord[], startCapital: number): Record<string, unknown> | null {
+	const ordered = trades
+		.map((trade) => ({
+			...trade,
+			tradeTime: trade.exit_time || trade.entry_time || '',
+		}))
+		.filter((trade) => Boolean(trade.tradeTime) && Number.isFinite(Date.parse(trade.tradeTime)) && Number.isFinite(Number(trade.pnl)))
+		.sort((a, b) => Date.parse(a.tradeTime) - Date.parse(b.tradeTime));
+
+	if (!ordered.length) {
+		return null;
+	}
+
+	let equity = startCapital;
+	let rollingPeak = startCapital;
+	const monthStats = new Map<string, {
+		monthlyPnl: number;
+		monthEndEquity: number;
+		monthEndPeak: number;
+		monthEndDrawdownAmt: number;
+		monthEndDrawdownPct: number;
+		worstIntramonthDdAmt: number;
+		worstIntramonthDdPct: number;
+	}>();
+
+	for (const trade of ordered) {
+		const tradeDate = new Date(trade.tradeTime);
+		if (Number.isNaN(tradeDate.getTime())) {
+			continue;
+		}
+
+		equity += Number(trade.pnl || 0);
+		rollingPeak = Math.max(rollingPeak, equity);
+		const month = tradeDate.toISOString().slice(0, 7);
+		const ddAmt = equity - rollingPeak;
+		const ddPct = rollingPeak ? (ddAmt / rollingPeak) * 100 : 0;
+		const current = monthStats.get(month) || {
+			monthlyPnl: 0,
+			monthEndEquity: startCapital,
+			monthEndPeak: startCapital,
+			monthEndDrawdownAmt: 0,
+			monthEndDrawdownPct: 0,
+			worstIntramonthDdAmt: 0,
+			worstIntramonthDdPct: 0,
+		};
+
+		current.monthlyPnl += Number(trade.pnl || 0);
+		current.monthEndEquity = equity;
+		current.monthEndPeak = rollingPeak;
+		current.monthEndDrawdownAmt = ddAmt;
+		current.monthEndDrawdownPct = ddPct;
+		if (ddAmt < current.worstIntramonthDdAmt) {
+			current.worstIntramonthDdAmt = ddAmt;
+			current.worstIntramonthDdPct = ddPct;
+		}
+
+		monthStats.set(month, current);
+	}
+
+	const months = Array.from(monthStats.keys()).sort();
+	if (!months.length) {
+		return null;
+	}
+
+	const rows = months.map((month) => {
+		const current = monthStats.get(month);
+		if (!current) {
+			return null;
+		}
+
+		return {
+			month,
+			monthly_pnl_gbp: Number(current.monthlyPnl.toFixed(2)),
+			month_end_equity_gbp: Number(current.monthEndEquity.toFixed(2)),
+			month_end_drawdown_amt_gbp: Number(current.monthEndDrawdownAmt.toFixed(2)),
+			month_end_drawdown_pct: Number(current.monthEndDrawdownPct.toFixed(3)),
+			worst_intramonth_dd_amt_gbp: Number(current.worstIntramonthDdAmt.toFixed(2)),
+			worst_intramonth_dd_pct: Number(current.worstIntramonthDdPct.toFixed(3)),
+		};
+	}).filter((row): row is {
+		month: string;
+		monthly_pnl_gbp: number;
+		month_end_equity_gbp: number;
+		month_end_drawdown_amt_gbp: number;
+		month_end_drawdown_pct: number;
+		worst_intramonth_dd_amt_gbp: number;
+		worst_intramonth_dd_pct: number;
+	} => Boolean(row));
+
+	const monthPnls = rows.map((row) => Number(row.monthly_pnl_gbp));
+	const bestMonth = rows.reduce((best, row) => (Number(row.monthly_pnl_gbp) > Number(best.monthly_pnl_gbp) ? row : best), rows[0]);
+	const worstMonth = rows.reduce((worst, row) => (Number(row.monthly_pnl_gbp) < Number(worst.monthly_pnl_gbp) ? row : worst), rows[0]);
+	const positiveMonths = monthPnls.filter((value) => value > 0).length;
+	const negativeMonths = monthPnls.filter((value) => value < 0).length;
+	const flatMonths = monthPnls.length - positiveMonths - negativeMonths;
+	const worstDdAmt = rows.reduce((min, row) => Math.min(min, Number(row.worst_intramonth_dd_amt_gbp)), 0);
+	const worstDdPct = rows.reduce((min, row) => Math.min(min, Number(row.worst_intramonth_dd_pct)), 0);
+	const lastRow = rows[rows.length - 1];
+	const netPnl = Number((lastRow.month_end_equity_gbp - startCapital).toFixed(2));
+	const returnPct = startCapital ? Number(((netPnl / startCapital) * 100).toFixed(2)) : 0;
+
+	return {
+		windows: [{
+			mode: 'full',
+			start_date: `${months[0]}-01`,
+			end_date: `${months[months.length - 1]}-01`,
+			timescale_months: months.length,
+		}],
+		summary: [{
+			branch: 'variant_b',
+			mode: 'full',
+			start_cap_gbp: Number(startCapital.toFixed(2)),
+			final_equity_gbp: Number(lastRow.month_end_equity_gbp.toFixed(2)),
+			net_pnl_gbp: netPnl,
+			net_return_pct: returnPct,
+			max_dd_amt_gbp: Number(worstDdAmt.toFixed(2)),
+			max_dd_pct: Number(worstDdPct.toFixed(3)),
+			months: months.length,
+		}],
+		highlights: [{
+			branch: 'variant_b',
+			mode: 'full',
+			positive_month_ratio_pct: Number(((positiveMonths / months.length) * 100).toFixed(1)),
+			best_month_pnl_gbp: Number(bestMonth.monthly_pnl_gbp.toFixed(2)),
+			worst_month_pnl_gbp: Number(worstMonth.monthly_pnl_gbp.toFixed(2)),
+			positive_months: positiveMonths,
+			negative_months: negativeMonths,
+			flat_months: flatMonths,
+		}],
+		monthly: {
+			full: {
+				variant_b: rows,
+			},
+		},
+	};
+}
+
+function buildComparativeDataForRun(run: StrategyRunRecord): Record<string, unknown> | null {
+	const summary = getRunSummaryObject(run);
+	if (summary.comparativeData && typeof summary.comparativeData === 'object' && !Array.isArray(summary.comparativeData)) {
+		return summary.comparativeData as Record<string, unknown>;
+	}
+
+	const market = String(summary.market || '').trim();
+	if (!market) {
+		return null;
+	}
+
+	const startCapital = toNumber(summary.startCapital, 5000);
+	const cacheKey = `${market.toUpperCase()}::${startCapital}`;
+	if (comparativeDataCache.has(cacheKey)) {
+		return comparativeDataCache.get(cacheKey) || null;
+	}
+
+	const tradesFile = findLatestTradesFileForMarket(market);
+	if (!tradesFile) {
+		comparativeDataCache.set(cacheKey, null);
+		return null;
+	}
+
+	const trades = getOrLoadTrades(tradesFile);
+	const comparativeData = buildMonthlyComparativeDataFromTrades(trades, startCapital);
+	if (comparativeData) {
+		(comparativeData as Record<string, unknown>).tradesFile = normalizePath(tradesFile);
+	}
+	comparativeDataCache.set(cacheKey, comparativeData);
+	return comparativeData;
+}
+
+function enrichRunForComparativeReports(run: StrategyRunRecord): StrategyRunRecord {
+	const comparativeData = buildComparativeDataForRun(run);
+	if (!comparativeData) {
+		return run;
+	}
+
+	const summary = getRunSummaryObject(run);
+	return {
+		...run,
+		summary: {
+			...summary,
+			comparativeData,
+		},
+	};
 }
 
 function getOrLoadReport(reportFile: string): Record<string, string> {
@@ -3756,7 +4009,7 @@ app.get('/platform/report', (req: Request, res: Response): void => {
 });
 
 app.get('/platform/runs', (_req: Request, res: Response): void => {
-	const runs = loadRunHistory();
+	const runs = loadRunHistory().map((run) => enrichRunForComparativeReports(run));
 	res.json({
 		count: runs.length,
 		runs,
@@ -3770,7 +4023,7 @@ app.get('/platform/runs/:id', (req: Request, res: Response): void => {
 		res.status(404).json({ error: 'Run not found' });
 		return;
 	}
-	res.json(run);
+	res.json(enrichRunForComparativeReports(run));
 });
 
 app.get('/platform/runs/:id/pdf', (req: Request, res: Response): void => {
