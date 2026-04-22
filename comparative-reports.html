@@ -599,11 +599,13 @@
       { id: 'comparison', label: 'Full Comparison' }
     ];
 
-    const CANONICAL_MEDIAN_MARKETS = [
-      { key: 'US100', title: 'Phantom US100 median', tokens: ['US100', 'NAS100', 'USTEC'] },
-      { key: 'XAUUSD', title: 'Phantom XAU median', tokens: ['XAU', 'XAUUSD', 'GOLD'] },
-      { key: 'BTCUSD', title: 'Phantom BTC median', tokens: ['BTC', 'BTCUSD'] },
-      { key: 'FX', title: 'Phantom FX median', tokens: ['FX_MEDIAN', 'PHANTOM_FX_MEDIAN'] },
+    const CANONICAL_STRATEGY_MARKETS = [
+      { key: 'US100_MEDIAN', title: 'Phantom US100 median', tokens: ['US100', 'NAS100', 'USTEC'], requiredToken: 'MEDIAN' },
+      { key: 'US100_HIGH', title: 'Phantom US100 high', tokens: ['US100', 'NAS100', 'USTEC'], requiredToken: 'HIGH' },
+      { key: 'US100_LOW', title: 'Phantom US100 low', tokens: ['US100', 'NAS100', 'USTEC'], requiredToken: 'LOW' },
+      { key: 'XAUUSD_MEDIAN', title: 'Phantom XAU median', tokens: ['XAU', 'XAUUSD', 'GOLD'], requiredToken: 'MEDIAN' },
+      { key: 'BTCUSD_MEDIAN', title: 'Phantom BTC median', tokens: ['BTC', 'BTCUSD'], requiredToken: 'MEDIAN' },
+      { key: 'FX_MEDIAN', title: 'Phantom FX median', tokens: ['FX_MEDIAN', 'PHANTOM_FX_MEDIAN'], requiredToken: null },
     ];
 
     const state = {
@@ -699,17 +701,18 @@
       return Number.isFinite(n) ? n : fallback;
     }
 
-    function inferCanonicalMedianDefinition(run) {
+    function inferCanonicalStrategyDefinition(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
       const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
       const market = String(summary.market || '').trim();
       const label = String(best.label || '').trim();
       const periodKey = String(summary.periodKey || '').trim();
-      const haystack = `${market} ${label} ${periodKey}`.toUpperCase();
-      if (!haystack.includes('MEDIAN')) {
-        return null;
-      }
-      for (const definition of CANONICAL_MEDIAN_MARKETS) {
+      const strategy = String(summary.strategy || '').trim();
+      const haystack = `${market} ${label} ${periodKey} ${strategy}`.toUpperCase();
+      for (const definition of CANONICAL_STRATEGY_MARKETS) {
+        if (definition.requiredToken && !haystack.includes(definition.requiredToken)) {
+          continue;
+        }
         if (definition.tokens.some((token) => haystack.includes(token))) {
           return definition;
         }
@@ -788,7 +791,7 @@
       const byCanonical = new Map();
 
       for (const run of (Array.isArray(runs) ? runs : [])) {
-        const canonical = inferCanonicalMedianDefinition(run);
+        const canonical = inferCanonicalStrategyDefinition(run);
         if (!canonical) continue;
         const existing = byCanonical.get(canonical.key);
         if (!existing || Date.parse(run.createdAt || 0) > Date.parse(existing.createdAt || 0)) {
@@ -796,19 +799,19 @@
         }
       }
 
-      return CANONICAL_MEDIAN_MARKETS.map((definition) => {
+      return CANONICAL_STRATEGY_MARKETS.map((definition) => {
         const run = byCanonical.get(definition.key);
         if (!run) {
           return {
             id: `run-missing-${definition.key.toLowerCase()}`,
             title: definition.title,
-            description: 'No live median snapshot found yet',
+            description: 'No live strategy snapshot found yet',
             generatedAt: '',
             windowStart: '',
             windowEnd: '',
             hasData: false,
             source: 'runs',
-            isCanonicalMedian: true,
+            isCanonicalStrategy: true,
           };
         }
 
@@ -834,7 +837,7 @@
           windowEnd: '',
           hasData: true,
           source: 'runs',
-          isCanonicalMedian: true,
+          isCanonicalStrategy: true,
         };
       });
     }
@@ -845,8 +848,8 @@
       for (const run of (Array.isArray(runs) ? runs : [])) {
         const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
         const market = String(summary.market || '').toUpperCase();
-        for (const definition of CANONICAL_MEDIAN_MARKETS) {
-          if (definition.key === 'FX') continue;
+        for (const definition of CANONICAL_STRATEGY_MARKETS) {
+          if (definition.key === 'FX_MEDIAN') continue;
           const marketMatch = definition.tokens.some((token) => market.includes(token));
           if (!marketMatch) continue;
           const existingSeen = latestSeenByInstrument.get(definition.key);
@@ -855,7 +858,7 @@
           }
         }
 
-        const canonical = inferCanonicalMedianDefinition(run);
+        const canonical = inferCanonicalStrategyDefinition(run);
         if (!canonical) continue;
         const existing = byCanonical.get(canonical.key);
         if (!existing || Date.parse(run.createdAt || 0) > Date.parse(existing.createdAt || 0)) {
@@ -863,7 +866,7 @@
         }
       }
 
-      state.instrumentMedianStatus = CANONICAL_MEDIAN_MARKETS.map((definition) => {
+      state.instrumentMedianStatus = CANONICAL_STRATEGY_MARKETS.map((definition) => {
         const run = byCanonical.get(definition.key);
         const latestSeen = latestSeenByInstrument.get(definition.key);
         if (!run) {
@@ -902,7 +905,7 @@
     function renderInstrumentStatusPanel() {
       const rows = state.instrumentMedianStatus.length
         ? state.instrumentMedianStatus
-        : CANONICAL_MEDIAN_MARKETS.map((definition) => ({
+        : CANONICAL_STRATEGY_MARKETS.map((definition) => ({
             key: definition.key,
             title: definition.title,
             available: false,
@@ -938,8 +941,8 @@
 
       return `
         <div class="status-panel">
-          <h3>Instrument Median Status</h3>
-          <p>Tracks current availability, latest run id/timestamp, and side-by-side metrics. US100 and XAU populate automatically once new median runs are generated.</p>
+          <h3>Instrument Strategy Status</h3>
+          <p>Tracks current availability, latest run id/timestamp, and side-by-side metrics. US100 median/high/low rows populate automatically once new runs are generated.</p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1966,7 +1969,7 @@
           || state.availableReports.find((report) => report.source === 'comparative' && normalizeReportTitle(report.title) === 'Phantom Median Strategy C');
 
         const defaultMedianRuns = state.availableReports
-          .filter((report) => report.source === 'runs' && report.hasData && report.isCanonicalMedian)
+          .filter((report) => report.source === 'runs' && report.hasData && report.isCanonicalStrategy)
           .map((report) => report.id);
 
         const defaultRunAndStrategy = defaultMedianRuns.slice();
