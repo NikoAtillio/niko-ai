@@ -2641,6 +2641,96 @@ function findLatestTradesFileForMarket(marketInput: string): string | null {
 	return bestPath;
 }
 
+function inferRiskProfileFromRunSummary(summary: Record<string, unknown>): 'high' | 'median' | 'low' {
+	const best = summary.best && typeof summary.best === 'object' ? (summary.best as Record<string, unknown>) : {};
+	const haystack = `${String(summary.riskProfile || '')} ${String(summary.periodKey || '')} ${String(best.label || '')}`.toLowerCase();
+	if (haystack.includes('high')) return 'high';
+	if (haystack.includes('low')) return 'low';
+	return 'median';
+}
+
+function findNearestTradesFileForRun(run: StrategyRunRecord, marketInput: string, riskProfile: 'high' | 'median' | 'low'): string | null {
+	const market = canonicalizeDatasetSymbol(String(marketInput || '')).toUpperCase();
+	const instrumentCode = mapSymbolToPhantomInstrumentCode(market);
+	const tokenVariants = Array.from(new Set([
+		instrumentCode,
+		market,
+		market.replace(/USD$/i, ''),
+	])).filter(Boolean);
+	const candidateRoots = [
+		ARTIFACT_DIR,
+		ARCHIVE_ARTIFACT_DIR,
+		path.join(WORKSPACE_ROOT, '_docs_archive', 'backtest_artifacts'),
+	];
+	const createdAtMs = Number.isFinite(Date.parse(String(run.createdAt || '')))
+		? Date.parse(String(run.createdAt || ''))
+		: null;
+
+	let bestPath: string | null = null;
+	let bestScore = Number.POSITIVE_INFINITY;
+	let bestMtime = -1;
+
+	for (const root of candidateRoots) {
+		if (!fs.existsSync(root)) {
+			continue;
+		}
+
+		const stack = [root];
+		while (stack.length) {
+			const dirPath = stack.pop();
+			if (!dirPath) continue;
+
+			let entries: fs.Dirent[] = [];
+			try {
+				entries = fs.readdirSync(dirPath, { withFileTypes: true });
+			} catch {
+				continue;
+			}
+
+			for (const entry of entries) {
+				const fullPath = path.join(dirPath, entry.name);
+				if (entry.isDirectory()) {
+					stack.push(fullPath);
+					continue;
+				}
+
+				const upperName = entry.name.toUpperCase();
+				if (!upperName.includes('TRADE') || !upperName.endsWith('.CSV')) {
+					continue;
+				}
+
+				const upperPath = fullPath.toUpperCase();
+				const matchesMarket = tokenVariants.some((token) => token && upperPath.includes(String(token).toUpperCase()));
+				if (!matchesMarket) {
+					continue;
+				}
+
+				const profileTag = `-${riskProfile.toUpperCase()}-VALIDATE-`;
+				const matchesProfile = upperPath.includes(profileTag);
+				if (!matchesProfile) {
+					continue;
+				}
+
+				try {
+					const stat = fs.statSync(fullPath);
+					const score = createdAtMs === null
+						? -stat.mtimeMs
+						: Math.abs(stat.mtimeMs - createdAtMs);
+					if (score < bestScore || (score === bestScore && stat.mtimeMs > bestMtime)) {
+						bestScore = score;
+						bestMtime = stat.mtimeMs;
+						bestPath = fullPath;
+					}
+				} catch {
+					// Skip files that disappear mid-scan.
+				}
+			}
+		}
+	}
+
+	return bestPath;
+}
+
 function buildMonthlyComparativeDataFromTrades(trades: TradeRecord[], startCapital: number): Record<string, unknown> | null {
 	const ordered = trades
 		.map((trade) => ({
@@ -2790,12 +2880,13 @@ function buildComparativeDataForRun(run: StrategyRunRecord): Record<string, unkn
 	}
 
 	const startCapital = toNumber(summary.startCapital, 5000);
-	const cacheKey = `${market.toUpperCase()}::${startCapital}`;
+	const riskProfile = inferRiskProfileFromRunSummary(summary);
+	const cacheKey = String(run.id || `${market.toUpperCase()}::${riskProfile}::${startCapital}`);
 	if (comparativeDataCache.has(cacheKey)) {
 		return comparativeDataCache.get(cacheKey) || null;
 	}
 
-	const tradesFile = findLatestTradesFileForMarket(market);
+	const tradesFile = findNearestTradesFileForRun(run, market, riskProfile) || findLatestTradesFileForMarket(market);
 	if (!tradesFile) {
 		comparativeDataCache.set(cacheKey, null);
 		return null;
