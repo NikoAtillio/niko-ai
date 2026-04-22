@@ -38,11 +38,50 @@ import pandas as pd
 warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2'
+RISK_PROFILE_NAME = 'high'
+CURRENT_RISK_TEST = 1
 
-# Production high profile: High T5 (size boost + peak session boost, no qty cap).
-HIGH_RISK_PCT_MULT = 2.0
-HIGH_PEAK_SESSION_BOOST = 1.2
-HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
+# Three-layer test plan for high-risk profile.
+HIGH_RISK_TESTS = {
+    1: {
+        'risk_pct_mult': 2.0,
+        'qty_cap': None,
+        'peak_session_boost': 1.0,
+        'peak_hours': [],
+    },
+    2: {
+        'risk_pct_mult': 2.0,
+        # Looser cap to avoid runaway size while still allowing larger winners.
+        'qty_cap': 8.0,
+        'peak_session_boost': 1.0,
+        'peak_hours': [],
+    },
+    3: {
+        'risk_pct_mult': 2.0,
+        'qty_cap': 10.0,
+        # Prioritize US100 core NY hours for additional size in test 3.
+        'peak_session_boost': 1.2,
+        'peak_hours': [14, 15, 16, 17],
+    },
+    4: {
+        # Isolate cap relaxation effect without peak boost.
+        'risk_pct_mult': 2.0,
+        'qty_cap': 10.0,
+        'peak_session_boost': 1.0,
+        'peak_hours': [],
+    },
+    5: {
+        # Isolate peak-session boost effect without any qty cap.
+        'risk_pct_mult': 2.0,
+        'qty_cap': None,
+        'peak_session_boost': 1.2,
+        'peak_hours': [14, 15, 16, 17],
+    },
+}
+
+
+def get_active_risk_test() -> dict:
+    return HIGH_RISK_TESTS.get(CURRENT_RISK_TEST, HIGH_RISK_TESTS[1])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # INSTRUMENT CONFIG
@@ -468,7 +507,9 @@ def run_scenario(
 
     start_cap = capital
 
-    risk_pct    = cfg['risk_pct'] * HIGH_RISK_PCT_MULT
+    risk_test_cfg = get_active_risk_test()
+
+    risk_pct    = cfg['risk_pct'] * float(risk_test_cfg.get('risk_pct_mult', 1.0))
     score_min   = cfg['score_min']
     h4_min      = cfg['h4_min']
     h1_min      = cfg['h1_min']
@@ -685,8 +726,10 @@ def run_scenario(
 
             # ── p2 FILTER 1: Session gate ─────────────────────────────────
             session_mult = get_session_size_mult(ts_pd, inst_cfg)
-            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_UTC:
-                session_mult *= HIGH_PEAK_SESSION_BOOST
+            peak_hours = risk_test_cfg.get('peak_hours', [])
+            peak_boost = float(risk_test_cfg.get('peak_session_boost', 1.0))
+            if peak_boost > 1.0 and ts_pd.dayofweek < 5 and ts_pd.hour in peak_hours:
+                session_mult *= peak_boost
             if session_mult == 0.0:
                 skipped['session'] += 1
                 continue
@@ -794,6 +837,10 @@ def run_scenario(
             # Apply all size multipliers
             size_mult = session_mult * regime_mult * conf_mult
             qty = (risk_amt / initial_risk_price) * size_mult if initial_risk_price > 0 else 0
+
+            qty_cap = risk_test_cfg.get('qty_cap')
+            if qty_cap is not None:
+                qty = min(qty, float(qty_cap))
 
             if qty <= 0:
                 continue
@@ -976,7 +1023,12 @@ def main():
                         help='Fixed commission per closed trade')
     parser.add_argument('--start-date', default=None,
                         help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+    parser.add_argument('--risk-test', type=int, choices=[1, 2, 3, 4, 5], default=1,
+                        help='Risk test: 1=size only, 2=+cap8, 3=+cap10+peak, 4=cap10 only, 5=peak only')
     args = parser.parse_args()
+
+    global CURRENT_RISK_TEST
+    CURRENT_RISK_TEST = int(args.risk_test)
 
     output_dir = args.output_dir or '.'
     os.makedirs(output_dir, exist_ok=True)
@@ -987,6 +1039,7 @@ def main():
           f"  | TP: {inst_cfg['tp_mult']}R"
           f"  | ATR stop: {inst_cfg['atr_stop_mult']}x"
           f"  | Confirm: {inst_cfg['min_confirm_bars']} bars")
+    print(f"  Risk profile: {RISK_PROFILE_NAME} | test={CURRENT_RISK_TEST}")
 
     print("\nLoading data...")
     m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
@@ -1039,6 +1092,8 @@ def main():
     for sc in scenarios_to_run:
         cfg   = SCENARIOS[sc]
         sc_id = scenario_id(sc)
+        risk_test_cfg = get_active_risk_test()
+        effective_risk_pct = cfg['risk_pct'] * float(risk_test_cfg.get('risk_pct_mult', 1.0))
         candles = m1 if cfg['entry_tf'] == 'm1' else m5
         print(f"\nRunning Scenario {sc_id}...")
         df_r = run_scenario(
@@ -1056,8 +1111,9 @@ def main():
             slippage_bps=args.slippage_bps,
             commission_per_trade=args.commission_per_trade,
                  zone_lookback_bars=DEFAULTS['h4_lookback'],
-            label=(f"Scenario {sc_id} | {args.instrument} | "
-                   f"{cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%"),
+                 label=(f"Scenario {sc_id} | {args.instrument} | "
+                     f"{cfg['entry_tf'].upper()} entry | risk={effective_risk_pct*100:.2f}%"
+                     f" | {RISK_PROFILE_NAME}-test{CURRENT_RISK_TEST}"),
             **arrays,
         )
         results[sc_id] = df_r
