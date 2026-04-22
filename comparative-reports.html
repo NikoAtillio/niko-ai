@@ -701,6 +701,12 @@
       return Number.isFinite(n) ? n : fallback;
     }
 
+    function isLivePhantomValidationRun(summary) {
+      const periodKey = String(summary?.periodKey || '').toUpperCase();
+      const strategy = String(summary?.strategy || '').toUpperCase();
+      return periodKey.includes('LIVE PHANTOM_') || strategy.startsWith('PHANTOM_');
+    }
+
     function inferCanonicalStrategyDefinition(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
       const best = summary.best && typeof summary.best === 'object' ? summary.best : {};
@@ -723,7 +729,7 @@
     function buildComparativePayloadFromRun(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
       const comparativeData = summary.comparativeData && typeof summary.comparativeData === 'object' ? summary.comparativeData : null;
-      if (comparativeData && comparativeData.monthly && comparativeData.summary && comparativeData.highlights) {
+      if (!isLivePhantomValidationRun(summary) && comparativeData && comparativeData.monthly && comparativeData.summary && comparativeData.highlights) {
         return comparativeData;
       }
 
@@ -739,7 +745,17 @@
       const returnPct = toFiniteNumber(best.avgRet ?? best.netReturnPct, startCapital ? ((netPnl / startCapital) * 100) : 0);
       const maxDdPct = toFiniteNumber(best.worstDD ?? best.maxDrawdownPct, 0);
       const maxDdAmt = Math.abs(toFiniteNumber(best.ddPrice, (Math.abs(maxDdPct) / 100) * startCapital));
-      const branchKey = 'variant_b';
+      const profileHaystack = `${String(summary.riskProfile || '')} ${String(summary.periodKey || '')} ${String(best.label || '')}`.toLowerCase();
+      const riskProfile = profileHaystack.includes('high')
+        ? 'high'
+        : profileHaystack.includes('low')
+          ? 'low'
+          : 'median';
+      const branchKey = riskProfile === 'high'
+        ? 'profile_high'
+        : riskProfile === 'low'
+          ? 'profile_low'
+          : 'profile_median';
 
       return {
         title: strategyLabel,
@@ -966,6 +982,9 @@
     function getBranchLabel(branchKey) {
       const raw = String(branchKey || '').trim();
       const upper = raw.toUpperCase();
+      if (upper === 'PROFILE_HIGH') return 'Profile High';
+      if (upper === 'PROFILE_MEDIAN') return 'Profile Median';
+      if (upper === 'PROFILE_LOW') return 'Profile Low';
       if (upper === 'PHANTOM_P1' || upper === 'P1' || upper === 'V1') return 'Variant A';
       if (upper === 'PHANTOM_P2' || upper === 'P2' || upper === 'V2') return 'Variant B';
       if (upper === 'PHANTOM_P3' || upper === 'P3' || upper === 'V3') return 'Variant C';
