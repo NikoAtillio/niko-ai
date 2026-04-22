@@ -13,16 +13,11 @@ Improvements over p1:
   9. Confidence position sizing — 1.5x size when session + cluster + regime all aligned
  10. Instrument ATR multipliers — XAU: 2.0x, US100: 1.5x, BTC: 1.8x
 
-Scenarios
-    p2C : M5 entry | risk=0.40% | score>=3 | no timeout
-    p2B : M5 entry | risk=0.70% | score>=3 | no timeout
-    p2A : M1 entry | risk=0.35% | score>=5 | vol filter | no timeout
-
 Usage
     python phantom_p2.py --instrument XAU \\
         --m1 path/M1.csv --m5 path/M5.csv --h1 path/H1.csv --h4 path/H4.csv \\
         --daily path/Daily.csv \\
-        [--scenario p2A] [--capital 5000]
+        [--capital 5000]
 
     Instrument choices: XAU | US100 | BTC
 """
@@ -129,18 +124,6 @@ DEFAULTS = {
 }
 
 SCENARIOS = {
-    'C': dict(
-        entry_tf    = 'm5',
-        risk_pct    = 0.004,
-        score_min   = 3,
-        h4_min      = 1,
-        h1_min      = 1,
-        ltf_min     = 1,
-        ltf_cap     = 3,
-        vol_filter  = False,
-        timeout_bars= None,
-        atr_trail   = 0.8,   # Trailing stop multiplier
-    ),
     'B': dict(
         entry_tf    = 'm5',
         risk_pct    = 0.007,
@@ -153,19 +136,11 @@ SCENARIOS = {
         timeout_bars= None,
         atr_trail   = 0.8,
     ),
-    'A': dict(
-        entry_tf    = 'm1',
-        risk_pct    = 0.0035,
-        score_min   = 5,
-        h4_min      = 1,
-        h1_min      = 1,
-        ltf_min     = 2,
-        ltf_cap     = 3,
-        vol_filter  = True,
-        timeout_bars= None,
-        atr_trail   = 0.9,
-    ),
 }
+
+ACTIVE_SCENARIO_LETTER = 'B'
+ACTIVE_SCENARIO_ID = f"{ENGINE_VERSION.upper()}{ACTIVE_SCENARIO_LETTER}"
+ACTIVE_SCENARIO_CFG = SCENARIOS[ACTIVE_SCENARIO_LETTER]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATA LOADING
@@ -907,42 +882,6 @@ def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float,
     print(f"  Skipped     : {skipped}")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SCENARIO HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-def canonicalize_scenario(raw: str) -> str:
-    token = str(raw or '').strip().upper().replace('.', '')
-    token = token.replace(ENGINE_VERSION.upper(), '')
-    alias_map = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'C'}
-    normalized = alias_map.get(token, token)
-    if normalized not in SCENARIOS:
-        raise ValueError(f"Unknown scenario '{raw}'. Use p2A | p2B | p2C | ALL")
-    return normalized
-
-def scenario_id(letter: str) -> str:
-    return f"{ENGINE_VERSION.upper()}{letter}"
-
-def print_comparison(results: dict, start_cap: float):
-    print(f"\n\n{'='*56}")
-    print(f"  {ENGINE_VERSION.upper()} SCENARIO SNAPSHOT")
-    print(f"{'='*56}")
-    print(f"  {'Scen':<8} {'Trades':>8} {'WR':>8} {'PF':>8} {'Max DD':>10} {'Net Ret':>10}")
-    for sc_id, df_r in results.items():
-        if df_r is None or len(df_r) == 0:
-            print(f"  {sc_id:<8} {'—':>8}")
-            continue
-        trades = len(df_r)
-        wr     = df_r['win'].mean() * 100
-        gw     = df_r[df_r['win']]['pnl'].sum()
-        gl     = df_r[~df_r['win']]['pnl'].sum()
-        pf     = abs(gw / gl) if gl != 0 else float('inf')
-        net    = df_r['pnl'].sum()
-        ret    = net / start_cap * 100 if start_cap else 0.0
-        eq     = start_cap + df_r['pnl'].cumsum()
-        peak   = eq.cummax()
-        dd     = ((eq - peak) / peak).min() * 100
-        print(f"  {sc_id:<8} {trades:>8} {wr:>7.1f}% {pf:>8.3f} {dd:>9.2f}% {ret:>9.2f}%")
-
-# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
@@ -956,8 +895,6 @@ def main():
     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
-    parser.add_argument('--scenario',    default='ALL',
-                        help=f'{ENGINE_VERSION}A | {ENGINE_VERSION}B | {ENGINE_VERSION}C | ALL')
     parser.add_argument('--capital',     type=float, default=5_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
@@ -1022,44 +959,34 @@ def main():
         m1_rsi=m1['rsi'].values,
     )
 
-    scenarios_to_run = (
-        list(SCENARIOS.keys())
-        if args.scenario.upper() == 'ALL'
-        else [canonicalize_scenario(args.scenario)]
+    cfg = ACTIVE_SCENARIO_CFG
+    sc_id = ACTIVE_SCENARIO_ID
+    candles = m1 if cfg['entry_tf'] == 'm1' else m5
+    print(f"\nRunning Scenario {sc_id}...")
+    df_r = run_scenario(
+        candles=candles,
+        zone_ts=zone_ts, zone_px=zone_px, zone_dir=zone_dir,
+        daily_idx=daily_idx, daily_regime=daily_regime,
+        cfg=cfg,
+        inst_cfg=inst_cfg,
+        capital=args.capital,
+        max_concurrent=DEFAULTS['max_concurrent'],
+        cooldown_min=DEFAULTS['cooldown_min'],
+        lockout_min=DEFAULTS['lockout_min'],
+        conf_tol=DEFAULTS['conf_tol'],
+        spread_bps=args.spread_bps,
+        slippage_bps=args.slippage_bps,
+        commission_per_trade=args.commission_per_trade,
+        zone_lookback_bars=DEFAULTS['h4_lookback'],
+        label=(f"Scenario {sc_id} | {args.instrument} | "
+               f"{cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%"),
+        **arrays,
     )
+    if df_r is not None and len(df_r):
+        out = os.path.join(output_dir, f'phantom_{ENGINE_VERSION}_trades_{args.instrument}_{sc_id}.csv')
+        df_r.to_csv(out, index=False)
+        print(f"  Trades saved → {out}")
 
-    results = {}
-    for sc in scenarios_to_run:
-        cfg   = SCENARIOS[sc]
-        sc_id = scenario_id(sc)
-        candles = m1 if cfg['entry_tf'] == 'm1' else m5
-        print(f"\nRunning Scenario {sc_id}...")
-        df_r = run_scenario(
-            candles=candles,
-            zone_ts=zone_ts, zone_px=zone_px, zone_dir=zone_dir,
-            daily_idx=daily_idx, daily_regime=daily_regime,
-            cfg=cfg,
-            inst_cfg=inst_cfg,
-            capital=args.capital,
-            max_concurrent=DEFAULTS['max_concurrent'],
-            cooldown_min=DEFAULTS['cooldown_min'],
-            lockout_min=DEFAULTS['lockout_min'],
-            conf_tol=DEFAULTS['conf_tol'],
-            spread_bps=args.spread_bps,
-            slippage_bps=args.slippage_bps,
-            commission_per_trade=args.commission_per_trade,
-                 zone_lookback_bars=DEFAULTS['h4_lookback'],
-            label=(f"Scenario {sc_id} | {args.instrument} | "
-                   f"{cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%"),
-            **arrays,
-        )
-        results[sc_id] = df_r
-        if df_r is not None and len(df_r):
-            out = os.path.join(output_dir, f'phantom_{ENGINE_VERSION}_trades_{args.instrument}_{sc_id}.csv')
-            df_r.to_csv(out, index=False)
-            print(f"  Trades saved → {out}")
-
-    print_comparison(results, start_cap=args.capital)
     print("\nDone.")
 
 

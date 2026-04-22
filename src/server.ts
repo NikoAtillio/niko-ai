@@ -2952,7 +2952,6 @@ function resolvePhantomBacktestCommand(symbolInput: string, capital: number): {
 } {
 	const symbol = canonicalizeDatasetSymbol(String(symbolInput || ''));
 	const riskProfile: 'high' | 'median' | 'low' = 'median';
-	const scenarioKey = mapRiskProfileToScenarioKey(riskProfile);
 	const instrumentCode = mapSymbolToPhantomInstrumentCode(symbol);
 	const stem = mapSymbolToPhantomStem(symbol);
 	const scriptCandidates = resolvePhantomScriptCandidates(symbol, riskProfile);
@@ -2980,7 +2979,6 @@ function resolvePhantomBacktestCommand(symbolInput: string, capital: number): {
 		'--h1', h1,
 		'--h4', h4,
 		'--daily', daily,
-		'--scenario', `p2${scenarioKey}`,
 		'--capital', String(capital),
 		'--output-dir', ARTIFACT_DIR,
 	];
@@ -2988,6 +2986,8 @@ function resolvePhantomBacktestCommand(symbolInput: string, capital: number): {
 	if (instrumentCode === 'US100') {
 		args.push('--start-date', '2021-01-01');
 	}
+
+	const scenarioKey: 'A' | 'B' | 'C' = 'B';
 
 	return {
 		pythonExec,
@@ -3851,9 +3851,8 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const capital = toNumber(req.body?.capital, 5_000);
 		const startDate = String(req.body?.startDate || req.body?.start_date || '2021-01-01').trim();
 		const riskProfileInput = String(req.body?.riskProfile || 'median');
-		const scenarioInput = String(req.body?.scenario || 'B');
 		const riskProfile = mapScenarioOrRiskToRiskProfile(riskProfileInput);
-		const scenario = mapRiskProfileToScenarioKey(mapScenarioOrRiskToRiskProfile(scenarioInput));
+		const scenario: 'A' | 'B' | 'C' = 'B';
 		if (!supportsPhantomExecution(symbol)) {
 			throw new Error(`Unsupported symbol for Phantom routing: ${symbol}`);
 		}
@@ -3885,7 +3884,6 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			'--m5', dataFiles.m5,
 			'--h1', dataFiles.h1,
 			'--h4', dataFiles.h4,
-			'--scenario', scenario,
 			'--start-date', startDate,
 			'--capital', String(capital),
 			'--spread-bps', String(spreadBps),
