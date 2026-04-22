@@ -38,11 +38,42 @@ import pandas as pd
 warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2'
+RISK_PROFILE_NAME = 'low'
+CURRENT_RISK_TEST = 1
 
-# Production high profile: High T5 (size boost + peak session boost, no qty cap).
-HIGH_RISK_PCT_MULT = 2.0
-HIGH_PEAK_SESSION_BOOST = 1.2
-HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
+# Three-layer test plan for low-risk profile.
+LOW_RISK_TESTS = {
+    1: {
+        'risk_pct_mult': 0.5,
+        'confidence_profile': None,
+        'max_concurrent_cap': None,
+        'max_open_risk_frac': None,
+    },
+    2: {
+        'risk_pct_mult': 0.5,
+        # Size up only when score quality is stronger; otherwise suppress size.
+        'confidence_profile': 'strict_score',
+        'max_concurrent_cap': None,
+        'max_open_risk_frac': None,
+    },
+    3: {
+        'risk_pct_mult': 0.5,
+        'confidence_profile': 'strict_score',
+        'max_concurrent_cap': 2,
+        'max_open_risk_frac': 0.007,
+    },
+    4: {
+        # Isolate exposure-cap effect without strict confidence profile.
+        'risk_pct_mult': 0.5,
+        'confidence_profile': None,
+        'max_concurrent_cap': 2,
+        'max_open_risk_frac': 0.007,
+    },
+}
+
+
+def get_active_risk_test() -> dict:
+    return LOW_RISK_TESTS.get(CURRENT_RISK_TEST, LOW_RISK_TESTS[1])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # INSTRUMENT CONFIG
@@ -468,7 +499,9 @@ def run_scenario(
 
     start_cap = capital
 
-    risk_pct    = cfg['risk_pct'] * HIGH_RISK_PCT_MULT
+    risk_test_cfg = get_active_risk_test()
+
+    risk_pct    = cfg['risk_pct'] * float(risk_test_cfg.get('risk_pct_mult', 1.0))
     score_min   = cfg['score_min']
     h4_min      = cfg['h4_min']
     h1_min      = cfg['h1_min']
@@ -498,7 +531,8 @@ def run_scenario(
     positions  = []
     results    = []
     skipped    = {'session': 0, 'cluster': 0, 'confirm': 0, 'circuit': 0,
-                  'score': 0, 'concurrent': 0, 'vol': 0, 'chasing': 0, 'not_bounce': 0}
+                  'score': 0, 'concurrent': 0, 'vol': 0, 'chasing': 0, 'not_bounce': 0,
+                  'open_risk': 0}
     last_entry = None
     last_loss_exit = None
 
@@ -627,9 +661,22 @@ def run_scenario(
         positions = still_open
 
         # ── entry logic ───────────────────────────────────────────────────
-        if len(positions) >= max_concurrent:
+        max_concurrent_cap = risk_test_cfg.get('max_concurrent_cap')
+        effective_max_concurrent = max_concurrent
+        if max_concurrent_cap is not None:
+            effective_max_concurrent = min(effective_max_concurrent, int(max_concurrent_cap))
+
+        if len(positions) >= effective_max_concurrent:
             skipped['concurrent'] += 1
             continue
+
+        max_open_risk_frac = risk_test_cfg.get('max_open_risk_frac')
+        if max_open_risk_frac is not None:
+            open_risk_cash = sum(p['initial_risk_price'] * p['qty'] for p in positions)
+            open_risk_cap_cash = capital * float(max_open_risk_frac)
+            if open_risk_cash >= open_risk_cap_cash:
+                skipped['open_risk'] += 1
+                continue
 
         # Circuit breaker check
         if breaker.is_paused(ts_pd):
@@ -685,8 +732,6 @@ def run_scenario(
 
             # ── p2 FILTER 1: Session gate ─────────────────────────────────
             session_mult = get_session_size_mult(ts_pd, inst_cfg)
-            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_UTC:
-                session_mult *= HIGH_PEAK_SESSION_BOOST
             if session_mult == 0.0:
                 skipped['session'] += 1
                 continue
@@ -776,6 +821,16 @@ def run_scenario(
                 )
             else:
                 conf_mult = 1.0
+
+            # Test layers 2/3: only award confidence size-up for stronger score quality.
+            if risk_test_cfg.get('confidence_profile') == 'strict_score':
+                strong_score = int(DEFAULTS.get('confidence_score_min', 7)) + 1
+                if in_peak_session and total_score >= strong_score:
+                    conf_mult = 1.1
+                elif total_score >= strong_score:
+                    conf_mult = 1.0
+                else:
+                    conf_mult = 0.8
 
             # ── Position sizing ───────────────────────────────────────────
             stop_dist  = atr_stop * atr_h4_v
@@ -976,7 +1031,12 @@ def main():
                         help='Fixed commission per closed trade')
     parser.add_argument('--start-date', default=None,
                         help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+    parser.add_argument('--risk-test', type=int, choices=[1, 2, 3, 4], default=1,
+                        help='Risk test: 1=size only, 2=+strict confidence, 3=+strict confidence+caps, 4=caps only')
     args = parser.parse_args()
+
+    global CURRENT_RISK_TEST
+    CURRENT_RISK_TEST = int(args.risk_test)
 
     output_dir = args.output_dir or '.'
     os.makedirs(output_dir, exist_ok=True)
@@ -987,6 +1047,7 @@ def main():
           f"  | TP: {inst_cfg['tp_mult']}R"
           f"  | ATR stop: {inst_cfg['atr_stop_mult']}x"
           f"  | Confirm: {inst_cfg['min_confirm_bars']} bars")
+    print(f"  Risk profile: {RISK_PROFILE_NAME} | test={CURRENT_RISK_TEST}")
 
     print("\nLoading data...")
     m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
@@ -1039,6 +1100,8 @@ def main():
     for sc in scenarios_to_run:
         cfg   = SCENARIOS[sc]
         sc_id = scenario_id(sc)
+        risk_test_cfg = get_active_risk_test()
+        effective_risk_pct = cfg['risk_pct'] * float(risk_test_cfg.get('risk_pct_mult', 1.0))
         candles = m1 if cfg['entry_tf'] == 'm1' else m5
         print(f"\nRunning Scenario {sc_id}...")
         df_r = run_scenario(
@@ -1056,8 +1119,9 @@ def main():
             slippage_bps=args.slippage_bps,
             commission_per_trade=args.commission_per_trade,
                  zone_lookback_bars=DEFAULTS['h4_lookback'],
-            label=(f"Scenario {sc_id} | {args.instrument} | "
-                   f"{cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%"),
+                 label=(f"Scenario {sc_id} | {args.instrument} | "
+                     f"{cfg['entry_tf'].upper()} entry | risk={effective_risk_pct*100:.2f}%"
+                     f" | {RISK_PROFILE_NAME}-test{CURRENT_RISK_TEST}"),
             **arrays,
         )
         results[sc_id] = df_r

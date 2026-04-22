@@ -39,6 +39,9 @@ warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2'
 
+# Production low profile: Low T1 (size-only reduction).
+LOW_RISK_PCT_MULT = 0.5
+
 # ══════════════════════════════════════════════════════════════════════════════
 # INSTRUMENT CONFIG
 # Each instrument gets its own session window, ATR multiplier, TP ratio,
@@ -463,7 +466,7 @@ def run_scenario(
 
     start_cap = capital
 
-    risk_pct    = cfg['risk_pct']
+    risk_pct    = cfg['risk_pct'] * LOW_RISK_PCT_MULT
     score_min   = cfg['score_min']
     h4_min      = cfg['h4_min']
     h1_min      = cfg['h1_min']
