@@ -2244,6 +2244,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol,
+          scenario: 'B',
           riskProfile: String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_high')
             ? 'high'
             : String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_low')
@@ -2787,7 +2788,7 @@
           <div class="rec-card">
             <h4>Net Return</h4>
             <div class="rec-big">${best.netReturnPct.toFixed(2)}%</div>
-            <div class="rec-sub">${formatScenarioLabel(best.scenario)} on ${validationSummary.symbol}</div>
+            <div class="rec-sub">${formatVersionLabel(currentVersion).toUpperCase()} on ${validationSummary.symbol}</div>
           </div>
           <div class="rec-card">
             <h4>Final Capital</h4>
@@ -2804,7 +2805,7 @@
 
         recRows.innerHTML = summaries.map((summary) => `
           <tr>
-            <td>${formatStrategyBadge(validationSummary.strategy || 'phantom_median', summary.scenario)}</td>
+            <td>${formatVersionLabel(validationSummary.strategy || 'phantom_median')}</td>
             <td>${validationSummary.symbol}</td>
             <td>${summary.netReturnPct.toFixed(2)}%</td>
             <td>£${summary.finalCapital.toFixed(2)}</td>
