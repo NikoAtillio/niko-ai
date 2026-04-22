@@ -3850,9 +3850,10 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
 		const startDate = String(req.body?.startDate || req.body?.start_date || '2021-01-01').trim();
-		const scenarioInput = String(req.body?.riskProfile || req.body?.scenario || 'B');
-		const riskProfile = mapScenarioOrRiskToRiskProfile(scenarioInput);
-		const scenario = mapRiskProfileToScenarioKey(riskProfile);
+		const riskProfileInput = String(req.body?.riskProfile || 'median');
+		const scenarioInput = String(req.body?.scenario || 'B');
+		const riskProfile = mapScenarioOrRiskToRiskProfile(riskProfileInput);
+		const scenario = mapRiskProfileToScenarioKey(mapScenarioOrRiskToRiskProfile(scenarioInput));
 		if (!supportsPhantomExecution(symbol)) {
 			throw new Error(`Unsupported symbol for Phantom routing: ${symbol}`);
 		}
