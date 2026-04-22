@@ -3850,7 +3850,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
 		const startDate = String(req.body?.startDate || req.body?.start_date || '2021-01-01').trim();
-		const scenarioInput = String(req.body?.scenario || req.body?.riskProfile || 'B');
+		const scenarioInput = String(req.body?.riskProfile || req.body?.scenario || 'B');
 		const riskProfile = mapScenarioOrRiskToRiskProfile(scenarioInput);
 		const scenario = mapRiskProfileToScenarioKey(riskProfile);
 		if (!supportsPhantomExecution(symbol)) {
@@ -3895,6 +3895,17 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		if (strategyInstrumentCode) {
 			args.push('--instrument', strategyInstrumentCode, '--daily', dataFiles.daily, '--m15', dataFiles.m15);
 		}
+
+		const usedTimeframes = [
+			{ flag: '--m1', label: 'M1' },
+			{ flag: '--m5', label: 'M5' },
+			{ flag: '--m15', label: 'M15' },
+			{ flag: '--h1', label: 'H1' },
+			{ flag: '--h4', label: 'H4' },
+			{ flag: '--daily', label: '1D' },
+		]
+			.filter((item) => args.includes(item.flag))
+			.map((item) => item.label);
 
 		const stdout = await new Promise<string>((resolve, reject) => {
 			const proc = spawn(pythonExec, args, {
@@ -3947,6 +3958,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			riskProfile,
 			scenario,
 			dataFiles,
+			usedTimeframes,
 			workingDir,
 			summaries,
 			best,
