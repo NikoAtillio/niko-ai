@@ -758,7 +758,7 @@
           </div>
           <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
         </div>
-        <p class="footnote" id="preloadedSummary" style="margin:0;">Runs live PHANTOM validation for the selected instrument using hosted M1/M5/H1/H4 datasets.</p>
+        <p class="footnote" id="preloadedSummary" style="margin:0;">Runs live PHANTOM validation for the selected instrument using the timeframes required by the selected strategy profile.</p>
       </div>
 
       <div class="curve-toolbar">
@@ -2219,6 +2219,18 @@
       return aliases[cleaned] || cleaned;
     }
 
+    function getValidationTimeframeList(payload) {
+      const raw = Array.isArray(payload?.usedTimeframes) ? payload.usedTimeframes : [];
+      const normalized = raw
+        .map((item) => String(item || '').trim().toUpperCase())
+        .filter(Boolean);
+      return normalized.length ? normalized : ['M1', 'M5', 'M15', 'H1', 'H4', '1D'];
+    }
+
+    function formatValidationTimeframes(payload) {
+      return getValidationTimeframeList(payload).join('/');
+    }
+
     async function validateCurrentDataset(data, options = {}) {
       const symbol = normalizeValidationSymbol(String(options?.symbol || data?.market || '').split(',')[0]);
       if (!symbol) {
@@ -2232,7 +2244,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol,
-          scenario: 'ALL',
           riskProfile: String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_high')
             ? 'high'
             : String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_low')
@@ -2808,7 +2819,8 @@
         const costSummary = executionImpactSummary
           ? ` Execution cost impact vs zero-cost baseline (${formatScenarioLabel(executionImpactSummary.baselineScenario)}): ${formatSigned(executionImpactSummary.deltaReturnPct, 2)}% and Δ£${formatSigned(executionImpactSummary.deltaFinalCapital, 2)}.`
           : '';
-        recNote.textContent = `Live validation run against hosted M1/M5/H1/H4 files for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best scenario is ranked by net return, then PF, then drawdown.${costSummary}`;
+        const timeframeText = formatValidationTimeframes(validationSummary);
+        recNote.textContent = `Live validation run against hosted ${timeframeText} data for ${validationSummary.symbol}, filtered to ${rangeLabel}. Best result is ranked by net return, then PF, then drawdown.${costSummary}`;
 
         latestResultsSummary = {
           generatedAt: new Date().toISOString(),
@@ -3409,7 +3421,8 @@
       const rangeLabel = formatRangeLabel(dateRange);
       curveNote.textContent = `Showing ${periodLabel} for ${rangeLabel} with £${startCapital.toLocaleString()} starting capital, risk at x${riskMultiplier.toFixed(2)}, and monthly withdrawal at ${withdrawalPct.toFixed(0)}% of each month's positive profit.`;
       if (isLiveValidation) {
-        curveNote.textContent = `Live PHANTOM validation curves for ${curveData.market} (${rangeLabel}). Displaying raw strategy equity outputs (A/B/C) from hosted M1/M5/H1/H4 data.`;
+        const timeframeText = formatValidationTimeframes(validationSummary);
+        curveNote.textContent = `Live PHANTOM validation curves for ${curveData.market} (${rangeLabel}). Displaying strategy equity output from hosted ${timeframeText} data.`;
       }
     }
 
@@ -3437,12 +3450,12 @@
       try {
         executionImpactSummary = null;
         enableMarketChartMode(false);
-        setDataDropStatus(`Loading ${selectedStrategy} scenario set (A/B/C) for ${symbol}...`);
-        preloadedSummary.textContent = `Loading ${selectedStrategy} scenario set (A/B/C) for ${symbol}... please wait.`;
+        setDataDropStatus(`Loading ${selectedStrategy} validation profile for ${symbol}...`);
+        preloadedSummary.textContent = `Loading ${selectedStrategy} validation profile for ${symbol}... please wait.`;
         validationSummary = await validateCurrentDataset({ market: symbol });
 
         if (!validationSummary?.curveData || !validationSummary?.summaries?.length) {
-          throw new Error('Live validation returned no scenario summaries.');
+          throw new Error('Live validation returned no strategy summary rows.');
         }
 
         curveData = validationSummary.curveData;
@@ -3455,8 +3468,9 @@
         render();
         renderCurve(curveYearSelect.value);
 
-        preloadedSummary.textContent = `${symbol} loaded with live ${(validationSummary?.strategy || selectedStrategy).toUpperCase()} scenario validation (A/B/C) from hosted M1/M5/H1/H4 data.`;
-        setDataDropStatus(`✓ ${symbol} scenario set loaded. Strategy chart ready.`);
+        const timeframeText = formatValidationTimeframes(validationSummary);
+        preloadedSummary.textContent = `${symbol} loaded with live ${(validationSummary?.strategy || selectedStrategy).toUpperCase()} validation from hosted ${timeframeText} data.`;
+        setDataDropStatus(`✓ ${symbol} validation profile loaded. Strategy chart ready.`);
       } catch (error) {
         validationSummary = null;
         executionImpactSummary = null;
@@ -3479,7 +3493,7 @@
         setDataDropStatus(`Applying execution cost settings for ${currentSymbol}...`);
         const refreshed = await validateCurrentDataset({ market: currentSymbol });
         if (!refreshed?.curveData || !refreshed?.summaries?.length) {
-          throw new Error('Live validation did not return refreshed scenario data.');
+          throw new Error('Live validation did not return refreshed strategy data.');
         }
 
         executionImpactSummary = null;
@@ -3638,7 +3652,7 @@
         let validationFailed = false;
         try {
           const selectedStrategy = String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase();
-          setDataDropStatus(`Loading ${selectedStrategy} scenario set (A/B/C) for ${curveData.market}...`);
+          setDataDropStatus(`Loading ${selectedStrategy} validation profile for ${curveData.market}...`);
           validationSummary = await validateCurrentDataset(curveData);
           if (validationSummary?.curveData && validationSummary?.summaries?.length) {
             curveData = validationSummary.curveData;
@@ -3652,7 +3666,7 @@
             validationFailed = true;
             validationSummary = null;
             executionImpactSummary = null;
-            curveNote.textContent = 'Loaded imported data, but no live validation scenario summary was returned.';
+            curveNote.textContent = 'Loaded imported data, but no live validation strategy summary was returned.';
           }
         } catch (validationError) {
           validationFailed = true;
@@ -3667,7 +3681,7 @@
           setDataDropStatus(`Loaded ${files.length} file${files.length > 1 ? 's' : ''}, but live validation failed. See curve note for details.`, true);
         } else {
           const loadedVersion = String(validationSummary?.strategy || phantomEngineSelect?.value || 'phantom_median').toLowerCase();
-          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and ${loadedVersion} scenario set (A/B/C).`);
+          setDataDropStatus(`✓ Loaded ${files.length} file${files.length > 1 ? 's' : ''} and ${loadedVersion} validation profile.`);
         }
         dataFileInput.value = '';
       } catch (err) {
