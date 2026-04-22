@@ -729,7 +729,9 @@
     function buildComparativePayloadFromRun(run) {
       const summary = run && run.summary && typeof run.summary === 'object' ? run.summary : {};
       const comparativeData = summary.comparativeData && typeof summary.comparativeData === 'object' ? summary.comparativeData : null;
-      if (!isLivePhantomValidationRun(summary) && comparativeData && comparativeData.monthly && comparativeData.summary && comparativeData.highlights) {
+      // Prefer comparative payload whenever it includes monthly/summary/highlights,
+      // including live validation runs, so tabs can render full multi-month data.
+      if (comparativeData && comparativeData.monthly && comparativeData.summary && comparativeData.highlights) {
         return comparativeData;
       }
 
@@ -918,8 +920,10 @@
       });
     }
 
-    function renderInstrumentStatusPanel() {
-      const rows = state.instrumentMedianStatus.length
+    function renderInstrumentStatusPanel(rowsOverride) {
+      const rows = Array.isArray(rowsOverride) && rowsOverride.length
+        ? rowsOverride
+        : (state.instrumentMedianStatus.length
         ? state.instrumentMedianStatus
         : CANONICAL_STRATEGY_MARKETS.map((definition) => ({
             key: definition.key,
@@ -930,7 +934,7 @@
             avgRet: null,
             avgPf: null,
             maxDd: null,
-          }));
+          })));
 
       const body = rows.map((item) => {
         const statusClass = item.available ? 'ok' : 'missing';
@@ -977,6 +981,41 @@
           </div>
         </div>
       `;
+    }
+
+    function canonicalKeyFromReport(report) {
+      const title = String(report && report.title || '').trim().toLowerCase();
+      if (!title) return '';
+      const match = CANONICAL_STRATEGY_MARKETS.find((definition) => String(definition.title || '').trim().toLowerCase() === title);
+      return match ? match.key : '';
+    }
+
+    function getFilteredInstrumentStatusRows() {
+      const selectedKeys = new Set(
+        state.selectedReportIds
+          .map((reportId) => getReportById(reportId))
+          .filter((report) => Boolean(report && report.isCanonicalStrategy))
+          .map((report) => canonicalKeyFromReport(report))
+          .filter(Boolean)
+      );
+
+      const baseRows = state.instrumentMedianStatus.length
+        ? state.instrumentMedianStatus
+        : CANONICAL_STRATEGY_MARKETS.map((definition) => ({
+            key: definition.key,
+            title: definition.title,
+            available: false,
+            runId: '',
+            createdAt: '',
+            avgRet: null,
+            avgPf: null,
+            maxDd: null,
+          }));
+
+      if (!selectedKeys.size) {
+        return baseRows;
+      }
+      return baseRows.filter((row) => selectedKeys.has(String(row.key || '')));
     }
 
     function getBranchLabel(branchKey) {
@@ -1542,8 +1581,9 @@
     function renderComparison() {
       const summary = getSummaryRows();
       const highlights = getHighlightRows();
+      const filteredStatusRows = getFilteredInstrumentStatusRows();
       if (!summary.length) {
-        view.innerHTML = `${renderInstrumentStatusPanel()}<div class="empty">No comparison rows found for this mode.</div>`;
+        view.innerHTML = `${renderInstrumentStatusPanel(filteredStatusRows)}<div class="empty">No comparison rows found for this mode.</div>`;
         return;
       }
 
@@ -1567,7 +1607,7 @@
       }).join('');
 
       view.innerHTML = `
-        ${renderInstrumentStatusPanel()}
+        ${renderInstrumentStatusPanel(filteredStatusRows)}
         <div class="table-wrap">
           <table>
             <thead>
