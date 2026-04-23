@@ -564,6 +564,7 @@
         </div>
         <div class="admin-actions">
           <button id="loadReportBtn" type="button" class="secondary">Load</button>
+          <button id="downloadComparisonPdfBtn" type="button" class="secondary">Download Comparison PDF</button>
           <button id="saveReportBtn" type="submit">Save To Profile</button>
         </div>
       </form>
@@ -632,9 +633,23 @@
     const reportAdminForm = document.getElementById('reportAdminForm');
     const strategyChecklist = document.getElementById('strategyChecklist');
     const loadReportBtn = document.getElementById('loadReportBtn');
+    const downloadComparisonPdfBtn = document.getElementById('downloadComparisonPdfBtn');
     const saveReportBtn = document.getElementById('saveReportBtn');
     const windowStartInput = document.getElementById('windowStartInput');
     const windowEndInput = document.getElementById('windowEndInput');
+    const urlParams = new URLSearchParams(window.location.search);
+
+    function formatSnapshotDateTime(isoText) {
+      const dt = new Date(String(isoText || ''));
+      if (Number.isNaN(dt.getTime())) return '';
+      return dt.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
 
     function fmtCurrency(n) {
       const v = Number(n || 0);
@@ -665,6 +680,169 @@
 
     function clearAlerts() {
       alerts.innerHTML = '';
+    }
+
+    function pdfEscape(text) {
+      return String(text)
+        .replace(/\\/g, '\\\\')
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)')
+        .replace(/\r/g, '');
+    }
+
+    function wrapTextForPdf(text, maxChars = 92) {
+      const words = String(text || '').split(/\s+/).filter(Boolean);
+      const lines = [];
+      let current = '';
+      for (const word of words) {
+        const next = current ? `${current} ${word}` : word;
+        if (next.length > maxChars && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = next;
+        }
+      }
+      if (current) lines.push(current);
+      return lines.length ? lines : [''];
+    }
+
+    function buildPdfDocumentFromLines(lines) {
+      const pageWidth = 612;
+      const pageHeight = 792;
+      const marginLeft = 50;
+      const marginTop = 52;
+      const lineHeight = 12;
+      const linesPerPage = Math.floor((pageHeight - marginTop * 2) / lineHeight);
+      const pages = [];
+      const byteLength = (value) => new TextEncoder().encode(value).length;
+
+      for (let i = 0; i < lines.length; i += linesPerPage) {
+        pages.push(lines.slice(i, i + linesPerPage));
+      }
+
+      const objects = [];
+      const addObject = (content) => {
+        objects.push(content);
+        return objects.length;
+      };
+
+      const fontObj = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+      const pageRefs = [];
+
+      for (const pageLines of pages) {
+        const textCommands = [
+          'BT',
+          '/F1 10 Tf',
+          `${marginLeft} ${pageHeight - marginTop} Td`,
+        ];
+
+        pageLines.forEach((line, index) => {
+          const safe = pdfEscape(line || '');
+          if (index === 0) {
+            textCommands.push(`(${safe}) Tj`);
+          } else {
+            textCommands.push(`0 -${lineHeight} Td`);
+            textCommands.push(`(${safe}) Tj`);
+          }
+        });
+
+        textCommands.push('ET');
+        const stream = textCommands.join('\n');
+        const contentsObj = addObject(`<< /Length ${byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+        const pageObj = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObj} 0 R >> >> /Contents ${contentsObj} 0 R >>`);
+        pageRefs.push(pageObj);
+      }
+
+      const pagesObj = addObject(`<< /Type /Pages /Kids [${pageRefs.map((n) => `${n} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`);
+      const catalogObj = addObject(`<< /Type /Catalog /Pages ${pagesObj} 0 R >>`);
+
+      objects.forEach((obj, idx) => {
+        if (obj.includes('/Type /Page')) {
+          objects[idx] = obj.replace('/Parent 0 0 R', `/Parent ${pagesObj} 0 R`);
+        }
+      });
+
+      let output = '%PDF-1.4\n';
+      const offsets = ['0000000000 65535 f \n'];
+      objects.forEach((obj, idx) => {
+        offsets.push(String(byteLength(output)).padStart(10, '0') + ' 00000 n \n');
+        output += `${idx + 1} 0 obj\n${obj}\nendobj\n`;
+      });
+
+      const xrefPos = byteLength(output);
+      output += `xref\n0 ${objects.length + 1}\n${offsets.join('')}trailer\n<< /Size ${objects.length + 1} /Root ${catalogObj} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+      return new Blob([output], { type: 'application/pdf' });
+    }
+
+    function buildComparisonPdfLines() {
+      const selectedIds = getSelectedStrategyIdsFromUi();
+      const lines = [];
+      lines.push('Comparative Strategy Report');
+      lines.push(`Generated: ${new Date().toLocaleString('en-GB')}`);
+      if (state.windowStart || state.windowEnd) {
+        lines.push(`Window: ${state.windowStart || 'start'} to ${state.windowEnd || 'end'}`);
+      }
+      lines.push('');
+      lines.push('Selected strategies');
+      selectedIds.forEach((reportId) => {
+        const report = getReportById(reportId);
+        const stamp = report && report.generatedAt ? ` (${formatSnapshotDateTime(report.generatedAt)})` : '';
+        lines.push(`- ${normalizeReportTitle((report && report.title) || reportId)}${stamp}`);
+      });
+
+      const summaryRows = Array.isArray(state.reportData?.summary) ? state.reportData.summary : [];
+      if (summaryRows.length) {
+        lines.push('');
+        lines.push('Summary');
+        summaryRows.forEach((row) => {
+          const label = state.branchLabels[row.branch] || row.branch;
+          lines.push(...wrapTextForPdf(`${label}: return ${Number(row.net_return_pct || 0).toFixed(2)}%, final equity GBP ${Number(row.final_equity_gbp || 0).toFixed(2)}, max DD ${Number(row.max_dd_pct || 0).toFixed(2)}%, months ${Number(row.months || 0)}`, 92));
+        });
+      }
+
+      return lines;
+    }
+
+    async function downloadComparisonPdf() {
+      if (!state.reportData || !Array.isArray(state.reportData.summary) || !state.reportData.summary.length) {
+        setError('Load at least one strategy comparison before downloading PDF.');
+        return;
+      }
+      const lines = buildComparisonPdfLines();
+      const blob = buildPdfDocumentFromLines(lines);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `comparative-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function parseReportIdsFromUrl() {
+      const raw = String(urlParams.get('reportIds') || '').trim();
+      if (!raw) return [];
+      return raw
+        .split(',')
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+    }
+
+    function getAutoloadFromUrl() {
+      const token = String(urlParams.get('autoload') || '').trim().toLowerCase();
+      return token === '1' || token === 'true' || token === 'yes';
+    }
+
+    function applyReportSelection(reportIds) {
+      const selected = new Set(reportIds.map((value) => String(value || '').trim()).filter(Boolean));
+      Array.from(strategyChecklist.querySelectorAll('input[type="checkbox"][data-report-id]')).forEach((input) => {
+        const reportId = String(input.getAttribute('data-report-id') || '').trim();
+        input.checked = selected.has(reportId);
+      });
+      state.selectedReportIds = Array.from(selected);
+      state.selectedSetId = '';
     }
 
     function getSelectedStrategyIdsFromUi() {
@@ -1945,7 +2123,9 @@
 
       strategyChecklist.innerHTML = state.availableReports.map((report) => {
         const suffix = report.hasData ? '' : ' (missing data)';
-        const sourceHint = report.source === 'runs' ? ' • live snapshot' : '';
+        const sourceHint = report.source === 'runs'
+          ? ` • live snapshot${report.generatedAt ? ` • ${formatSnapshotDateTime(report.generatedAt)}` : ''}`
+          : '';
         return `
           <label class="strategy-item">
             <input type="checkbox" data-report-id="${escapeHtml(report.id)}" ${report.hasData ? '' : 'disabled'} />
@@ -2022,42 +2202,6 @@
       }
       const data = await res.json();
       state.savedSets = Array.isArray(data.sets) ? data.sets : [];
-
-      if (!state.savedSets.length && state.availableReports.length) {
-        const strategyCReport = state.availableReports.find((report) => report.id === 'phantom-p3-strategy-2021-gbp10k')
-          || state.availableReports.find((report) => report.source === 'comparative' && normalizeReportTitle(report.title) === 'Phantom Median Strategy C');
-
-        const defaultMedianRuns = state.availableReports
-          .filter((report) => report.source === 'runs' && report.hasData && report.isCanonicalStrategy)
-          .map((report) => report.id);
-
-        const defaultRunAndStrategy = defaultMedianRuns.slice();
-        if (strategyCReport && strategyCReport.hasData && !defaultRunAndStrategy.includes(strategyCReport.id)) {
-          defaultRunAndStrategy.push(strategyCReport.id);
-        }
-
-        const defaultStaticReports = state.availableReports
-          .filter((report) => report.source === 'comparative' && report.hasData)
-          .map((report) => report.id);
-
-        const defaultIds = defaultRunAndStrategy.length
-          ? defaultRunAndStrategy
-          : (defaultStaticReports.length
-            ? defaultStaticReports
-            : [(state.availableReports.find((report) => report.hasData) || state.availableReports[0]).id]);
-        state.savedSets = [{
-          id: 'default-live-selection',
-          name: getCurrentSetName(defaultIds),
-          reportIds: defaultIds,
-          windowStart: '',
-          windowEnd: ''
-        }];
-      }
-
-      const selected = state.savedSets.find((set) => set.id === state.selectedSetId) || state.savedSets[0] || null;
-      if (selected) {
-        applySetToInputs(selected);
-      }
     }
 
     async function rebuildMergedData() {
@@ -2159,12 +2303,25 @@
       }
     });
 
+    downloadComparisonPdfBtn.addEventListener('click', () => {
+      clearAlerts();
+      void downloadComparisonPdf();
+    });
+
     async function init() {
       buildTabs();
       try {
         await loadAvailableReports();
         await loadProfileSets();
-        await rebuildMergedData();
+        const queryReportIds = parseReportIdsFromUrl();
+        if (queryReportIds.length) {
+          applyReportSelection(queryReportIds);
+          if (getAutoloadFromUrl()) {
+            await rebuildMergedData();
+          }
+        } else {
+          await rebuildMergedData();
+        }
       } catch (error) {
         setError((error && error.message) || 'Failed to initialize comparative reports page.');
       }

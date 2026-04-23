@@ -29,6 +29,7 @@ const APP_COMPARATIVE_REPORTS_FILE = path.join(WORKSPACE_ROOT, 'config', 'compar
 const COMPARATIVE_PROFILE_SETS_FILE = path.join(RUN_HISTORY_DIR, 'comparative_profile_sets.json');
 const RUN_HISTORY_LIMIT = 100;
 const STRATEGY_LIBRARY_LIMIT = 250;
+const SAVED_STRATEGY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ARCHIVE_ARTIFACT_DIR = path.join(DATA_ROOT, 'backtest_artifacts_archive');
 const ADMIN_SCAN_DIRS = [
 	UPLOADS_DIR,
@@ -336,7 +337,27 @@ function loadRunHistory(): StrategyRunRecord[] {
 			combined.set(runId, run);
 		}
 
-		return Array.from(combined.values());
+		const nowMs = Date.now();
+		const allRuns = Array.from(combined.values());
+		const keptRuns = allRuns.filter((run) => {
+			const createdAtMs = Date.parse(String(run?.createdAt || ''));
+			if (!Number.isFinite(createdAtMs)) {
+				return true;
+			}
+			return (nowMs - createdAtMs) <= SAVED_STRATEGY_TTL_MS;
+		});
+
+		if (keptRuns.length !== allRuns.length) {
+			for (const [runId, run] of volatileRunHistory.entries()) {
+				const createdAtMs = Date.parse(String(run?.createdAt || ''));
+				if (Number.isFinite(createdAtMs) && (nowMs - createdAtMs) > SAVED_STRATEGY_TTL_MS) {
+					volatileRunHistory.delete(runId);
+				}
+			}
+			saveRunHistory(keptRuns);
+		}
+
+		return keptRuns;
 	} catch {
 		return Array.from(volatileRunHistory.values());
 	}
@@ -2237,6 +2258,8 @@ function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 		}
 
 		const out: ComparativeProfileSetRecord[] = [];
+		let droppedExpired = false;
+		const nowMs = Date.now();
 		for (const item of parsed) {
 			if (!item || typeof item !== 'object') {
 				continue;
@@ -2253,15 +2276,26 @@ function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 				continue;
 			}
 
+			const createdAt = String((item as { createdAt?: unknown }).createdAt || '').trim() || new Date().toISOString();
+			const createdAtMs = Date.parse(createdAt);
+			if (Number.isFinite(createdAtMs) && (nowMs - createdAtMs) > SAVED_STRATEGY_TTL_MS) {
+				droppedExpired = true;
+				continue;
+			}
+
 			out.push({
 				id,
 				name,
 				reportIds: Array.from(new Set(reportIds)),
 				windowStart: String((item as { windowStart?: unknown }).windowStart || '').trim() || undefined,
 				windowEnd: String((item as { windowEnd?: unknown }).windowEnd || '').trim() || undefined,
-				createdAt: String((item as { createdAt?: unknown }).createdAt || '').trim() || new Date().toISOString(),
+				createdAt,
 				updatedAt: String((item as { updatedAt?: unknown }).updatedAt || '').trim() || new Date().toISOString(),
 			});
+		}
+
+		if (droppedExpired) {
+			saveComparativeProfileSets(out);
 		}
 
 		return out;
@@ -4111,7 +4145,14 @@ app.get('/platform/report', (req: Request, res: Response): void => {
 });
 
 app.get('/platform/runs', (_req: Request, res: Response): void => {
-	const runs = loadRunHistory().map((run) => enrichRunForComparativeReports(run));
+	const runs = loadRunHistory().map((run) => {
+		const enriched = enrichRunForComparativeReports(run) as StrategyRunRecord & { expiresAt?: string };
+		const createdAtMs = Date.parse(String(run.createdAt || ''));
+		enriched.expiresAt = Number.isFinite(createdAtMs)
+			? new Date(createdAtMs + SAVED_STRATEGY_TTL_MS).toISOString()
+			: '';
+		return enriched;
+	});
 	res.json({
 		count: runs.length,
 		runs,
