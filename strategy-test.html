@@ -906,6 +906,7 @@
     <section class="panel">
       <h3 id="recHeading" style="margin:0 0 10px; font-size:1rem; color:#23402d;">Recommended Strategy (Modelled at £5,000 Start)</h3>
       <div class="results-actions">
+        <button class="btn secondary" id="saveAndCompareBtn" type="button">Save & Open Comparative Reports</button>
         <button class="btn" id="downloadResultsPdfBtn" type="button">Download Results PDF</button>
       </div>
       <div class="recommend-grid" id="recCards"></div>
@@ -983,6 +984,7 @@
     const recNote = document.getElementById('recNote');
     const recHeading = document.getElementById('recHeading');
     const downloadResultsPdfBtn = document.getElementById('downloadResultsPdfBtn');
+    const saveAndCompareBtn = document.getElementById('saveAndCompareBtn');
     const executionChangeToast = document.getElementById('executionChangeToast');
     const startCapitalInput = document.getElementById('startCapitalInput');
     const riskMultiplierInput = document.getElementById('riskMultiplierInput');
@@ -1016,7 +1018,9 @@
     let executionImpactSummary = null;
     let executionToastTimer = null;
     let lastSavedRunSignature = '';
+    let lastSavedRunRecord = null;
     downloadResultsPdfBtn.disabled = true;
+    saveAndCompareBtn.disabled = true;
 
     const periods = [...new Set(rows.map(r => r.period))];
     const scenarios = [...new Set(rows.map(r => r.scenario))].sort();
@@ -2049,7 +2053,7 @@
       return new Blob([output], { type: 'application/pdf' });
     }
 
-    async function persistRunSummary(summary) {
+    async function persistRunSummary(summary, { force = false } = {}) {
       const signature = JSON.stringify({
         datasetTitle: summary.datasetTitle,
         market: summary.market,
@@ -2063,15 +2067,23 @@
         bestDd: summary.best?.worstDD,
       });
 
-      if (signature === lastSavedRunSignature) return;
+      if (!force && signature === lastSavedRunSignature && lastSavedRunRecord) {
+        return lastSavedRunRecord;
+      }
       lastSavedRunSignature = signature;
 
       try {
-        await fetch('/platform/runs', {
+        const res = await fetch('/platform/runs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(summary),
         });
+        if (!res.ok) {
+          throw new Error(`Failed to save run summary: ${res.status}`);
+        }
+        const saved = await res.json().catch(() => null);
+        lastSavedRunRecord = saved && typeof saved === 'object' ? saved : null;
+        return lastSavedRunRecord;
       } catch {
         try {
           const existing = JSON.parse(localStorage.getItem('phantomRunHistory') || '[]');
@@ -2080,6 +2092,34 @@
         } catch {
           // Ignore local persistence errors.
         }
+        return null;
+      }
+    }
+
+    async function saveAndOpenComparativeReports() {
+      if (!latestResultsSummary || !latestResultsSummary.best) {
+        setDataDropStatus('No completed recommendation to save yet.', true);
+        return;
+      }
+
+      saveAndCompareBtn.disabled = true;
+      try {
+        const stampedSummary = {
+          ...latestResultsSummary,
+          generatedAt: new Date().toISOString(),
+        };
+        const saved = await persistRunSummary(stampedSummary, { force: true });
+        if (!saved || !saved.id) {
+          throw new Error('Could not save this strategy snapshot to the server.');
+        }
+
+        const reportId = `run-${saved.id}`;
+        const nextUrl = `comparative-reports.html?reportIds=${encodeURIComponent(reportId)}&autoload=1`;
+        window.location.assign(nextUrl);
+      } catch (error) {
+        setDataDropStatus((error && error.message) || 'Unable to save and open comparative reports.', true);
+      } finally {
+        saveAndCompareBtn.disabled = false;
       }
     }
 
@@ -2998,6 +3038,7 @@
         note: recNote.textContent,
       };
       downloadResultsPdfBtn.disabled = false;
+      saveAndCompareBtn.disabled = false;
       void persistRunSummary(latestResultsSummary);
     }
 
@@ -3013,6 +3054,10 @@
 
     downloadResultsPdfBtn.addEventListener('click', () => {
       void downloadResultsPdf();
+    });
+
+    saveAndCompareBtn.addEventListener('click', () => {
+      void saveAndOpenComparativeReports();
     });
 
     periodChecksEl.addEventListener('change', render);
