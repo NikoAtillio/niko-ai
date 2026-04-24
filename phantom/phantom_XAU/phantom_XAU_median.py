@@ -1,906 +1,1067 @@
+"""
+PHANTOM p2 - Multi-Timeframe Backtest Engine
+=============================================
+Improvements over p1:
+  1. Instrument config objects  — per-instrument session windows, ATR multipliers, TP targets
+  2. Adaptive TP                — 1.3R (XAU/US100) or 1.5R (BTC) instead of fixed 2R
+  3. Session gate               — hard block outside high-liquidity hours (instrument-specific)
+  4. Cluster cap                — max 3 concurrent entries per 4h window
+  5. Zone confirmation delay    — require N bars holding zone before entry
+  6. Trend regime filter        — Daily EMA50 vs EMA200; counter-trend at 0.5x size
+  7. Breakeven at 0.8R          — move stop to entry once trade reaches +0.8R
+  8. Circuit breaker            — pause 24h after 5 consecutive losses
+  9. Confidence position sizing — 1.5x size when session + cluster + regime all aligned
+ 10. Instrument ATR multipliers — XAU: 2.0x, US100: 1.5x, BTC: 1.8x
 
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
+Scenarios
+    p2C : M5 entry | risk=0.40% | score>=3 | no timeout
+    p2B : M5 entry | risk=0.70% | score>=3 | no timeout
+    p2A : M1 entry | risk=0.35% | score>=5 | vol filter | no timeout
+
+Usage
+    python phantom_p2.py --instrument XAU \\
+        --m1 path/M1.csv --m5 path/M5.csv --h1 path/H1.csv --h4 path/H4.csv \\
+        --daily path/Daily.csv \\
+        [--scenario p2A] [--capital 5000]
+
+    Instrument choices: XAU | US100 | BTC
+"""
+
+import argparse
+import os
+import sys
 import warnings
+from typing import Optional
+import numpy as np
+import pandas as pd
+
 warnings.filterwarnings('ignore')
 
-# ============================================
-# CONFIGURATION
-# ============================================
-class Config:
-    # Risk
-    RISK_PER_TRADE = 0.0025
-    COUNTER_RISK_MULT = 0.5
-    SESSION_RISK_CAP = 0.02
-    PRE_SESSION_RISK_CAP = 0.01
+ENGINE_VERSION = 'p2'
 
-    # Session
-    SESSION_START_HOUR = 7
-    CORE_SESSION_START = 8
-    SESSION_END_HOUR = 16
+# ══════════════════════════════════════════════════════════════════════════════
+# INSTRUMENT CONFIG
+# Each instrument gets its own session window, ATR multiplier, TP ratio,
+# confirmation bars, and weekend policy.
+# ══════════════════════════════════════════════════════════════════════════════
+INSTRUMENT_CONFIG = {
+    'XAU': dict(
+        # Session: tightened to 08:00–19:00 UTC; exclude 11:00 lunch lull
+        session_start   = 8,
+        session_end     = 19,
+        session_exclude_hours = [11],
+        allow_weekend   = False,
+        weekend_size    = 0.0,
+        # TP at 1.3R — daily range ~1.43%, 1.3R is achievable within session
+        tp_mult         = 1.3,
+        # ATR stop: 2.0x H4 ATR — XAU needs wider stop due to intraday noise
+        atr_stop_mult   = 2.0,
+        # Confirmation: require 2 H4 bars (8h) holding zone before entry
+        min_confirm_bars= 2,
+        confirm_tf_mins = 240,   # H4 = 240 min bars
+        # Regime: Daily EMA50 vs EMA200
+        regime_ema_fast = 50,
+        regime_ema_slow = 200,
+        # Asian session (03–07 UTC) allowed at reduced size
+        soft_session_start = 3,
+        soft_session_size  = 0.5,
+    ),
+    'US100': dict(
+        # Session: Pre-market through NY close (13:00–21:00 UTC), weekdays only
+        session_start   = 13,
+        session_end     = 21,
+        allow_weekend   = False,
+        weekend_size    = 0.0,
+        # TP at 1.3R — daily range ~1.93%, 1.3R is well within reach
+        tp_mult         = 1.3,
+        # ATR stop: 1.5x H4 ATR — US100 is cleaner, tighter stop works
+        atr_stop_mult   = 1.5,
+        # Confirmation: require 1 H1 bar (1h) holding zone before entry
+        min_confirm_bars= 1,
+        confirm_tf_mins = 60,    # H1 = 60 min bars
+        regime_ema_fast = 50,
+        regime_ema_slow = 200,
+        # Phase 2: keep shorts at base score threshold, require stronger longs
+        dir_score_offset = {'long': 1, 'short': 0},
+        soft_session_start = None,
+        soft_session_size  = 0.0,
+    ),
+    'BTC': dict(
+        # Session tightened to 08:00–18:00 UTC; weekends allowed at 0.5x size
+        session_start   = 8,
+        session_end     = 18,
+        allow_weekend   = True,
+        weekend_size    = 0.5,   # 50% size on Sat/Sun
+        # TP at 1.5R — BTC daily range ~3–5%, 2R is achievable but 1.5R is safer
+        tp_mult         = 1.5,
+        # ATR stop: 1.8x H4 ATR — keep p1 value, BTC volatility is already priced in
+        atr_stop_mult   = 1.8,
+        # Confirmation: require 2 H4 bars (8h) holding zone before entry
+        min_confirm_bars= 2,
+        confirm_tf_mins = 240,
+        # Phase 3 test: allow BTC setups more time before stop exits.
+        min_hold_hours  = 4,
+        regime_ema_fast = 50,
+        regime_ema_slow = 200,
+        soft_session_start = None,
+        soft_session_size  = 0.0,
+    ),
+}
 
-    # Stops/Targets
-    SL_ATR_MULT = 1.2
-    TP_R_MULT = 1.0
-    BE_TRIGGER_R = 0.4
-    TRAIL_TRIGGER_R = 0.8
-    TRAIL_ATR_MULT = 0.5
-    MAX_HOLD_MINUTES = 30
+# ══════════════════════════════════════════════════════════════════════════════
+# SCENARIO CONFIG
+# ══════════════════════════════════════════════════════════════════════════════
+DEFAULTS = {
+    'capital'       : 5_000,
+    'max_concurrent': 3,         # p2: raised from 2 to 3 (cluster cap handles quality)
+    'cooldown_min'  : 20,
+    'lockout_min'   : 60,
+    'conf_tol'      : 0.002,     # 0.20% zone proximity
+    'h4_pivot_bars' : 2,
+    'h4_lookback'   : 50,
+    'circuit_breaker_losses': 5, # pause after N consecutive losses
+    'circuit_breaker_hours' : 24,
+    'breakeven_r'   : 0.8,       # move stop to entry at this R level
+    'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
+    'confidence_min' : 0.5,      # size multiplier when low confidence
+    'confidence_mode': 'inverted', # flat | inverted | score
+    'confidence_score_min': 7,
+}
 
-    # Filters
-    MAX_SPREAD_PCT = 0.001   # 0.10%
-    MIN_ATR_ABS = 1.0        # $1.0
+SCENARIOS = {
+    'C': dict(
+        entry_tf    = 'm5',
+        risk_pct    = 0.004,
+        score_min   = 3,
+        h4_min      = 1,
+        h1_min      = 1,
+        ltf_min     = 1,
+        ltf_cap     = 3,
+        vol_filter  = False,
+        timeout_bars= None,
+        atr_trail   = 0.8,   # Trailing stop multiplier
+    ),
+    'B': dict(
+        entry_tf    = 'm5',
+        risk_pct    = 0.007,
+        score_min   = 3,
+        h4_min      = 1,
+        h1_min      = 1,
+        ltf_min     = 1,
+        ltf_cap     = 3,
+        vol_filter  = False,
+        timeout_bars= None,
+        atr_trail   = 0.8,
+    ),
+    'A': dict(
+        entry_tf    = 'm1',
+        risk_pct    = 0.0035,
+        score_min   = 5,
+        h4_min      = 1,
+        h1_min      = 1,
+        ltf_min     = 2,
+        ltf_cap     = 3,
+        vol_filter  = True,
+        timeout_bars= None,
+        atr_trail   = 0.9,
+    ),
+}
 
-    # Zones
-    ZONE_FRESH_HOURS = 4
-    ZONE_LOOKBACK = 20
-    PIVOT_BARS = 2
-    ZONE_PROX_PCT = 0.0015   # 0.15%
-
-    # Strategy
-    ALLOW_COUNTER_TREND = True
-
-    # EMAs
-    EMA_FAST = 20
-    EMA_SLOW = 50
-    EMA_D_FAST = 50
-    EMA_D_SLOW = 200
-
-    # Circuit breaker
-    MAX_LOSS_STREAK = 3
-    COOLDOWN_MINUTES = 15
-
-    # Initial capital
-    INITIAL_EQUITY = 10000.0
-
-    # Debug / logging
-    DEBUG_MODE = False
-    LOG_REJECTIONS = False
-
-
-# ============================================
-# LOGGING HELPERS
-# ============================================
-def debug_log(msg):
-    if Config.DEBUG_MODE:
-        print(f"[DEBUG] {msg}")
-
-
-def log_rejection(reason, t):
-    if Config.LOG_REJECTIONS:
-        print(f"[REJECTED][{t}] {reason}")
-
-
-# ============================================
+# ══════════════════════════════════════════════════════════════════════════════
 # DATA LOADING
-# ============================================
-def load_csv(filepath):
-    """
-    Load MetaTrader-style tab-separated OHLCV file with <DATE> <TIME> columns.
-    Handles both MetaTrader exports and standard CSV formats.
-    """
-    # Read the raw file to detect format
-    with open(filepath, 'r') as f:
-        first_line = f.readline().strip()
-    
-    # Detect separator: tab or comma
-    sep = '\t' if '\t' in first_line else ','
-    
-    df = pd.read_csv(filepath, sep=sep)
-    
-    # Clean column names - remove angle brackets if present
-    df.columns = [c.strip().strip('<>').lower() for c in df.columns]
-    
-    # MetaTrader format: separate <DATE> and <TIME> columns
+# ══════════════════════════════════════════════════════════════════════════════
+def load_csv(path: str) -> pd.DataFrame:
+    """Load MetaTrader-style tab-separated OHLCV file."""
+    df = pd.read_csv(path, sep='\t', header=0)
+    df.columns = [c.strip('<>').lower() for c in df.columns]
     if 'date' in df.columns and 'time' in df.columns:
         date_str = df['date'].astype(str).str.strip()
         time_str = df['time'].astype(str).str.strip()
         df['datetime'] = pd.to_datetime(date_str + ' ' + time_str, errors='coerce')
-        df = df.drop(columns=['date', 'time'])
-    
-    # Single datetime column
+    elif 'date' in df.columns:
+        # Daily exports often omit a separate time column.
+        date_str = df['date'].astype(str).str.strip()
+        df['datetime'] = pd.to_datetime(date_str, errors='coerce')
     elif 'datetime' in df.columns:
-        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-    
-    elif 'time' in df.columns:
-        df['datetime'] = pd.to_datetime(df['time'], errors='coerce')
-        df = df.drop(columns=['time'])
-    
+        datetime_str = df['datetime'].astype(str).str.strip()
+        df['datetime'] = pd.to_datetime(datetime_str, errors='coerce')
     else:
-        # Try first column as datetime
-        first_col = df.columns[0]
-        try:
-            df['datetime'] = pd.to_datetime(df[first_col], errors='coerce')
-            df = df.drop(columns=[first_col])
-        except:
-            raise ValueError(
-                f"Cannot parse datetime from {filepath}. "
-                f"Columns found: {list(df.columns)}"
-            )
-    
-    # Drop rows where datetime parsing failed
+        raise ValueError(f"Cannot find datetime columns in {path}")
     df = df.dropna(subset=['datetime'])
     df = df.set_index('datetime').sort_index()
-    
-    # Normalize OHLCV column names
-    col_map = {}
-    for col in df.columns:
-        lc = col.lower()
-        if lc == 'open': col_map[col] = 'open'
-        elif lc == 'high': col_map[col] = 'high'
-        elif lc == 'low': col_map[col] = 'low'
-        elif lc == 'close': col_map[col] = 'close'
-        elif lc in ('tickvol', 'tick_vol', 'volume', 'vol'): 
-            col_map[col] = 'volume'
-        elif lc == 'spread': col_map[col] = 'spread'
-    df.rename(columns=col_map, inplace=True)
-    
-    # Ensure required columns exist
-    for req in ['open', 'high', 'low', 'close']:
-        if req not in df.columns:
-            raise ValueError(f"{filepath} missing required column: {req}. Columns: {list(df.columns)}")
-    
-    # Convert price columns to numeric
-    for col in ['open', 'high', 'low', 'close']:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-    
+    for col in ['open', 'high', 'low', 'close', 'tickvol']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
     df.dropna(subset=['open', 'high', 'low', 'close'], inplace=True)
-    
-    # Add volume column if missing
-    if 'volume' not in df.columns:
-        df['volume'] = 1.0
-    
-    # Add spread column if missing
-    if 'spread' not in df.columns:
-        df['spread'] = df['close'] * 0.0005
-    
+    if 'tickvol' not in df.columns:
+        df['tickvol'] = 1.0
     return df
 
-
-def load_data():
-    data = {}
-    paths = {
-        'M1':  'data/XAUUSD/XAUUSD_M1_2023.03.13-2026.03.31',
-        'M5':  'data/XAUUSD/XAUUSD_M5_2011.09.08-2026.03.31',
-        'M30': 'data/XAUUSD/XAUUSD_M30_2010.01.04-2026.03.31',
-        'H1':  'data/XAUUSD/XAUUSD_H1_2010.01.04-2026.03.31',
-        'H4':  'data/XAUUSD/XAUUSD_H4_2010.01.04-2026.03.31',
-        'D1':  'data/XAUUSD/XAUUSD_Daily_2010.01.04-2026.03.31'
-    }
-
-    for tf, filepath in paths.items():
-        df = load_csv(filepath)
-        data[tf] = df
-        print(f"Loaded {tf}: {len(df)} rows from {df.index[0]} to {df.index[-1]}")
-
-    return data
-
-
-# ============================================
+# ══════════════════════════════════════════════════════════════════════════════
 # INDICATORS
-# ============================================
-def calculate_ema(series, period):
-    return series.ewm(span=period, adjust=False).mean()
+# ══════════════════════════════════════════════════════════════════════════════
+def calc_atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
+    h, l, c = df['high'], df['low'], df['close']
+    tr = pd.concat(
+        [h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1
+    ).max(axis=1)
+    return tr.ewm(span=n, adjust=False).mean()
 
+def calc_ema(s: pd.Series, n: int) -> pd.Series:
+    return s.ewm(span=n, adjust=False).mean()
 
-def calculate_atr(df, period=14):
-    high, low, close = df['high'], df['low'], df['close']
-    prev_close = close.shift(1)
+def calc_rsi(s: pd.Series, n: int = 14) -> pd.Series:
+    d  = s.diff()
+    g  = d.clip(lower=0).ewm(span=n, adjust=False).mean()
+    ls = (-d).clip(lower=0).ewm(span=n, adjust=False).mean()
+    return 100 - 100 / (1 + g / ls.replace(0, np.nan))
 
-    tr1 = high - low
-    tr2 = (high - prev_close).abs()
-    tr3 = (low - prev_close).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df['atr']    = calc_atr(df)
+    df['ema20']  = calc_ema(df['close'], 20)
+    df['ema50']  = calc_ema(df['close'], 50)
+    df['ema200'] = calc_ema(df['close'], 200)
+    df['rsi']    = calc_rsi(df['close'])
+    df['vol_ma'] = df['tickvol'].rolling(20).mean()
+    return df
 
-    return tr.rolling(window=period, min_periods=period).mean()
+def add_daily_regime(daily: pd.DataFrame, inst_cfg: dict) -> pd.DataFrame:
+    """Add trend regime to daily bars: 'bull' or 'bear'."""
+    daily = daily.copy()
+    fast = inst_cfg['regime_ema_fast']
+    slow = inst_cfg['regime_ema_slow']
+    daily['regime_ema_fast'] = calc_ema(daily['close'], fast)
+    daily['regime_ema_slow'] = calc_ema(daily['close'], slow)
+    daily['regime'] = np.where(
+        daily['regime_ema_fast'] > daily['regime_ema_slow'], 'bull', 'bear'
+    )
+    return daily
 
+def apply_start_date(df: pd.DataFrame, start_date: Optional[str]) -> pd.DataFrame:
+    """Optionally filter a dataframe to rows on/after a UTC date string."""
+    if not start_date:
+        return df
+    ts = pd.Timestamp(start_date)
+    return df[df.index >= ts]
 
-def calculate_all_indicators(data):
-    # M5 ATR and EMAs
-    m5 = data['M5']
-    m5['ATR_14'] = calculate_atr(m5, 14)
-    m5['EMA5'] = calculate_ema(m5['close'], 5)
-    m5['EMA20'] = calculate_ema(m5['close'], Config.EMA_FAST)
-    m5['EMA50'] = calculate_ema(m5['close'], Config.EMA_SLOW)
+# ══════════════════════════════════════════════════════════════════════════════
+# FAST LOOKUP HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def fast_val(idx_arr: np.ndarray, vals: np.ndarray, ts) -> float:
+    i = np.searchsorted(idx_arr, ts, side='right') - 1
+    return float(vals[i]) if i >= 0 else np.nan
 
-    # Higher TF EMAs
-    for tf in ['M30', 'H1', 'H4']:
-        df = data[tf]
-        df['EMA20'] = calculate_ema(df['close'], Config.EMA_FAST)
-        df['EMA50'] = calculate_ema(df['close'], Config.EMA_SLOW)
-
-    # Daily EMAs
-    d1 = data['D1']
-    d1['EMA50'] = calculate_ema(d1['close'], Config.EMA_D_FAST)
-    d1['EMA200'] = calculate_ema(d1['close'], Config.EMA_D_SLOW)
-
-    return data
-
-
-# ============================================
-# SESSION & FILTERS
-# ============================================
-def in_session(ts):
-    h = ts.hour
-    return Config.SESSION_START_HOUR <= h < Config.SESSION_END_HOUR
-
-
-def is_pre_session(ts):
-    h = ts.hour
-    return Config.SESSION_START_HOUR <= h < Config.CORE_SESSION_START
-
-
-def is_weekend(ts):
-    return ts.weekday() >= 5
-
-
-def get_spread_pct(row):
-    """
-    Calculate spread as percentage of price.
-    Handles spread in both points and absolute dollar terms.
-    """
-    mid = row['close']
-    spread = row.get('spread', 0)
-    
-    # MetaTrader spread is typically in points (1 point = 0.01 for XAUUSD)
-    # If spread > 1, it's likely in points, convert to absolute
-    if spread > 1.0 and spread / mid < 0.0001:
-        # Spread is in points (e.g., 7 means 0.07)
-        spread_absolute = spread * 0.01  # Convert points to dollars for XAUUSD
+def score_tf(idx_arr, c_arr, e20_arr, e50_arr, rsi_arr, ts, direction: str) -> int:
+    """Score 0–3 for a single timeframe."""
+    i = np.searchsorted(idx_arr, ts, side='right') - 1
+    if i < 0:
+        return 0
+    c, e20, e50, rv = c_arr[i], e20_arr[i], e50_arr[i], rsi_arr[i]
+    score = 0
+    if direction == 'long':
+        if c > e20:  score += 1
+        if e20 > e50: score += 1
+        if rv > 50:  score += 1
     else:
-        spread_absolute = spread
-    
-    return spread_absolute / mid if mid > 0 else 0.0
+        if c < e20:  score += 1
+        if e20 < e50: score += 1
+        if rv < 50:  score += 1
+    return score
 
-
-# ============================================
-# TREND ANALYSIS
-# ============================================
-def get_daily_bias(d1_df, ts):
-    try:
-        d1_bars = d1_df[d1_df.index <= ts]
-        if len(d1_bars) < Config.EMA_D_SLOW:
-            return 0
-        last = d1_bars.iloc[-1]
-        if pd.isna(last['EMA50']) or pd.isna(last['EMA200']):
-            return 0
-        if last['EMA50'] > last['EMA200']:
-            return 1
-        elif last['EMA50'] < last['EMA200']:
-            return -1
-        return 0
-    except Exception:
-        return 0
-
-
-def get_tf_trend(df, ts):
-    try:
-        bars = df[df.index <= ts]
-        if len(bars) < Config.EMA_SLOW + 1:
-            return 0
-        last = bars.iloc[-1]
-        close = last['close']
-        ema20 = last['EMA20']
-        ema50 = last['EMA50']
-        if pd.isna(ema20) or pd.isna(ema50):
-            return 0
-        if close > ema20 > ema50:
-            return 1
-        elif close < ema20 < ema50:
-            return -1
-        return 0
-    except Exception:
-        return 0
-
-
-def get_multi_tf_trend(data, ts):
-    trends = [
-        get_tf_trend(data['H4'], ts),
-        get_tf_trend(data['H1'], ts),
-        get_tf_trend(data['M30'], ts)
-    ]
-    bulls = sum(1 for t in trends if t == 1)
-    bears = sum(1 for t in trends if t == -1)
-    if bulls >= 2:
-        return 1
-    elif bears >= 2:
-        return -1
-    return 0
-
-
-# ============================================
+# ══════════════════════════════════════════════════════════════════════════════
 # ZONE DETECTION
-# ============================================
-def is_swing_high(df, idx_pos):
-    if idx_pos < Config.PIVOT_BARS or idx_pos + Config.PIVOT_BARS >= len(df):
-        return False
-    current_high = df['high'].iloc[idx_pos]
-    prev_highs = df['high'].iloc[idx_pos - Config.PIVOT_BARS:idx_pos]
-    next_highs = df['high'].iloc[idx_pos + 1:idx_pos + 1 + Config.PIVOT_BARS]
-    return (current_high > prev_highs).all() and (current_high > next_highs).all()
+# ══════════════════════════════════════════════════════════════════════════════
+def build_h4_zones(h4: pd.DataFrame, pivot_bars: int = 2, lookback: int = 50):
+    """Detect H4 pivot highs/lows as supply/demand zones."""
+    highs = h4['high'].values
+    lows  = h4['low'].values
+    idx   = h4.index.values
+    n     = len(h4)
+    zone_ts, zone_px, zone_dir = [], [], []
 
+    for i in range(pivot_bars, n - pivot_bars):
+        # A pivot is only known after pivot_bars future candles have printed.
+        confirmed_at = idx[i + pivot_bars]
+        # Pivot high → supply zone (short entry)
+        if all(highs[i] >= highs[i - j] for j in range(1, pivot_bars + 1)) and \
+           all(highs[i] >= highs[i + j] for j in range(1, pivot_bars + 1)):
+            zone_ts.append(confirmed_at)
+            zone_px.append(highs[i])
+            zone_dir.append('short')
+        # Pivot low → demand zone (long entry)
+        if all(lows[i] <= lows[i - j] for j in range(1, pivot_bars + 1)) and \
+           all(lows[i] <= lows[i + j] for j in range(1, pivot_bars + 1)):
+            zone_ts.append(confirmed_at)
+            zone_px.append(lows[i])
+            zone_dir.append('long')
 
-def is_swing_low(df, idx_pos):
-    if idx_pos < Config.PIVOT_BARS or idx_pos + Config.PIVOT_BARS >= len(df):
-        return False
-    current_low = df['low'].iloc[idx_pos]
-    prev_lows = df['low'].iloc[idx_pos - Config.PIVOT_BARS:idx_pos]
-    next_lows = df['low'].iloc[idx_pos + 1:idx_pos + 1 + Config.PIVOT_BARS]
-    return (current_low < prev_lows).all() and (current_low < next_lows).all()
+    return (
+        np.array(zone_ts),
+        np.array(zone_px, dtype=float),
+        np.array(zone_dir),
+    )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SESSION & REGIME HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def get_session_size_mult(ts: pd.Timestamp, inst_cfg: dict) -> float:
+    """
+    Returns a size multiplier based on session rules:
+      1.0  = full session
+      0.5  = soft session (XAU Asian) or weekend (BTC)
+      0.0  = blocked (out of session)
+    """
+    hour = ts.hour
+    dow  = ts.dayofweek  # 0=Mon, 6=Sun
 
-def find_zone(m5_df, current_time):
-    # Only use closed bars before current_time
-    historical = m5_df[m5_df.index < current_time]
-    if len(historical) < Config.ZONE_LOOKBACK + Config.PIVOT_BARS + 2:
-        return None
-
-    window = historical.iloc[-(Config.ZONE_LOOKBACK + Config.PIVOT_BARS + 2):]
-
-    best_time = None
-    best_price = None
-    is_support = None
-
-    for i in range(Config.PIVOT_BARS, len(window) - Config.PIVOT_BARS):
-        bar_ts = window.index[i]
-        idx_full = m5_df.index.get_loc(bar_ts)
-
-        age_sec = (current_time - bar_ts).total_seconds()
-        if age_sec > Config.ZONE_FRESH_HOURS * 3600:
-            continue
-
-        if is_swing_high(m5_df, idx_full):
-            if best_time is None or bar_ts > best_time:
-                best_time = bar_ts
-                best_price = m5_df['high'].iloc[idx_full]
-                is_support = False
-        elif is_swing_low(m5_df, idx_full):
-            if best_time is None or bar_ts > best_time:
-                best_time = bar_ts
-                best_price = m5_df['low'].iloc[idx_full]
-                is_support = True
-
-    if best_time is None:
-        return None
-
-    return {
-        'time': best_time,
-        'price': best_price,
-        'is_support': is_support
-    }
-
-
-def price_near_zone(current_price, zone_price):
-    if zone_price <= 0:
-        return False
-    diff_pct = abs(current_price - zone_price) / zone_price
-    return diff_pct <= Config.ZONE_PROX_PCT
-
-
-# ============================================
-# SIGNAL LOGIC
-# ============================================
-def m5_rejection(m5_df, current_time, is_long):
-    closed = m5_df[m5_df.index < current_time]
-    if len(closed) < 3:
-        return False
-
-    bar = closed.iloc[-1]
-    prev = closed.iloc[-2]
-
-    o, c, h, l = bar['open'], bar['close'], bar['high'], bar['low']
-    rng = h - l
-    if rng <= 0:
-        return False
-
-    upper_wick = h - max(o, c)
-    lower_wick = min(o, c) - l
-
-    if is_long:
-        wick_ok = lower_wick >= 0.3 * rng
-        close_ok = c > (l + rng / 2.0)
-        engulf = (c > prev['open']) and (o < prev['close'])
-        return (wick_ok and close_ok) or engulf
-    else:
-        wick_ok = upper_wick >= 0.3 * rng
-        close_ok = c < (l + rng / 2.0)
-        engulf = (c < prev['open']) and (o > prev['close'])
-        return (wick_ok and close_ok) or engulf
-
-
-def m1_momentum(m1_df, m5_df, current_time, is_long):
-    try:
-        m1_bar = m1_df.loc[current_time]
-        o, c = m1_bar['open'], m1_bar['close']
-
-        m5_closed = m5_df[m5_df.index < current_time]
-        if len(m5_closed) == 0:
-            return False
-        ema5 = m5_closed['EMA5'].iloc[-1]
-        if pd.isna(ema5):
-            return False
-
-        if is_long:
-            return c > o and c > ema5
-        else:
-            return c < o and c < ema5
-    except Exception:
-        return False
-
-
-# ============================================
-# TRADE MANAGEMENT HELPERS
-# ============================================
-def calculate_position_size(equity, entry_price, sl_price, is_counter_trend):
-    risk_pct = Config.RISK_PER_TRADE
-    if is_counter_trend:
-        risk_pct *= Config.COUNTER_RISK_MULT
-
-    risk_amount = equity * risk_pct
-    stop_distance = abs(entry_price - sl_price)
-    if stop_distance <= 0:
+    # Optional hard exclusion list for known weak hours.
+    exclude_hours = inst_cfg.get('session_exclude_hours', [])
+    if hour in exclude_hours:
         return 0.0
 
-    size = risk_amount / stop_distance
-    return round(size, 2)
+    in_core_session = inst_cfg['session_start'] <= hour < inst_cfg['session_end']
 
+    # Weekend handling
+    if dow >= 5:
+        if not inst_cfg['allow_weekend']:
+            return 0.0
+        return inst_cfg['weekend_size'] if in_core_session else 0.0
 
-def check_sl_tp_hit(open_trade, high, low, close):
-    is_long = open_trade['is_long']
-    sl = open_trade['sl']
-    tp = open_trade['tp']
+    # Core session
+    if in_core_session:
+        return 1.0
 
-    if is_long:
-        if low <= sl:
-            return True, sl, 'stop_loss'
-        elif high >= tp:
-            return True, tp, 'take_profit'
-    else:
-        if high >= sl:
-            return True, sl, 'stop_loss'
-        elif low <= tp:
-            return True, tp, 'take_profit'
+    # Soft session (XAU Asian hours)
+    soft_start = inst_cfg.get('soft_session_start')
+    if soft_start is not None and soft_start <= hour < inst_cfg['session_start']:
+        return inst_cfg.get('soft_session_size', 0.0)
 
-    return False, close, None
+    return 0.0
 
+def get_regime(daily_idx, daily_regime, ts) -> str:
+    """Look up the daily regime at timestamp ts."""
+    i = np.searchsorted(daily_idx, ts, side='right') - 1
+    if i < 0:
+        return 'bull'  # default to bull if no data yet
+    return daily_regime[i]
 
-# ============================================
+def get_regime_size_mult(regime: str, direction: str) -> float:
+    """
+    With-trend: 1.0x size.
+    Counter-trend: 0.5x size (don't block, just reduce).
+    """
+    if regime == 'bull' and direction == 'long':
+        return 1.0
+    if regime == 'bear' and direction == 'short':
+        return 1.0
+    return 0.5  # counter-trend
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ZONE CONFIRMATION DELAY
+# ══════════════════════════════════════════════════════════════════════════════
+def zone_is_confirmed(ts: pd.Timestamp, zone_ts_val, inst_cfg: dict) -> bool:
+    """
+    Returns True if enough time has passed since the zone was formed
+    for it to be considered confirmed (price has held the zone for N bars).
+    min_confirm_bars * confirm_tf_mins = minimum minutes since zone formation.
+    """
+    min_minutes = inst_cfg['min_confirm_bars'] * inst_cfg['confirm_tf_mins']
+    zone_time = pd.Timestamp(zone_ts_val)
+    elapsed = (ts - zone_time).total_seconds() / 60
+    return elapsed >= min_minutes
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLUSTER TRACKING
+# ══════════════════════════════════════════════════════════════════════════════
+class ClusterTracker:
+    """Tracks how many trades have been entered in each 4h window."""
+    def __init__(self, max_per_window: int = 3):
+        self.max_per_window = max_per_window
+        self._counts: dict = {}
+
+    def _window_key(self, ts: pd.Timestamp) -> pd.Timestamp:
+        return ts.floor('4h')
+
+    def can_enter(self, ts: pd.Timestamp) -> bool:
+        key = self._window_key(ts)
+        return self._counts.get(key, 0) < self.max_per_window
+
+    def register(self, ts: pd.Timestamp):
+        key = self._window_key(ts)
+        self._counts[key] = self._counts.get(key, 0) + 1
+
+    def count_in_window(self, ts: pd.Timestamp) -> int:
+        return self._counts.get(self._window_key(ts), 0)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CIRCUIT BREAKER
+# ══════════════════════════════════════════════════════════════════════════════
+class CircuitBreaker:
+    """Pauses trading for N hours after M consecutive losses."""
+    def __init__(self, max_losses: int = 5, pause_hours: int = 24):
+        self.max_losses   = max_losses
+        self.pause_hours  = pause_hours
+        self._consec      = 0
+        self._paused_until: pd.Timestamp = pd.Timestamp.min
+
+    def is_paused(self, ts: pd.Timestamp) -> bool:
+        return ts < self._paused_until
+
+    def record(self, win: bool, ts: pd.Timestamp):
+        if win:
+            self._consec = 0
+        else:
+            self._consec += 1
+            if self._consec >= self.max_losses:
+                self._paused_until = ts + pd.Timedelta(hours=self.pause_hours)
+                self._consec = 0  # reset after triggering
+
+    @property
+    def consecutive_losses(self) -> int:
+        return self._consec
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXECUTION ADJUSTMENT
+# ══════════════════════════════════════════════════════════════════════════════
+def apply_execution_adjustment(
+    px: float, direction: str, side: str,
+    spread_bps: float, slippage_bps: float
+) -> float:
+    half_spread = px * (spread_bps / 10_000) / 2
+    slip        = px * (slippage_bps / 10_000)
+    adj = half_spread + slip
+    if side == 'entry':
+        return px + adj if direction == 'long' else px - adj
+    return px - adj if direction == 'long' else px + adj
+
+# ══════════════════════════════════════════════════════════════════════════════
 # BACKTEST ENGINE
-# ============================================
-def run_backtest(data):
-    filter_stats = {
-        'total_bars': 0,
-        'weekend': 0,
-        'out_of_session': 0,
-        'in_session': 0,
-        'spread_fail': 0,
-        'atr_fail': 0,
-        'daily_bias_fail': 0,
-        'intraday_fail': 0,
-        'no_zone': 0,
-        'not_near_zone': 0,
-        'passed_all': 0
-    }
-    equity = Config.INITIAL_EQUITY
-    session_start_equity = None
-    cooldown_until = None
-    last_m5_bar_traded = None
-    consecutive_losses = 0
+# ══════════════════════════════════════════════════════════════════════════════
+def run_scenario(
+    candles: pd.DataFrame,
+    h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr,
+    h1_idx, h1_c, h1_e20, h1_e50, h1_rsi,
+    m15_idx, m15_atr_arr,
+    m5_idx, m5_c, m5_e20, m5_e50, m5_rsi, m5_vol, m5_vol_ma,
+    m1_idx, m1_c, m1_e20, m1_e50, m1_rsi,
+    zone_ts, zone_px, zone_dir,
+    daily_idx, daily_regime,
+    cfg: dict,
+    inst_cfg: dict,
+    capital: float,
+    max_concurrent: int,
+    cooldown_min: int,
+    lockout_min: int,
+    conf_tol: float,
+    spread_bps: float,
+    slippage_bps: float,
+    commission_per_trade: float,
+    label: str,
+    zone_lookback_bars: int,
+) -> pd.DataFrame:
 
-    open_trade = None
-    trades = []
-    equity_curve = []
+    start_cap = capital
 
-    m1_times = data['M1'].index
-    print(f"\nStarting backtest from {m1_times[0]} to {m1_times[-1]}")
-    print(f"Total M1 bars: {len(m1_times)}\n")
+    risk_pct    = cfg['risk_pct']
+    score_min   = cfg['score_min']
+    h4_min      = cfg['h4_min']
+    h1_min      = cfg['h1_min']
+    ltf_min     = cfg['ltf_min']
+    ltf_cap     = cfg['ltf_cap']
+    vol_filter  = cfg['vol_filter']
+    timeout_bars= cfg['timeout_bars']
 
-    for idx, ts in enumerate(m1_times):
-        if idx % 10000 == 0 and idx > 0:
-            print(f"  Processing: {ts} | Equity: ${equity:,.2f} | Trades: {len(trades)}")
+    # Instrument-specific params
+    atr_stop    = inst_cfg['atr_stop_mult']
+    tp_mult     = inst_cfg['tp_mult']
+    atr_trail   = cfg.get('atr_trail', 0.8)  # Trailing stop multiplier
+    breakeven_r = DEFAULTS['breakeven_r']
 
-        filter_stats['total_bars'] += 1
+    # p2 components
+    cluster     = ClusterTracker(max_per_window=max_concurrent)
+    breaker     = CircuitBreaker(
+        max_losses  = DEFAULTS['circuit_breaker_losses'],
+        pause_hours = DEFAULTS['circuit_breaker_hours'],
+    )
 
-        if is_weekend(ts):
-            filter_stats['weekend'] += 1
-            continue
+    c_idx = candles.index.values
+    c_c   = candles['close'].values
+    c_h   = candles['high'].values
+    c_l   = candles['low'].values
 
-        # New session detection (per day, during session hours)
-        if Config.SESSION_START_HOUR <= ts.hour < Config.SESSION_END_HOUR:
-            if (session_start_equity is None or
-                (ts.hour == Config.SESSION_START_HOUR and ts.minute == 0 and
-                 (len(equity_curve) == 0 or equity_curve[-1][0].date() != ts.date()))):
-                session_start_equity = equity
-                cooldown_until = None
-                last_m5_bar_traded = None
-                consecutive_losses = 0
-                debug_log(f"=== NEW SESSION {ts.date()} STARTED ===")
+    positions  = []
+    results    = []
+    skipped    = {'session': 0, 'cluster': 0, 'confirm': 0, 'circuit': 0,
+                  'score': 0, 'concurrent': 0, 'vol': 0, 'chasing': 0, 'not_bounce': 0}
+    last_entry = None
+    last_loss_exit = None
 
-        # Cooldown
-        if cooldown_until and ts < cooldown_until:
-            log_rejection("In cooldown period", ts)
-            continue
+    for bar_i, ts in enumerate(c_idx):
+        ts_pd = pd.Timestamp(ts)
+        price = c_c[bar_i]
+        high  = c_h[bar_i]
+        low   = c_l[bar_i]
 
-        # Manage open trade
-        if open_trade:
-            m1_bar = data['M1'].loc[ts]
-            m5_closed = data['M5'][data['M5'].index < ts]
-            atr_val = m5_closed['ATR_14'].iloc[-1] if len(m5_closed) > 0 else 0.0
+        # ── manage open positions ─────────────────────────────────────────
+        still_open = []
+        for p in positions:
+            exit_reason = None
+            exit_signal_px = None
 
-            hit, exit_price, reason = check_sl_tp_hit(
-                open_trade,
-                m1_bar['high'],
-                m1_bar['low'],
-                m1_bar['close']
-            )
-
-            if hit:
-                pnl = (exit_price - open_trade['entry_price']) * \
-                      (1 if open_trade['is_long'] else -1) * \
-                      open_trade['size']
-                equity += pnl
-
-                if pnl < 0:
-                    consecutive_losses += 1
+            # Trailing stop update (CRITICAL: must come before breakeven check)
+            atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
+            if not np.isnan(atr_h4_v_now) and atr_h4_v_now > 0:
+                trail_dist = atr_trail * p['atr_e']
+                if p['dir'] == 'long':
+                    new_trail = price - trail_dist
+                    p['stop'] = max(p['stop'], new_trail)
                 else:
-                    consecutive_losses = 0
+                    new_trail = price + trail_dist
+                    p['stop'] = min(p['stop'], new_trail)
 
-                trades.append({
-                    'entry_time': open_trade['entry_time'],
-                    'exit_time': ts,
-                    'direction': 'LONG' if open_trade['is_long'] else 'SHORT',
-                    'type': 'COUNTER' if open_trade['is_counter'] else 'TREND',
-                    'entry_price': open_trade['entry_price'],
-                    'exit_price': exit_price,
-                    'size': open_trade['size'],
-                    'pnl': pnl,
-                    'reason': reason,
-                    'zone_price': open_trade.get('zone_price', 0.0),
-                    'comment': open_trade.get('comment', '')
-                })
+            # Breakeven: move stop to entry once +0.8R is reached
+            if not p.get('be_triggered', False):
+                current_r = (
+                    (price - p['entry']) / p['initial_risk_price']
+                    if p['dir'] == 'long'
+                    else (p['entry'] - price) / p['initial_risk_price']
+                )
+                if current_r >= breakeven_r:
+                    p['stop'] = p['entry']
+                    p['be_triggered'] = True
 
-                open_trade = None
-                equity_curve.append((ts, equity))
-                continue
+            # Minimum-hold stop filter (instrument-specific, timeframe-aware).
+            hold_bars = bar_i - p['entry_bar']
+            bar_minutes = 1 if cfg['entry_tf'] == 'm1' else 5
+            bars_per_hour = max(1, 60 // bar_minutes)
+            min_hold_hours = int(inst_cfg.get('min_hold_hours', 2))
+            min_hold_bars = min_hold_hours * bars_per_hour
+
+            # Only exit on stop if hold threshold is met, or trade is at/above breakeven.
+            allow_stop_exit = hold_bars >= min_hold_bars
+            if not allow_stop_exit:
+                # Allow stop exit even under 2h if we're at/past BE or in profit
+                current_r = (
+                    (price - p['entry']) / p['initial_risk_price']
+                    if p['dir'] == 'long'
+                    else (p['entry'] - price) / p['initial_risk_price']
+                )
+                if current_r >= 0.0:  # At or in profit
+                    allow_stop_exit = True
+
+            if p['dir'] == 'long':
+                if allow_stop_exit and low <= p['stop']:
+                    exit_signal_px = p['stop']
+                    exit_reason = 'stop'
+                elif high >= p['tp']:
+                    exit_signal_px = p['tp']
+                    exit_reason = 'tp'
+            else:
+                if allow_stop_exit and high >= p['stop']:
+                    exit_signal_px = p['stop']
+                    exit_reason = 'stop'
+                elif low <= p['tp']:
+                    exit_signal_px = p['tp']
+                    exit_reason = 'tp'
 
             # Timeout
-            hold_minutes = (ts - open_trade['entry_time']).total_seconds() / 60.0
-            if hold_minutes >= Config.MAX_HOLD_MINUTES:
-                exit_price = m1_bar['close']
-                pnl = (exit_price - open_trade['entry_price']) * \
-                      (1 if open_trade['is_long'] else -1) * \
-                      open_trade['size']
-                equity += pnl
+            if exit_reason is None and timeout_bars is not None:
+                if bar_i - p['entry_bar'] >= timeout_bars:
+                    exit_signal_px = price
+                    exit_reason = 'timeout'
 
-                if pnl < 0:
-                    consecutive_losses += 1
-                else:
-                    consecutive_losses = 0
+            if exit_reason:
+                exit_px = apply_execution_adjustment(
+                    exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
+                )
+                gross_pnl = (
+                    (exit_px - p['entry']) * p['qty']
+                    if p['dir'] == 'long'
+                    else (p['entry'] - exit_px) * p['qty']
+                )
+                fees = commission_per_trade
+                pnl  = gross_pnl - fees
+                capital += pnl
+                risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
+                r_value   = pnl / risk_cash
+                win       = pnl > 0
 
-                trades.append({
-                    'entry_time': open_trade['entry_time'],
-                    'exit_time': ts,
-                    'direction': 'LONG' if open_trade['is_long'] else 'SHORT',
-                    'type': 'COUNTER' if open_trade['is_counter'] else 'TREND',
-                    'entry_price': open_trade['entry_price'],
-                    'exit_price': exit_price,
-                    'size': open_trade['size'],
-                    'pnl': pnl,
-                    'reason': 'timeout',
-                    'zone_price': open_trade.get('zone_price', 0.0),
-                    'comment': open_trade.get('comment', '')
+                # Update circuit breaker
+                breaker.record(win, ts_pd)
+                if not win:
+                    last_loss_exit = ts_pd
+
+                results.append({
+                    'entry_ts'           : p['entry_ts'],
+                    'exit_ts'            : ts_pd,
+                    'dir'                : p['dir'],
+                    'entry'              : p['entry'],
+                    'exit'               : exit_px,
+                    'entry_price'        : p['entry'],
+                    'exit_price'         : exit_px,
+                    'entry_signal_price' : p['entry_signal'],
+                    'exit_signal_price'  : exit_signal_px,
+                    'stop_price'         : p['stop'],
+                    'stop_price_initial' : p['stop_initial'],
+                    'stop_price_exit'    : p['stop'],
+                    'initial_risk_price' : p['initial_risk_price'],
+                    'r_value'            : r_value,
+                    'fees'               : fees,
+                    'pnl'                : pnl,
+                    'win'                : win,
+                    'exit_reason'        : exit_reason,
+                    'qty'                : p['qty'],
+                    'be_triggered'       : p.get('be_triggered', False),
+                    'confidence_mult'    : p.get('confidence_mult', 1.0),
+                    'regime'             : p.get('regime', 'unknown'),
                 })
+            else:
+                still_open.append(p)
 
-                open_trade = None
-                equity_curve.append((ts, equity))
+        positions = still_open
+
+        # ── entry logic ───────────────────────────────────────────────────
+        if len(positions) >= max_concurrent:
+            skipped['concurrent'] += 1
+            continue
+
+        # Circuit breaker check
+        if breaker.is_paused(ts_pd):
+            skipped['circuit'] += 1
+            continue
+
+        # Lockout after a losing exit to avoid immediate revenge entries.
+        if last_loss_exit is not None:
+            if (ts_pd - last_loss_exit).total_seconds() / 60 < lockout_min:
                 continue
 
-            # Breakeven & trailing
-            if atr_val > 0:
-                r_value = abs(open_trade['entry_price'] - open_trade['sl'])
-                current_price = m1_bar['close']
-                profit_dist = (current_price - open_trade['entry_price']) * \
-                              (1 if open_trade['is_long'] else -1)
-                r_now = profit_dist / r_value if r_value > 0 else 0.0
-
-                # Breakeven
-                if not open_trade['has_be'] and r_now >= Config.BE_TRIGGER_R:
-                    open_trade['sl'] = open_trade['entry_price']
-                    open_trade['has_be'] = True
-
-                # Trailing
-                if r_now >= Config.TRAIL_TRIGGER_R:
-                    trail_dist = Config.TRAIL_ATR_MULT * atr_val
-                    new_sl = (current_price - trail_dist
-                              if open_trade['is_long']
-                              else current_price + trail_dist)
-                    min_improvement = 0.5
-                    if open_trade['is_long'] and new_sl > open_trade['sl'] + min_improvement:
-                        open_trade['sl'] = new_sl
-                    elif not open_trade['is_long'] and new_sl < open_trade['sl'] - min_improvement:
-                        open_trade['sl'] = new_sl
-
-            equity_curve.append((ts, equity))
-            continue
-
-        # ===== ENTRY LOGIC =====
-        if not in_session(ts):
-            filter_stats['out_of_session'] += 1
-            log_rejection("Outside session hours", ts)
-            continue
-
-        filter_stats['in_session'] += 1
-
-        if session_start_equity is not None:
-            session_loss = (session_start_equity - equity) / session_start_equity
-            cap = Config.SESSION_RISK_CAP
-            if is_pre_session(ts):
-                cap = min(cap, Config.PRE_SESSION_RISK_CAP)
-            if session_loss >= cap:
-                log_rejection("Session risk cap reached", ts)
+        # Cooldown
+        if last_entry is not None:
+            if (ts_pd - last_entry).total_seconds() / 60 < cooldown_min:
                 continue
 
-        # One entry per M5 bar
-        m5_closed = data['M5'][data['M5'].index < ts]
-        if len(m5_closed) > 0:
-            current_m5_bar = m5_closed.index[-1]
-            if last_m5_bar_traded is not None and current_m5_bar == last_m5_bar_traded:
-                log_rejection("Already traded this M5 bar", ts)
-                equity_curve.append((ts, equity))
+        # ── scan zones ────────────────────────────────────────────────────
+        atr_h4_v = fast_val(h4_idx, h4_atr_arr, ts)
+        if np.isnan(atr_h4_v) or atr_h4_v <= 0:
+            continue
+
+        # Only evaluate zones formed in a recent rolling window and before current bar.
+        lookback_minutes = max(1, int(zone_lookback_bars)) * 240
+        min_zone_ts = ts - np.timedelta64(lookback_minutes, 'm')
+        zone_start = np.searchsorted(zone_ts, min_zone_ts, side='left')
+        zone_end = np.searchsorted(zone_ts, ts, side='left')
+
+        for z_i in range(zone_start, zone_end):
+            z_ts  = zone_ts[z_i]
+            z_px  = zone_px[z_i]
+            z_dir = zone_dir[z_i]
+
+            # Zone proximity check
+            if abs(price - z_px) / z_px > conf_tol:
                 continue
 
-        # Circuit breaker
-        if consecutive_losses >= Config.MAX_LOSS_STREAK and cooldown_until is None:
-            cooldown_until = ts + timedelta(minutes=Config.COOLDOWN_MINUTES)
-            debug_log(f"Circuit breaker triggered at {ts}, cooldown until {cooldown_until}")
-            consecutive_losses = 0
-            equity_curve.append((ts, equity))
-            continue
+            # ── NOT-CHASING FILTER: entry must be within 1.5x M15 ATR of zone ──
+            m15_atr_v = fast_val(m15_idx, m15_atr_arr, ts)
+            if not np.isnan(m15_atr_v) and m15_atr_v > 0:
+                if abs(price - z_px) > 1.5 * m15_atr_v:
+                    skipped['chasing'] += 1
+                    continue
 
-        # Current M1 bar
-        try:
-            m1_bar = data['M1'].loc[ts]
-        except KeyError:
-            equity_curve.append((ts, equity))
-            continue
+            # ── BOUNCE-ONLY FILTER: price approaching from opposite side ──────
+            # For a long zone (demand), price must be coming from above (bounce into support)
+            # For a short zone (supply), price must be coming from below (bounce into resistance)
+            if z_dir == 'long' and price < z_px * (1 - conf_tol):
+                skipped['not_bounce'] += 1
+                continue  # price already broke below — not a bounce
+            if z_dir == 'short' and price > z_px * (1 + conf_tol):
+                skipped['not_bounce'] += 1
+                continue  # price already broke above — not a bounce
 
-        # Spread filter
-        if get_spread_pct(m1_bar) > Config.MAX_SPREAD_PCT:
-            filter_stats['spread_fail'] += 1          # <-- ADD THIS LINE
-            log_rejection("Spread too high", ts)
-            equity_curve.append((ts, equity))
-            continue
+            # ── p2 FILTER 1: Session gate ─────────────────────────────────
+            session_mult = get_session_size_mult(ts_pd, inst_cfg)
+            if session_mult == 0.0:
+                skipped['session'] += 1
+                continue
 
-         # ATR filter
-        if len(m5_closed) == 0:
-            equity_curve.append((ts, equity))
-            continue
-        atr_val = m5_closed['ATR_14'].iloc[-1]
-        if pd.isna(atr_val) or atr_val < Config.MIN_ATR_ABS:
-            filter_stats['atr_fail'] += 1              # <-- ADD THIS LINE
-            log_rejection("ATR too low", ts)
-            equity_curve.append((ts, equity))
-            continue
+            # ── p2 FILTER 2: Zone confirmation delay ──────────────────────
+            if not zone_is_confirmed(ts_pd, z_ts, inst_cfg):
+                skipped['confirm'] += 1
+                continue
 
-        # Trend analysis
-        daily_bias = get_daily_bias(data['D1'], ts)
-        if daily_bias == 0:
-            filter_stats['daily_bias_fail'] += 1       # <-- ADD THIS LINE
-            log_rejection("Daily bias unclear", ts)
-            equity_curve.append((ts, equity))
-            continue
+            # ── p2 FILTER 3: Cluster cap ──────────────────────────────────
+            if not cluster.can_enter(ts_pd):
+                skipped['cluster'] += 1
+                continue
 
-        intraday_trend = get_multi_tf_trend(data, ts)
-        if intraday_trend == 0:
-            filter_stats['intraday_fail'] += 1            
-            log_rejection("No clear intraday trend", ts)
-            equity_curve.append((ts, equity))
-            continue
+            # ── p2 FILTER 4: Trend regime ─────────────────────────────────
+            regime = get_regime(daily_idx, daily_regime, ts)
+            regime_mult = get_regime_size_mult(regime, z_dir)
 
-        # Zone detection
-        zone = find_zone(data['M5'], ts)
-        if zone is None:
-            filter_stats['no_zone'] += 1                # <-- ADD THIS LINE
-            log_rejection("No valid zone found", ts)
-            equity_curve.append((ts, equity))
-            continue
+            # ── Multi-timeframe score ─────────────────────────────────────
+            h4_score = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir)
+            h1_score = score_tf(h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, ts, z_dir)
 
-        current_price = m1_bar['close']
-        if not price_near_zone(current_price, zone['price']):
-            filter_stats['not_near_zone'] += 1
-            log_rejection("Price not near zone", ts)
-            equity_curve.append((ts, equity))
-            continue
-        
-        filter_stats['passed_all'] += 1
+            if cfg['entry_tf'] == 'm1':
+                ltf_score = score_tf(m1_idx, m1_c, m1_e20, m1_e50, m1_rsi, ts, z_dir)
+            else:
+                ltf_score = score_tf(m5_idx, m5_c, m5_e20, m5_e50, m5_rsi, ts, z_dir)
 
-        trend_aligned = (intraday_trend == daily_bias)
-        can_long = zone['is_support']
-        can_short = not zone['is_support']
+            if h4_score < h4_min:
+                skipped['score'] += 1
+                continue
+            if h1_score < h1_min:
+                skipped['score'] += 1
+                continue
+            if ltf_score < ltf_min:
+                skipped['score'] += 1
+                continue
 
-        def attempt_entry(is_long, is_counter):
-            nonlocal open_trade, last_m5_bar_traded, equity
+            total_score = h4_score + h1_score + ltf_score
+            dir_score_offset = inst_cfg.get('dir_score_offset', {})
+            effective_score_min = score_min + int(dir_score_offset.get(z_dir, 0))
+            if total_score < effective_score_min:
+                skipped['score'] += 1
+                continue
+            if ltf_score > ltf_cap:
+                skipped['score'] += 1
+                continue
 
-            if not m5_rejection(data['M5'], ts, is_long):
-                log_rejection("M5 rejection failed", ts)
-                return False
-            if not m1_momentum(data['M1'], data['M5'], ts, is_long):
-                log_rejection("M1 momentum failed", ts)
-                return False
+            # Volume filter (Scenario A only)
+            if vol_filter:
+                if cfg['entry_tf'] == 'm1':
+                    # Align M1 entry timestamp to the latest available M5 bar.
+                    i_m5 = np.searchsorted(m5_idx, ts, side='right') - 1
+                    vol_ok = (
+                        i_m5 >= 0
+                        and i_m5 < len(m5_vol)
+                        and i_m5 < len(m5_vol_ma)
+                        and m5_vol[i_m5] > m5_vol_ma[i_m5]
+                    )
+                else:
+                    i_ltf = np.searchsorted(m5_idx, ts, side='right') - 1
+                    vol_ok = (i_ltf >= 0 and
+                              m5_vol[i_ltf] > m5_vol_ma[i_ltf])
+                if not vol_ok:
+                    skipped['vol'] += 1
+                    continue
 
-            sl_distance = Config.SL_ATR_MULT * atr_val
-            entry_price = current_price
-            sl_price = entry_price - sl_distance if is_long else entry_price + sl_distance
-            tp_price = entry_price + Config.TP_R_MULT * sl_distance if is_long else entry_price - Config.TP_R_MULT * sl_distance
-
-            size = calculate_position_size(equity, entry_price, sl_price, is_counter)
-            if size <= 0:
-                log_rejection("Invalid position size", ts)
-                return False
-
-            comment = (
-                f"PhantomScalpXAU|"
-                f"{'LONG' if is_long else 'SHORT'}|"
-                f"{'COUNTER' if is_counter else 'TREND'}|"
-                f"Zone:{zone['price']:.2f}|"
-                f"ATR:{atr_val:.2f}"
+            # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
+            # Phase 2 supports configurable confidence modes.
+            cluster_count = cluster.count_in_window(ts_pd)
+            in_peak_session = (
+                inst_cfg['session_start'] <= ts_pd.hour < inst_cfg['session_end']
+                and ts_pd.dayofweek < 5
             )
+            confidence_mode = DEFAULTS.get('confidence_mode', 'flat')
+            confidence_score_min = int(DEFAULTS.get('confidence_score_min', 7))
 
-            open_trade = {
-                'entry_time': ts,
-                'entry_price': entry_price,
-                'sl': sl_price,
-                'tp': tp_price,
-                'is_long': is_long,
-                'is_counter': is_counter,
-                'size': size,
-                'has_be': False,
-                'zone_price': zone['price'],
-                'comment': comment
-            }
+            if confidence_mode == 'flat':
+                conf_mult = 1.0
+            elif confidence_mode == 'inverted':
+                # True inverted confidence: first cluster touch gets the size premium.
+                conf_mult = DEFAULTS['confidence_mult'] if cluster_count == 0 else 1.0
+            elif confidence_mode == 'score':
+                conf_mult = (
+                    DEFAULTS['confidence_mult']
+                    if (in_peak_session and total_score >= confidence_score_min)
+                    else 1.0
+                )
+            else:
+                conf_mult = 1.0
 
-            if len(m5_closed) > 0:
-                last_m5_bar_traded = m5_closed.index[-1]
+            # ── Position sizing ───────────────────────────────────────────
+            stop_dist  = atr_stop * atr_h4_v
+            risk_amt   = capital * risk_pct
+            stop_px    = price - stop_dist if z_dir == 'long' else price + stop_dist
+            tp_px      = (price + tp_mult * stop_dist if z_dir == 'long'
+                          else price - tp_mult * stop_dist)
 
-            debug_log(f"ENTRY {comment} | Size={size:.2f} SL={sl_price:.2f} TP={tp_price:.2f}")
-            return True
+            entry_exec = apply_execution_adjustment(
+                price, z_dir, 'entry', spread_bps, slippage_bps
+            )
+            initial_risk_price = abs(entry_exec - stop_px)
+            if initial_risk_price <= 0:
+                initial_risk_price = stop_dist if stop_dist > 0 else 1e-9
 
-        entry_done = False
-        if trend_aligned:
-            if can_long and intraday_trend == 1:
-                entry_done = attempt_entry(True, False)
-            elif can_short and intraday_trend == -1:
-                entry_done = attempt_entry(False, False)
+            # Apply all size multipliers
+            size_mult = session_mult * regime_mult * conf_mult
+            qty = (risk_amt / initial_risk_price) * size_mult if initial_risk_price > 0 else 0
 
-        if not entry_done and Config.ALLOW_COUNTER_TREND:
-            if can_long:
-                entry_done = attempt_entry(True, True)
-            elif can_short:
-                entry_done = attempt_entry(False, True)
+            if qty <= 0:
+                continue
 
-        equity_curve.append((ts, equity))
+            # Register entry
+            cluster.register(ts_pd)
+            last_entry = ts_pd
 
-    # Close any open trade at end
-    if open_trade:
-        final_time = m1_times[-1]
-        final_bar = data['M1'].loc[final_time]
-        final_price = final_bar['close']
-        pnl = (final_price - open_trade['entry_price']) * \
-              (1 if open_trade['is_long'] else -1) * \
-              open_trade['size']
-        equity += pnl
+            positions.append({
+                'entry_ts'          : ts_pd,
+                'entry_bar'         : bar_i,
+                'dir'               : z_dir,
+                'entry'             : entry_exec,
+                'entry_signal'      : price,
+                'stop'              : stop_px,
+                'stop_initial'      : stop_px,
+                'tp'                : tp_px,
+                'initial_risk_price': initial_risk_price,
+                'qty'               : qty,
+                'be_triggered'      : False,
+                'confidence_mult'   : conf_mult,
+                'regime'            : regime,
+                'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
+            })
 
-        trades.append({
-            'entry_time': open_trade['entry_time'],
-            'exit_time': final_time,
-            'direction': 'LONG' if open_trade['is_long'] else 'SHORT',
-            'type': 'COUNTER' if open_trade['is_counter'] else 'TREND',
-            'entry_price': open_trade['entry_price'],
-            'exit_price': final_price,
-            'size': open_trade['size'],
-            'pnl': pnl,
-            'reason': 'end_of_test',
-            'zone_price': open_trade.get('zone_price', 0.0),
-            'comment': open_trade.get('comment', '')
+            # Only take one zone per bar
+            break
+
+    # ── close any remaining open positions at last bar ────────────────────
+    for p in positions:
+        exit_signal_px = c_c[-1]
+        exit_px = apply_execution_adjustment(
+            exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
+        )
+        gross_pnl = (
+            (exit_px - p['entry']) * p['qty']
+            if p['dir'] == 'long'
+            else (p['entry'] - exit_px) * p['qty']
+        )
+        fees  = commission_per_trade
+        pnl   = gross_pnl - fees
+        capital += pnl
+        risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
+        r_value   = pnl / risk_cash
+        results.append({
+            'entry_ts'           : p['entry_ts'],
+            'exit_ts'            : pd.Timestamp(c_idx[-1]),
+            'dir'                : p['dir'],
+            'entry'              : p['entry'],
+            'exit'               : exit_px,
+            'entry_price'        : p['entry'],
+            'exit_price'         : exit_px,
+            'entry_signal_price' : p['entry_signal'],
+            'exit_signal_price'  : exit_signal_px,
+            'stop_price'         : p['stop'],
+            'stop_price_initial' : p['stop_initial'],
+            'stop_price_exit'    : p['stop'],
+            'initial_risk_price' : p['initial_risk_price'],
+            'r_value'            : r_value,
+            'fees'               : fees,
+            'pnl'                : pnl,
+            'win'                : pnl > 0,
+            'exit_reason'        : 'eod',
+            'qty'                : p['qty'],
+            'be_triggered'       : p.get('be_triggered', False),
+            'confidence_mult'    : p.get('confidence_mult', 1.0),
+            'regime'             : p.get('regime', 'unknown'),
         })
 
-    # ============================================
-    # FILTER STATISTICS (ADD THIS ENTIRE BLOCK)
-    # ============================================
-    print(f"\n{'='*60}")
-    print(f"FILTER STATISTICS")
-    print(f"{'='*60}")
-    print(f"  Total bars processed:    {filter_stats['total_bars']:>10,}")
-    print(f"  Weekend skips:           {filter_stats['weekend']:>10,}")
-    print(f"  Out of session:          {filter_stats['out_of_session']:>10,}")
-    print(f"  In session:              {filter_stats['in_session']:>10,}")
-    print(f"  Spread fails:            {filter_stats['spread_fail']:>10,}")
-    print(f"  ATR fails:               {filter_stats['atr_fail']:>10,}")
-    print(f"  Daily bias fails:        {filter_stats['daily_bias_fail']:>10,}")
-    print(f"  Intraday trend fails:    {filter_stats['intraday_fail']:>10,}")
-    print(f"  No zone found:           {filter_stats['no_zone']:>10,}")
-    print(f"  Not near zone:           {filter_stats['not_near_zone']:>10,}")
-    print(f"  Passed all filters:      {filter_stats['passed_all']:>10,}")
-    print(f"{'='*60}\n")
+    df_r = pd.DataFrame(results)
+    _print_summary(df_r, label, capital, skipped, start_cap=start_cap)
+    return df_r
 
-    trades_df = pd.DataFrame(trades)
-    equity_df = pd.DataFrame(equity_curve, columns=['time', 'equity'])
+# ══════════════════════════════════════════════════════════════════════════════
+# REPORTING
+# ══════════════════════════════════════════════════════════════════════════════
+def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float,
+                   skipped: dict, start_cap: float = 5_000):
+    if df_r is None or len(df_r) == 0:
+        print(f"\n{label}: 0 trades"); return
 
-    return trades_df, equity_df, equity
+    trades = len(df_r)
+    wr     = df_r['win'].mean() * 100
+    gw     = df_r[df_r['win']]['pnl'].sum()
+    gl     = df_r[~df_r['win']]['pnl'].sum()
+    pf     = abs(gw / gl) if gl != 0 else float('inf')
+    net    = df_r['pnl'].sum()
+    ret    = net / start_cap * 100
+    eq     = start_cap + df_r['pnl'].cumsum()
+    peak   = eq.cummax()
+    dd     = ((eq - peak) / peak).min() * 100
+    exp    = df_r['pnl'].mean()
+    t_pct  = (df_r['exit_reason'] == 'timeout').mean() * 100
+    be_pct = df_r.get('be_triggered', pd.Series([False]*trades)).mean() * 100
 
+    # Weekly trade count
+    df_r['_week'] = pd.to_datetime(df_r['entry_ts']).dt.to_period('W')
+    weeks = df_r['_week'].nunique()
+    tpw   = trades / weeks if weeks > 0 else 0
 
-# ============================================
-# PERFORMANCE ANALYSIS
-# ============================================
-def analyze_results(trades_df, equity_df, final_equity):
-    print("\n" + "=" * 60)
-    print("PHANTOM SCALP XAU - BACKTEST RESULTS")
-    print("=" * 60)
+    pf_flag  = '✅' if pf  >= 1.5  else ('⚠️' if pf >= 1.2 else '❌')
+    dd_flag  = '✅' if dd  >= -8   else '❌'
+    wr_flag  = '✅' if wr  >= 50   else ('⚠️' if wr >= 45 else '❌')
+    ret_flag = '✅' if ret > 0     else '❌'
 
-    if len(trades_df) == 0:
-        print("No trades executed.")
-        return
+    print(f"\n{'='*56}")
+    print(f"  {label}")
+    print(f"{'='*56}")
+    print(f"  Trades      : {trades}  ({tpw:.1f}/week)")
+    print(f"  Win %       : {wr:.1f}%   {wr_flag}")
+    print(f"  PF          : {pf:.3f}  {pf_flag}")
+    print(f"  Net Return  : {ret:.2f}%  {ret_flag}")
+    print(f"  Max DD      : {dd:.2f}%  {dd_flag}")
+    print(f"  Expectancy  : ${exp:.2f}/trade")
+    print(f"  Final Cap   : ${final_cap:,.2f}")
+    print(f"  Breakeven % : {be_pct:.1f}%")
+    print(f"  Timeout %   : {t_pct:.1f}%")
+    print(f"  Skipped     : {skipped}")
 
-    total_trades = len(trades_df)
-    wins = trades_df[trades_df['pnl'] > 0]
-    losses = trades_df[trades_df['pnl'] <= 0]
+# ══════════════════════════════════════════════════════════════════════════════
+# SCENARIO HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def canonicalize_scenario(raw: str) -> str:
+    token = str(raw or '').strip().upper().replace('.', '')
+    token = token.replace(ENGINE_VERSION.upper(), '')
+    alias_map = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'C'}
+    normalized = alias_map.get(token, token)
+    if normalized not in SCENARIOS:
+        raise ValueError(f"Unknown scenario '{raw}'. Use p2A | p2B | p2C | ALL")
+    return normalized
 
-    win_rate = len(wins) / total_trades * 100 if total_trades > 0 else 0.0
-    total_pnl = trades_df['pnl'].sum()
-    avg_win = wins['pnl'].mean() if len(wins) > 0 else 0.0
-    avg_loss = losses['pnl'].mean() if len(losses) > 0 else 0.0
-    profit_factor = (wins['pnl'].sum() / abs(losses['pnl'].sum())
-                     if len(losses) > 0 else float('inf'))
+def scenario_id(letter: str) -> str:
+    return f"{ENGINE_VERSION.upper()}{letter}"
 
-    print(f"\nInitial Equity: ${Config.INITIAL_EQUITY:,.2f}")
-    print(f"Final Equity:   ${final_equity:,.2f}")
-    print(f"Total Return:   {((final_equity - Config.INITIAL_EQUITY) / Config.INITIAL_EQUITY * 100):.2f}%")
+def print_comparison(results: dict, start_cap: float):
+    print(f"\n\n{'='*56}")
+    print(f"  {ENGINE_VERSION.upper()} SCENARIO SNAPSHOT")
+    print(f"{'='*56}")
+    print(f"  {'Scen':<8} {'Trades':>8} {'WR':>8} {'PF':>8} {'Max DD':>10} {'Net Ret':>10}")
+    for sc_id, df_r in results.items():
+        if df_r is None or len(df_r) == 0:
+            print(f"  {sc_id:<8} {'—':>8}")
+            continue
+        trades = len(df_r)
+        wr     = df_r['win'].mean() * 100
+        gw     = df_r[df_r['win']]['pnl'].sum()
+        gl     = df_r[~df_r['win']]['pnl'].sum()
+        pf     = abs(gw / gl) if gl != 0 else float('inf')
+        net    = df_r['pnl'].sum()
+        ret    = net / start_cap * 100 if start_cap else 0.0
+        eq     = start_cap + df_r['pnl'].cumsum()
+        peak   = eq.cummax()
+        dd     = ((eq - peak) / peak).min() * 100
+        print(f"  {sc_id:<8} {trades:>8} {wr:>7.1f}% {pf:>8.3f} {dd:>9.2f}% {ret:>9.2f}%")
 
-    print(f"\nTotal Trades:   {total_trades}")
-    print(f"Win Rate:       {win_rate:.1f}%")
-    print(f"Profit Factor:  {profit_factor:.2f}")
-    print(f"Avg Win:        ${avg_win:,.2f}")
-    print(f"Avg Loss:       ${avg_loss:,.2f}")
-
-    # Drawdown
-    equity_df = equity_df.copy()
-    equity_df.set_index('time', inplace=True)
-    equity_df['peak'] = equity_df['equity'].cummax()
-    equity_df['drawdown_pct'] = (equity_df['peak'] - equity_df['equity']) / equity_df['peak'] * 100
-    max_dd = equity_df['drawdown_pct'].max()
-    print(f"Max Drawdown:   {max_dd:.2f}%")
-
-    # Trend vs counter-trend
-    if 'type' in trades_df.columns:
-        trend_trades = trades_df[trades_df['type'] == 'TREND']
-        counter_trades = trades_df[trades_df['type'] == 'COUNTER']
-
-        print(f"\nTrend-Aligned Trades: {len(trend_trades)}")
-        if len(trend_trades) > 0:
-            trend_wr = len(trend_trades[trend_trades['pnl'] > 0]) / len(trend_trades) * 100
-            print(f"  Win Rate: {trend_wr:.1f}%")
-            print(f"  Total PnL: ${trend_trades['pnl'].sum():,.2f}")
-
-        print(f"\nCounter-Trend Trades: {len(counter_trades)}")
-        if len(counter_trades) > 0:
-            counter_wr = len(counter_trades[counter_trades['pnl'] > 0]) / len(counter_trades) * 100
-            print(f"  Win Rate: {counter_wr:.1f}%")
-            print(f"  Total PnL: ${counter_trades['pnl'].sum():,.2f}")
-
-    # Exit reasons
-    if 'reason' in trades_df.columns:
-        print(f"\nExit Reasons:")
-        for reason in trades_df['reason'].unique():
-            count = len(trades_df[trades_df['reason'] == reason])
-            print(f"  {reason}: {count}")
-
-
-# ============================================
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
-# ============================================
-if __name__ == "__main__":
-    data = load_data()
-    data = calculate_all_indicators(data)
-    trades_df, equity_df, final_equity = run_backtest(data)
-    analyze_results(trades_df, equity_df, final_equity)
+# ══════════════════════════════════════════════════════════════════════════════
+def main():
+    parser = argparse.ArgumentParser(description=f'Phantom {ENGINE_VERSION} Backtest')
+    parser.add_argument('--instrument',  required=True,
+                        choices=['XAU', 'US100', 'BTC'],
+                        help='Instrument: XAU | US100 | BTC')
+    parser.add_argument('--m1',          required=True,  help='Path to M1 CSV')
+    parser.add_argument('--m5',          required=True,  help='Path to M5 CSV')
+    parser.add_argument('--h1',          required=True,  help='Path to H1 CSV')
+    parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
+    parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
+    parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
+    parser.add_argument('--scenario',    default='ALL',
+                        help=f'{ENGINE_VERSION}A | {ENGINE_VERSION}B | {ENGINE_VERSION}C | ALL')
+    parser.add_argument('--capital',     type=float, default=5_000)
+    parser.add_argument('--output-dir',  default='.',
+                        help='Directory to save trade CSV outputs')
+    parser.add_argument('--spread-bps',  type=float, default=0.0,
+                        help='Round-trip spread in bps')
+    parser.add_argument('--slippage-bps',type=float, default=0.0,
+                        help='Adverse slippage per side in bps')
+    parser.add_argument('--commission-per-trade', type=float, default=0.0,
+                        help='Fixed commission per closed trade')
+    parser.add_argument('--start-date', default=None,
+                        help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+    args = parser.parse_args()
+
+    output_dir = args.output_dir or '.'
+    os.makedirs(output_dir, exist_ok=True)
+
+    inst_cfg = INSTRUMENT_CONFIG[args.instrument]
+    print(f"\nPhantom {ENGINE_VERSION.upper()} | Instrument: {args.instrument}")
+    print(f"  Session: {inst_cfg['session_start']:02d}:00–{inst_cfg['session_end']:02d}:00 UTC"
+          f"  | TP: {inst_cfg['tp_mult']}R"
+          f"  | ATR stop: {inst_cfg['atr_stop_mult']}x"
+          f"  | Confirm: {inst_cfg['min_confirm_bars']} bars")
+
+    print("\nLoading data...")
+    m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
+    m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date)
+    h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date)
+    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date)
+    m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date)
+    daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date)
+    daily = add_daily_regime(daily, inst_cfg)
+    print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
+    print(f"  Range: {m1.index[0]} → {m1.index[-1]}")
+
+    print("\nBuilding H4 pivot zones...")
+    zone_ts, zone_px, zone_dir = build_h4_zones(
+        h4,
+        pivot_bars=DEFAULTS['h4_pivot_bars'],
+        lookback=DEFAULTS['h4_lookback'],
+    )
+    print(f"  {len(zone_ts)} zones found")
+
+    # Regime arrays
+    daily_idx    = daily.index.values
+    daily_regime = daily['regime'].values
+
+    # Cache numpy arrays
+    arrays = dict(
+        h4_idx=h4.index.values,   h4_c=h4['close'].values,
+        h4_e20=h4['ema20'].values, h4_e50=h4['ema50'].values,
+        h4_rsi=h4['rsi'].values,   h4_atr_arr=h4['atr'].values,
+        h1_idx=h1.index.values,   h1_c=h1['close'].values,
+        h1_e20=h1['ema20'].values, h1_e50=h1['ema50'].values,
+        h1_rsi=h1['rsi'].values,
+        m15_idx=m15.index.values,  m15_atr_arr=m15['atr'].values,
+        m5_idx=m5.index.values,   m5_c=m5['close'].values,
+        m5_e20=m5['ema20'].values, m5_e50=m5['ema50'].values,
+        m5_rsi=m5['rsi'].values,
+        m5_vol=m5['tickvol'].values, m5_vol_ma=m5['vol_ma'].values,
+        m1_idx=m1.index.values,   m1_c=m1['close'].values,
+        m1_e20=m1['ema20'].values, m1_e50=m1['ema50'].values,
+        m1_rsi=m1['rsi'].values,
+    )
+
+    scenarios_to_run = (
+        list(SCENARIOS.keys())
+        if args.scenario.upper() == 'ALL'
+        else [canonicalize_scenario(args.scenario)]
+    )
+
+    results = {}
+    for sc in scenarios_to_run:
+        cfg   = SCENARIOS[sc]
+        sc_id = scenario_id(sc)
+        candles = m1 if cfg['entry_tf'] == 'm1' else m5
+        print(f"\nRunning Scenario {sc_id}...")
+        df_r = run_scenario(
+            candles=candles,
+            zone_ts=zone_ts, zone_px=zone_px, zone_dir=zone_dir,
+            daily_idx=daily_idx, daily_regime=daily_regime,
+            cfg=cfg,
+            inst_cfg=inst_cfg,
+            capital=args.capital,
+            max_concurrent=DEFAULTS['max_concurrent'],
+            cooldown_min=DEFAULTS['cooldown_min'],
+            lockout_min=DEFAULTS['lockout_min'],
+            conf_tol=DEFAULTS['conf_tol'],
+            spread_bps=args.spread_bps,
+            slippage_bps=args.slippage_bps,
+            commission_per_trade=args.commission_per_trade,
+                 zone_lookback_bars=DEFAULTS['h4_lookback'],
+            label=(f"Scenario {sc_id} | {args.instrument} | "
+                   f"{cfg['entry_tf'].upper()} entry | risk={cfg['risk_pct']*100:.2f}%"),
+            **arrays,
+        )
+        results[sc_id] = df_r
+        if df_r is not None and len(df_r):
+            out = os.path.join(output_dir, f'phantom_{ENGINE_VERSION}_trades_{args.instrument}_{sc_id}.csv')
+            df_r.to_csv(out, index=False)
+            print(f"  Trades saved → {out}")
+
+    print_comparison(results, start_cap=args.capital)
+    print("\nDone.")
+
+
+if __name__ == '__main__':
+    main()
