@@ -144,18 +144,6 @@ DEFAULTS = {
 }
 
 SCENARIOS = {
-    'C': dict(
-        entry_tf    = 'm5',
-        risk_pct    = 0.004,
-        score_min   = 3,
-        h4_min      = 1,
-        h1_min      = 1,
-        ltf_min     = 1,
-        ltf_cap     = 3,
-        vol_filter  = False,
-        timeout_bars= None,
-        atr_trail   = 0.8,   # Trailing stop multiplier
-    ),
     'B': dict(
         entry_tf    = 'm5',
         risk_pct    = 0.007,
@@ -167,18 +155,6 @@ SCENARIOS = {
         vol_filter  = False,
         timeout_bars= None,
         atr_trail   = 0.8,
-    ),
-    'A': dict(
-        entry_tf    = 'm1',
-        risk_pct    = 0.0035,
-        score_min   = 5,
-        h4_min      = 1,
-        h1_min      = 1,
-        ltf_min     = 2,
-        ltf_cap     = 3,
-        vol_filter  = True,
-        timeout_bars= None,
-        atr_trail   = 0.9,
     ),
 }
 
@@ -971,8 +947,8 @@ def main():
     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
-    parser.add_argument('--scenario',    default='ALL',
-                        help=f'{ENGINE_VERSION}A | {ENGINE_VERSION}B | {ENGINE_VERSION}C | ALL')
+    parser.add_argument('--scenario',    default='B', choices=['B'],
+                        help=f'{ENGINE_VERSION}B only (locked best scenario)')
     parser.add_argument('--capital',     type=float, default=5_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
@@ -1037,11 +1013,7 @@ def main():
         m1_rsi=m1['rsi'].values,
     )
 
-    scenarios_to_run = (
-        list(SCENARIOS.keys())
-        if args.scenario.upper() == 'ALL'
-        else [canonicalize_scenario(args.scenario)]
-    )
+    scenarios_to_run = ['B']
 
     results = {}
     for sc in scenarios_to_run:
