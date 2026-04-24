@@ -131,7 +131,7 @@ DEFAULTS = {
 SCENARIOS = {
     'B': dict(
         entry_tf    = 'm5',
-        risk_pct    = 0.007,
+        risk_pct    = 0.0125,
         score_min   = 3,
         h4_min      = 1,
         h1_min      = 1,
