@@ -1,7 +1,0 @@
-branch,mode,months,start_cap_gbp,final_equity_gbp,net_return_pct,max_dd_pct,max_dd_amt_gbp,positive_months,negative_months,flat_months,positive_month_ratio_pct,avg_monthly_pnl_gbp,median_monthly_pnl_gbp,best_month,best_month_pnl_gbp,worst_month,worst_month_pnl_gbp
-p2_filter_test3,full,63,10000.0,215287.54,2052.88,-4.384,-1777.73,57,6,0,90.48,3258.53,2333.03,2025-07,14429.09,2026-01,-1362.83
-p2_filter_test2,full,63,10000.0,208525.63,1985.26,-5.241,-1830.95,54,9,0,85.71,3151.2,2292.94,2025-07,13980.36,2026-01,-1437.13
-p2_filter_test1,full,63,10000.0,91254.17,812.54,-2.749,-1348.22,55,8,0,87.3,1289.75,1036.58,2025-07,4776.0,2025-12,-722.43
-p2_filter_test3,policy,51,10000.0,66577.76,565.78,-0.263,-27.37,50,1,0,98.04,1109.37,887.86,2026-03,5109.11,2022-03,-27.37
-p2_filter_test2,policy,51,10000.0,65927.03,559.27,-0.263,-27.37,50,1,0,98.04,1096.61,884.49,2026-03,5077.31,2022-03,-27.37
-p2_filter_test1,policy,51,10000.0,42672.01,326.72,-0.091,-9.35,50,1,0,98.04,640.63,591.17,2026-03,2647.23,2022-03,-9.35
