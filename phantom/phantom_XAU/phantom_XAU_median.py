@@ -52,8 +52,8 @@ INSTRUMENT_CONFIG = {
         session_exclude_hours = [11],
         allow_weekend   = False,
         weekend_size    = 0.0,
-        # TP at 1.3R — daily range ~1.43%, 1.3R is achievable within session
-        tp_mult         = 1.3,
+        # TP at 1.0R — improved capital growth in sensitivity tests
+        tp_mult         = 1.0,
         # ATR stop: 2.0x H4 ATR — XAU needs wider stop due to intraday noise
         atr_stop_mult   = 2.0,
         # Confirmation: require 2 H4 bars (8h) holding zone before entry
@@ -121,7 +121,7 @@ DEFAULTS = {
     'h4_lookback'   : 50,
     'circuit_breaker_losses': 5, # pause after N consecutive losses
     'circuit_breaker_hours' : 24,
-    'breakeven_r'   : 0.8,       # move stop to entry at this R level
+    'breakeven_r'   : 0.4,       # move stop to entry at this R level
     'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
     'confidence_min' : 0.5,      # size multiplier when low confidence
     'confidence_mode': 'inverted', # flat | inverted | score
@@ -139,7 +139,7 @@ SCENARIOS = {
         ltf_cap     = 3,
         vol_filter  = False,
         timeout_bars= None,
-        atr_trail   = 0.8,
+        atr_trail   = 0.5,
     ),
 }
 
