@@ -4036,7 +4036,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 				cwd: workingDir,
 				env: { ...process.env, PYTHONUNBUFFERED: '1' },
 			});
-			const validationTimeoutMs = 180_000;
+			const validationTimeoutMs = 600_000;
 
 			let output = '';
 			let errorOutput = '';

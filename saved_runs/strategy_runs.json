@@ -1,5 +1,639 @@
 [
   {
+    "id": "run_1777041119674_osbqj953",
+    "createdAt": "2026-04-24T14:31:59.674Z",
+    "summary": {
+      "generatedAt": "2026-04-24T14:31:59.665Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for XAUUSD",
+      "market": "XAUUSD",
+      "periodKey": "LIVE PHANTOM_XAU_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_xau_median • Scenario B",
+        "avgRet": 457.42968631217525,
+        "compoundedProfit": 50742.96863121752,
+        "compounded": 55742.96863121752,
+        "worstDD": -5.356902155379588,
+        "avgWin": 50.7,
+        "avgPf": 2.184,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 457.42968631217525,
+            "endCap": 55742.96863121752,
+            "endProfit": 50742.96863121752,
+            "ddPct": -5.356902155379588,
+            "ddPrice": 535.6902155379588,
+            "win": 50.7,
+            "pf": 2.184
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 168.56527272432783,
+            "endCap": 26856.52727243278,
+            "endProfit": 21856.52727243278,
+            "ddPct": -3.0903852758387518,
+            "ddPrice": 309.0385275838752,
+            "win": 50.7,
+            "pf": 2.171
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 73.39021593686583,
+            "endCap": 17339.021593686582,
+            "endProfit": 12339.021593686582,
+            "ddPct": -1.8541385495823226,
+            "ddPrice": 185.41385495823226,
+            "win": 52,
+            "pf": 2.423
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_xau_median • Scenario B",
+          "avgRet": 457.42968631217525,
+          "avgPf": 2.184,
+          "worstDD": -5.356902155379588,
+          "compounded": 55742.96863121752
+        },
+        {
+          "label": "phantom_xau_median • Scenario C",
+          "avgRet": 168.56527272432783,
+          "avgPf": 2.171,
+          "worstDD": -3.0903852758387518,
+          "compounded": 26856.52727243278
+        },
+        {
+          "label": "phantom_xau_median • Scenario A",
+          "avgRet": 73.39021593686583,
+          "avgPf": 2.423,
+          "worstDD": -1.8541385495823226,
+          "compounded": 17339.021593686582
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for XAUUSD, filtered to 2021-01-14 to 2026-03-30. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777041119379_pka9h61i",
+    "createdAt": "2026-04-24T14:31:59.380Z",
+    "summary": {
+      "generatedAt": "2026-04-24T14:31:59.271Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for XAUUSD",
+      "market": "XAUUSD",
+      "periodKey": "LIVE PHANTOM_XAU_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_xau_median • Scenario B",
+        "avgRet": 457.4296863121739,
+        "compoundedProfit": 574.2968631217391,
+        "compounded": 5574.296863121739,
+        "worstDD": -5.356902155379651,
+        "avgWin": 50.7,
+        "avgPf": 2.184,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 457.4296863121739,
+            "endCap": 5574.296863121739,
+            "endProfit": 574.2968631217391,
+            "ddPct": -5.356902155379651,
+            "ddPrice": 53.56902155379651,
+            "win": 50.7,
+            "pf": 2.184
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 168.56527272432785,
+            "endCap": 2685.6527272432786,
+            "endProfit": -2314.3472727567214,
+            "ddPct": -3.0903852758387305,
+            "ddPrice": 30.903852758387302,
+            "win": 50.7,
+            "pf": 2.171
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 73.39021593686617,
+            "endCap": 1733.9021593686616,
+            "endProfit": -3266.0978406313384,
+            "ddPct": -1.8541385495822509,
+            "ddPrice": 18.54138549582251,
+            "win": 52,
+            "pf": 2.423
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_xau_median • Scenario B",
+          "avgRet": 457.4296863121739,
+          "avgPf": 2.184,
+          "worstDD": -5.356902155379651,
+          "compounded": 5574.296863121739
+        },
+        {
+          "label": "phantom_xau_median • Scenario C",
+          "avgRet": 168.56527272432785,
+          "avgPf": 2.171,
+          "worstDD": -3.0903852758387305,
+          "compounded": 2685.6527272432786
+        },
+        {
+          "label": "phantom_xau_median • Scenario A",
+          "avgRet": 73.39021593686617,
+          "avgPf": 2.423,
+          "worstDD": -1.8541385495822509,
+          "compounded": 1733.9021593686616
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for XAUUSD, filtered to 2021-01-14 to 2026-03-30. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777040692832_zqeqf4xx",
+    "createdAt": "2026-04-24T14:24:52.832Z",
+    "summary": {
+      "generatedAt": "2026-04-24T14:24:52.823Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for XAUUSD",
+      "market": "XAUUSD",
+      "periodKey": "LIVE PHANTOM_XAU_MEDIAN VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_xau_median • Scenario B",
+        "avgRet": 457.42968631217525,
+        "compoundedProfit": 22871.48431560876,
+        "compounded": 27871.48431560876,
+        "worstDD": -5.356902155379588,
+        "avgWin": 50.7,
+        "avgPf": 2.184,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 457.42968631217525,
+            "endCap": 27871.48431560876,
+            "endProfit": 22871.48431560876,
+            "ddPct": -5.356902155379588,
+            "ddPrice": 267.8451077689794,
+            "win": 50.7,
+            "pf": 2.184
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 168.56527272432783,
+            "endCap": 13428.26363621639,
+            "endProfit": 8428.26363621639,
+            "ddPct": -3.0903852758387518,
+            "ddPrice": 154.5192637919376,
+            "win": 50.7,
+            "pf": 2.171
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 73.39021593686583,
+            "endCap": 8669.510796843291,
+            "endProfit": 3669.5107968432912,
+            "ddPct": -1.8541385495823226,
+            "ddPrice": 92.70692747911613,
+            "win": 52,
+            "pf": 2.423
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_xau_median • Scenario B",
+          "avgRet": 457.42968631217525,
+          "avgPf": 2.184,
+          "worstDD": -5.356902155379588,
+          "compounded": 27871.48431560876
+        },
+        {
+          "label": "phantom_xau_median • Scenario C",
+          "avgRet": 168.56527272432783,
+          "avgPf": 2.171,
+          "worstDD": -3.0903852758387518,
+          "compounded": 13428.26363621639
+        },
+        {
+          "label": "phantom_xau_median • Scenario A",
+          "avgRet": 73.39021593686583,
+          "avgPf": 2.423,
+          "worstDD": -1.8541385495823226,
+          "compounded": 8669.510796843291
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for XAUUSD, filtered to 2021-01-14 to 2026-03-30. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032836886_7z89lt7j",
+    "createdAt": "2026-04-24T12:13:56.886Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:13:56.881Z",
+      "datasetTitle": "Imported market data for 5 years 2 months for USDJPY",
+      "market": "USDJPY",
+      "periodKey": "LIVE PHANTOM_FX_HIGH VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_fx_high • Scenario B",
+        "avgRet": 609.5406333715871,
+        "compoundedProfit": 30477.03166857936,
+        "compounded": 35477.03166857936,
+        "worstDD": -6.225101092854991,
+        "avgWin": 49.2,
+        "avgPf": 1.991,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 609.5406333715871,
+            "endCap": 35477.03166857936,
+            "endProfit": 30477.03166857936,
+            "ddPct": -6.225101092854991,
+            "ddPrice": 311.25505464274954,
+            "win": 49.2,
+            "pf": 1.991
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 209.12939002252818,
+            "endCap": 15456.469501126408,
+            "endProfit": 10456.469501126408,
+            "ddPct": -3.5838594581998153,
+            "ddPrice": 179.19297290999077,
+            "win": 49.2,
+            "pf": 1.998
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 80.10341488071427,
+            "endCap": 9005.170744035713,
+            "endProfit": 4005.170744035713,
+            "ddPct": -3.3173260311164863,
+            "ddPrice": 165.8663015558243,
+            "win": 50.5,
+            "pf": 2.184
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_fx_high • Scenario B",
+          "avgRet": 609.5406333715871,
+          "avgPf": 1.991,
+          "worstDD": -6.225101092854991,
+          "compounded": 35477.03166857936
+        },
+        {
+          "label": "phantom_fx_high • Scenario C",
+          "avgRet": 209.12939002252818,
+          "avgPf": 1.998,
+          "worstDD": -3.5838594581998153,
+          "compounded": 15456.469501126408
+        },
+        {
+          "label": "phantom_fx_high • Scenario A",
+          "avgRet": 80.10341488071427,
+          "avgPf": 2.184,
+          "worstDD": -3.3173260311164863,
+          "compounded": 9005.170744035713
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for USDJPY, filtered to 2021-02-18 to 2026-03-26. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032692378_hfclcpd4",
+    "createdAt": "2026-04-24T12:11:32.378Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:11:32.373Z",
+      "datasetTitle": "Imported market data for 5 years 2 months for BTCUSD",
+      "market": "BTCUSD",
+      "periodKey": "LIVE PHANTOM_BTC_HIGH VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_btc_high • Scenario B",
+        "avgRet": 728.5854165400331,
+        "compoundedProfit": 36429.27082700165,
+        "compounded": 41429.27082700165,
+        "worstDD": -4.261291293143714,
+        "avgWin": 51.7,
+        "avgPf": 2.409,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 728.5854165400331,
+            "endCap": 41429.27082700165,
+            "endProfit": 36429.27082700165,
+            "ddPct": -4.261291293143714,
+            "ddPrice": 213.06456465718568,
+            "win": 51.7,
+            "pf": 2.409
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 237.42179843415178,
+            "endCap": 16871.08992170759,
+            "endProfit": 11871.08992170759,
+            "ddPct": -2.4547019830878463,
+            "ddPrice": 122.73509915439232,
+            "win": 51.7,
+            "pf": 2.444
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 56.32926695455749,
+            "endCap": 7816.463347727875,
+            "endProfit": 2816.463347727875,
+            "ddPct": -2.01790830304023,
+            "ddPrice": 100.8954151520115,
+            "win": 54.4,
+            "pf": 2.512
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_btc_high • Scenario B",
+          "avgRet": 728.5854165400331,
+          "avgPf": 2.409,
+          "worstDD": -4.261291293143714,
+          "compounded": 41429.27082700165
+        },
+        {
+          "label": "phantom_btc_high • Scenario C",
+          "avgRet": 237.42179843415178,
+          "avgPf": 2.444,
+          "worstDD": -2.4547019830878463,
+          "compounded": 16871.08992170759
+        },
+        {
+          "label": "phantom_btc_high • Scenario A",
+          "avgRet": 56.32926695455749,
+          "avgPf": 2.512,
+          "worstDD": -2.01790830304023,
+          "compounded": 7816.463347727875
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for BTCUSD, filtered to 2021-02-11 to 2026-03-26. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032664629_iuhmao3s",
+    "createdAt": "2026-04-24T12:11:04.629Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:11:04.625Z",
+      "datasetTitle": "Imported market data for 5 years 2 months for BTCUSD",
+      "market": "BTCUSD",
+      "periodKey": "LIVE PHANTOM_BTC_HIGH VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_btc_high • Scenario B",
+        "avgRet": 731.8351756910051,
+        "compoundedProfit": 36591.75878455026,
+        "compounded": 41591.75878455026,
+        "worstDD": -4.261291293143719,
+        "avgWin": 51.7,
+        "avgPf": 2.409,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 731.8351756910051,
+            "endCap": 41591.75878455026,
+            "endProfit": 36591.75878455026,
+            "ddPct": -4.261291293143719,
+            "ddPrice": 213.06456465718594,
+            "win": 51.7,
+            "pf": 2.409
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 238.17929311759173,
+            "endCap": 16908.964655879587,
+            "endProfit": 11908.964655879587,
+            "ddPct": -2.4547019830879004,
+            "ddPrice": 122.73509915439502,
+            "win": 51.7,
+            "pf": 2.446
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 56.32926695455749,
+            "endCap": 7816.463347727875,
+            "endProfit": 2816.463347727875,
+            "ddPct": -2.01790830304023,
+            "ddPrice": 100.8954151520115,
+            "win": 54.4,
+            "pf": 2.512
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_btc_high • Scenario B",
+          "avgRet": 731.8351756910051,
+          "avgPf": 2.409,
+          "worstDD": -4.261291293143719,
+          "compounded": 41591.75878455026
+        },
+        {
+          "label": "phantom_btc_high • Scenario C",
+          "avgRet": 238.17929311759173,
+          "avgPf": 2.446,
+          "worstDD": -2.4547019830879004,
+          "compounded": 16908.964655879587
+        },
+        {
+          "label": "phantom_btc_high • Scenario A",
+          "avgRet": 56.32926695455749,
+          "avgPf": 2.512,
+          "worstDD": -2.01790830304023,
+          "compounded": 7816.463347727875
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for BTCUSD, filtered to 2021-02-11 to 2026-03-26. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032561902_awr04a6j",
+    "createdAt": "2026-04-24T12:09:21.902Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:09:21.899Z",
+      "datasetTitle": "Imported market data for 5 years 2 months for US100",
+      "market": "US100",
+      "periodKey": "LIVE PHANTOM_US100_LOW VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_us100_low • Scenario B",
+        "avgRet": 299.0733682715942,
+        "compoundedProfit": 14953.668413579708,
+        "compounded": 19953.668413579708,
+        "worstDD": -4.297658839805372,
+        "avgWin": 53.9,
+        "avgPf": 2.642,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 299.0733682715942,
+            "endCap": 19953.668413579708,
+            "endProfit": 14953.668413579708,
+            "ddPct": -4.297658839805372,
+            "ddPrice": 214.8829419902686,
+            "win": 53.9,
+            "pf": 2.642
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_us100_low • Scenario B",
+          "avgRet": 299.0733682715942,
+          "avgPf": 2.642,
+          "worstDD": -4.297658839805372,
+          "compounded": 19953.668413579708
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for US100, filtered to 2021-02-02 to 2026-03-26. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032476939_fl2h82fa",
+    "createdAt": "2026-04-24T12:07:56.939Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:07:56.933Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for US100",
+      "market": "US100",
+      "periodKey": "LIVE PHANTOM_US100_HIGH VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_us100_high • Scenario B",
+        "avgRet": 34685.88649485617,
+        "compoundedProfit": 1734294.3247428085,
+        "compounded": 1739294.3247428085,
+        "worstDD": -24.765108578545075,
+        "avgWin": 53.9,
+        "avgPf": 2.524,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 34685.88649485617,
+            "endCap": 1739294.3247428085,
+            "endProfit": 1734294.3247428085,
+            "ddPct": -24.765108578545075,
+            "ddPrice": 1238.2554289272537,
+            "win": 53.9,
+            "pf": 2.524
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_us100_high • Scenario B",
+          "avgRet": 34685.88649485617,
+          "avgPf": 2.524,
+          "worstDD": -24.765108578545075,
+          "compounded": 1739294.3247428085
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for US100, filtered to 2021-01-29 to 2026-03-26. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
+    "id": "run_1777032376221_0gh8iyq7",
+    "createdAt": "2026-04-24T12:06:16.221Z",
+    "summary": {
+      "generatedAt": "2026-04-24T12:06:16.216Z",
+      "datasetTitle": "Imported market data for 5 years 3 months for XAUUSD",
+      "market": "XAUUSD",
+      "periodKey": "LIVE PHANTOM_XAU_HIGH VALIDATION",
+      "startCapital": 5000,
+      "riskMultiplier": 1,
+      "withdrawalPct": 0,
+      "best": {
+        "label": "phantom_xau_high • Scenario B",
+        "avgRet": 457.42968631217525,
+        "compoundedProfit": 22871.48431560876,
+        "compounded": 27871.48431560876,
+        "worstDD": -5.356902155379588,
+        "avgWin": 50.7,
+        "avgPf": 2.184,
+        "yearly": [
+          {
+            "period": "PHANTOMB",
+            "ret": 457.42968631217525,
+            "endCap": 27871.48431560876,
+            "endProfit": 22871.48431560876,
+            "ddPct": -5.356902155379588,
+            "ddPrice": 267.8451077689794,
+            "win": 50.7,
+            "pf": 2.184
+          },
+          {
+            "period": "PHANTOMC",
+            "ret": 168.56527272432783,
+            "endCap": 13428.26363621639,
+            "endProfit": 8428.26363621639,
+            "ddPct": -3.0903852758387518,
+            "ddPrice": 154.5192637919376,
+            "win": 50.7,
+            "pf": 2.171
+          },
+          {
+            "period": "PHANTOMA",
+            "ret": 73.39021593686583,
+            "endCap": 8669.510796843291,
+            "endProfit": 3669.5107968432912,
+            "ddPct": -1.8541385495823226,
+            "ddPrice": 92.70692747911613,
+            "win": 52,
+            "pf": 2.423
+          }
+        ]
+      },
+      "candidates": [
+        {
+          "label": "phantom_xau_high • Scenario B",
+          "avgRet": 457.42968631217525,
+          "avgPf": 2.184,
+          "worstDD": -5.356902155379588,
+          "compounded": 27871.48431560876
+        },
+        {
+          "label": "phantom_xau_high • Scenario C",
+          "avgRet": 168.56527272432783,
+          "avgPf": 2.171,
+          "worstDD": -3.0903852758387518,
+          "compounded": 13428.26363621639
+        },
+        {
+          "label": "phantom_xau_high • Scenario A",
+          "avgRet": 73.39021593686583,
+          "avgPf": 2.423,
+          "worstDD": -1.8541385495823226,
+          "compounded": 8669.510796843291
+        }
+      ],
+      "note": "Live validation run against hosted M1/M5/M15/H1/H4/1D data for XAUUSD, filtered to 2021-01-14 to 2026-03-30. Best result is ranked by net return, then PF, then drawdown."
+    }
+  },
+  {
     "id": "run_1776939555879_ktrx9igi",
     "createdAt": "2026-04-23T10:19:15.879Z",
     "summary": {
@@ -3998,402 +4632,6 @@
           "avgPf": 2.4,
           "worstDD": -0.6232131985438187,
           "compounded": 11521.396929491557
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692667179_wtcfsqnq",
-    "createdAt": "2026-04-20T13:44:27.179Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:27.175Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.7399720862868255,
-        "compoundedProfit": 5997.697069060117,
-        "compounded": 10997.697069060117,
-        "worstDD": -0.6232131985438181,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.7399720862868255,
-            "endCap": 10997.697069060117,
-            "endProfit": 5997.697069060117,
-            "ddPct": -0.6232131985438181,
-            "ddPrice": 65.4373858471009,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.7399720862868255,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438181,
-          "compounded": 10997.697069060117
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692667025_lgp88hf2",
-    "createdAt": "2026-04-20T13:44:27.025Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:27.022Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.7399720862868255,
-        "compoundedProfit": 5473.997208628683,
-        "compounded": 10473.997208628683,
-        "worstDD": -0.6232131985438174,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.7399720862868255,
-            "endCap": 10473.997208628683,
-            "endProfit": 5473.997208628683,
-            "ddPct": -0.6232131985438174,
-            "ddPrice": 62.32131985438174,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.7399720862868255,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438174,
-          "compounded": 10473.997208628683
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692666852_il1nqznh",
-    "createdAt": "2026-04-20T13:44:26.852Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:26.848Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.7399720862868255,
-        "compoundedProfit": 4950.297348197249,
-        "compounded": 9950.29734819725,
-        "worstDD": -0.6232131985438163,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.7399720862868255,
-            "endCap": 9950.29734819725,
-            "endProfit": 4950.297348197249,
-            "ddPct": -0.6232131985438163,
-            "ddPrice": 59.20525386166255,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.7399720862868255,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438163,
-          "compounded": 9950.29734819725
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692666697_tv5nro0b",
-    "createdAt": "2026-04-20T13:44:26.697Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:26.694Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.739972086286848,
-        "compoundedProfit": 4426.597487765817,
-        "compounded": 9426.597487765817,
-        "worstDD": -0.6232131985438154,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.739972086286848,
-            "endCap": 9426.597487765817,
-            "endProfit": 4426.597487765817,
-            "ddPct": -0.6232131985438154,
-            "ddPrice": 56.089187868943384,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.739972086286848,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438154,
-          "compounded": 9426.597487765817
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692666486_qrzvvrtp",
-    "createdAt": "2026-04-20T13:44:26.486Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:26.483Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.73997208628687,
-        "compoundedProfit": 3902.8976273343833,
-        "compounded": 8902.897627334383,
-        "worstDD": -0.6232131985438141,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.73997208628687,
-            "endCap": 8902.897627334383,
-            "endProfit": 3902.8976273343833,
-            "ddPct": -0.6232131985438141,
-            "ddPrice": 52.9731218762242,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.73997208628687,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438141,
-          "compounded": 8902.897627334383
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692665850_jv8ym0r0",
-    "createdAt": "2026-04-20T13:44:25.850Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:25.845Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.73997208628687,
-        "compoundedProfit": 3379.1977669029493,
-        "compounded": 8379.19776690295,
-        "worstDD": -0.6232131985438127,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.73997208628687,
-            "endCap": 8379.19776690295,
-            "endProfit": 3379.1977669029493,
-            "ddPct": -0.6232131985438127,
-            "ddPrice": 49.85705588350502,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.73997208628687,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438127,
-          "compounded": 8379.19776690295
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692665102_twcfqtzs",
-    "createdAt": "2026-04-20T13:44:25.102Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:25.098Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.73997208628687,
-        "compoundedProfit": 3902.8976273343833,
-        "compounded": 8902.897627334383,
-        "worstDD": -0.6232131985438141,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.73997208628687,
-            "endCap": 8902.897627334383,
-            "endProfit": 3902.8976273343833,
-            "ddPct": -0.6232131985438141,
-            "ddPrice": 52.9731218762242,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.73997208628687,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438141,
-          "compounded": 8902.897627334383
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692664189_u6zu3fu9",
-    "createdAt": "2026-04-20T13:44:24.189Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:24.186Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.739972086286848,
-        "compoundedProfit": 4426.597487765817,
-        "compounded": 9426.597487765817,
-        "worstDD": -0.6232131985438154,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.739972086286848,
-            "endCap": 9426.597487765817,
-            "endProfit": 4426.597487765817,
-            "ddPct": -0.6232131985438154,
-            "ddPrice": 56.089187868943384,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.739972086286848,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438154,
-          "compounded": 9426.597487765817
-        }
-      ],
-      "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
-    }
-  },
-  {
-    "id": "run_1776692663967_3eysc4t3",
-    "createdAt": "2026-04-20T13:44:23.967Z",
-    "summary": {
-      "generatedAt": "2026-04-20T13:44:23.964Z",
-      "datasetTitle": "Imported market data for 5 years 3 months for BTCUSD",
-      "market": "BTCUSD",
-      "periodKey": "LIVE PHANTOM_BTC_MEDIAN VALIDATION",
-      "startCapital": 5000,
-      "riskMultiplier": 1,
-      "withdrawalPct": 0,
-      "best": {
-        "label": "phantom_btc_median • Scenario B",
-        "avgRet": 4.7399720862868255,
-        "compoundedProfit": 4950.297348197249,
-        "compounded": 9950.29734819725,
-        "worstDD": -0.6232131985438163,
-        "avgWin": 51.8,
-        "avgPf": 2.4,
-        "yearly": [
-          {
-            "period": "PHANTOMB",
-            "ret": 4.7399720862868255,
-            "endCap": 9950.29734819725,
-            "endProfit": 4950.297348197249,
-            "ddPct": -0.6232131985438163,
-            "ddPrice": 59.20525386166255,
-            "win": 51.8,
-            "pf": 2.4
-          }
-        ]
-      },
-      "candidates": [
-        {
-          "label": "phantom_btc_median • Scenario B",
-          "avgRet": 4.7399720862868255,
-          "avgPf": 2.4,
-          "worstDD": -0.6232131985438163,
-          "compounded": 9950.29734819725
         }
       ],
       "note": "Live validation run against hosted M1/M5/H1/H4 files for BTCUSD, filtered to 2024-01-01 to 2024-02-01. Best scenario is ranked by net return, then PF, then drawdown."
