@@ -995,7 +995,38 @@
 
     let curveData = null;
     let preloadedCatalog = [];
-    const apiBaseCandidates = ['', 'http://localhost:3000'];
+
+    function getConfiguredApiBaseCandidates() {
+      const candidates = [];
+      const explicitApiBase = String(new URLSearchParams(window.location.search).get('apiBase') || window.__NIKO_API_BASE__ || '').trim();
+      if (explicitApiBase) {
+        candidates.push(explicitApiBase.replace(/\/$/, ''));
+      }
+      candidates.push('');
+      candidates.push('https://niko-ai.onrender.com');
+      candidates.push('http://localhost:3000');
+      return Array.from(new Set(candidates.filter(Boolean).map((base) => base.replace(/\/$/, ''))));
+    }
+
+    function buildApiCandidates(path) {
+      const normalized = String(path || '').replace(/^\/+/, '');
+      const sameOrigin = String(window.location.origin || '').replace(/\/$/, '');
+      const pathname = String(window.location.pathname || '/');
+      const currentDir = pathname.endsWith('/') ? pathname : pathname.replace(/\/[^/]*$/, '/');
+      const publicIdx = currentDir.indexOf('/public/');
+      const appBase = publicIdx >= 0 ? currentDir.slice(0, publicIdx + 1) : '/';
+
+      const candidates = [
+        `${sameOrigin}/${normalized}`,
+        `${sameOrigin}${appBase}${normalized}`,
+      ];
+
+      for (const base of getConfiguredApiBaseCandidates()) {
+        candidates.push(`${base}/${normalized}`);
+      }
+
+      return Array.from(new Set(candidates.map((candidate) => candidate.replace(/([^:]\/)\/+/g, '$1'))));
+    }
     const marketChartState = {
       active: false,
       symbol: '',
@@ -1361,13 +1392,13 @@
       return { merged, clear: () => clearTimeout(id) };
     }
 
-    async function fetchApiJson(path, init) {
+    async function fetchApiJson(path, init = {}) {
+      const { timeoutMs = 200000, ...fetchInit } = init || {};
       let lastError = null;
 
-      for (const base of apiBaseCandidates) {
-        const url = buildApiUrl(base, path);
+      for (const url of buildApiCandidates(path)) {
         try {
-          const { merged, clear } = withTimeout(init);
+          const { merged, clear } = withTimeout(fetchInit, timeoutMs);
           const response = await fetch(url, merged);
           clear();
           const payload = await parseJsonResponse(response);
@@ -1384,7 +1415,8 @@
         }
       }
 
-      throw lastError || new Error('API request failed');
+      const tried = buildApiCandidates(path).join(', ');
+      throw lastError || new Error(`API request failed after trying: ${tried}`);
     }
 
     async function loadPreloadedCatalog() {
@@ -2282,6 +2314,7 @@
       const { payload } = await fetchApiJson('/platform/phantom-v2/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 600000,
         body: JSON.stringify({
           symbol,
           scenario: 'B',
