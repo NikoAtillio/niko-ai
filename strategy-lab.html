@@ -946,6 +946,16 @@
       return out;
     }
 
+    function getConfiguredApiBaseCandidates() {
+      const candidates = [];
+      const explicitApiBase = String(new URLSearchParams(window.location.search).get('apiBase') || window.__NIKO_API_BASE__ || '').trim();
+      if (explicitApiBase) {
+        candidates.push(explicitApiBase.replace(/\/$/, ''));
+      }
+      candidates.push('https://niko-ai.onrender.com');
+      return Array.from(new Set(candidates.filter(Boolean).map((base) => base.replace(/\/$/, ''))));
+    }
+
     function buildApiCandidates(path) {
       const normalized = String(path || '').replace(/^\/+/, '');
       const pathname = String(window.location.pathname || '/');
@@ -963,6 +973,10 @@
       if (explicitApiBase) {
         candidates.unshift(`${explicitApiBase.replace(/\/$/, '')}/${normalized}`);
       }
+
+      getConfiguredApiBaseCandidates().forEach((base) => {
+        candidates.push(`${base}/${normalized}`);
+      });
 
       getDevApiOriginCandidates().forEach((origin) => {
         candidates.push(`${origin.replace(/\/$/, '')}/${normalized}`);
