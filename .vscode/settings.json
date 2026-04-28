@@ -1,5 +1,14 @@
 {
     "chat.tools.terminal.autoApprove": {
         "cp": true
-    }
+    },
+    "files.associations": {
+        "*.mq5": "mql",
+        "*.mqh": "mql",
+        "*.mq4": "mql"
+    },
+    "mql_tools.PortableMT5": false,
+    "mql_tools.Metaeditor.WinePrefixME5": "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5",
+    "mql_tools.Metaeditor.Metaeditor5Dir": "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/Program Files/MetaTrader 5",
+    "mql_tools.Metaeditor.Include5Dir": "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/Program Files/MetaTrader 5/MQL5/Include"
 }

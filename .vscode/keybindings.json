@@ -1,0 +1,22 @@
+[
+  {
+    "key": "cmd+alt+c",
+    "command": "mql_tools.compileFile",
+    "when": "editorTextFocus && editorLangId == mql"
+  },
+  {
+    "key": "cmd+alt+k",
+    "command": "mql_tools.checkFile",
+    "when": "editorTextFocus && editorLangId == mql"
+  },
+  {
+    "key": "cmd+alt+o",
+    "command": "mql_tools.openMetaEditor",
+    "when": "editorTextFocus && editorLangId == mql"
+  },
+  {
+    "key": "cmd+alt+f",
+    "command": "mql_tools.formatCode",
+    "when": "editorTextFocus && editorLangId == mql"
+  }
+]
