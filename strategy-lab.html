@@ -933,13 +933,18 @@
       const port = String(window.location.port || '');
       const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
       if (isLocalHost) {
+        if (port !== '3113') {
+          out.push(`http://${host}:3113`);
+        }
         if (port !== '3000') {
           out.push(`http://${host}:3000`);
         }
         if (host !== 'localhost') {
+          out.push('http://localhost:3113');
           out.push('http://localhost:3000');
         }
         if (host !== '127.0.0.1') {
+          out.push('http://127.0.0.1:3113');
           out.push('http://127.0.0.1:3000');
         }
       }
@@ -952,7 +957,6 @@
       if (explicitApiBase) {
         candidates.push(explicitApiBase.replace(/\/$/, ''));
       }
-      candidates.push('https://niko-ai.onrender.com');
       return Array.from(new Set(candidates.filter(Boolean).map((base) => base.replace(/\/$/, ''))));
     }
 
@@ -985,8 +989,19 @@
       return Array.from(new Set(candidates.map((p) => p.replace(/([^:]\/)\/+/g, '$1'))));
     }
 
+    function describeFetchError(error) {
+      if (!error) return 'Unknown error';
+      const name = String(error.name || '').trim();
+      const message = String(error.message || '').trim();
+      if (!name && !message) return 'Unknown error';
+      if (!name) return message;
+      if (!message) return name;
+      return `${name}: ${message}`;
+    }
+
     async function fetchJsonWithFallback(path, init) {
       const candidates = buildApiCandidates(path);
+      const attempts = [];
       let lastError = null;
 
       for (const candidate of candidates) {
@@ -995,11 +1010,16 @@
           const payload = await parseJsonResponse(response);
           return { response, payload };
         } catch (error) {
+          attempts.push(`${candidate} -> ${describeFetchError(error)}`);
           lastError = error;
         }
       }
 
-      throw lastError || new Error('API request failed');
+      const attemptDetails = attempts.length ? attempts.join(' | ') : candidates.join(', ');
+      if (lastError) {
+        throw new Error(`${describeFetchError(lastError)}. Attempts: ${attemptDetails}`);
+      }
+      throw new Error(`API request failed. Attempts: ${attemptDetails}`);
     }
 
     function setStatus(title, text, tone = 'neutral') {

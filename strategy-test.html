@@ -742,11 +742,13 @@
         <div><strong>or pick from our preloaded market data</strong></div>
         <div class="inline-row">
           <div>
-            <label for="preloadedMarketSelect">Instrument</label>
+            <label for="startCapitalInput">Scenario: Starting Capital (£)*</label>
+            <input id="startCapitalInput" type="number" min="1000" step="500" placeholder="Enter account size" />
+            <label for="preloadedMarketSelect" style="margin-top:8px;">Instrument*</label>
             <select id="preloadedMarketSelect">
               <option value="">Loading instruments...</option>
             </select>
-            <label for="phantomEngineSelect" style="margin-top:8px;">Strategy</label>
+            <label for="phantomEngineSelect" style="margin-top:8px;">Strategy*</label>
             <select id="phantomEngineSelect">
               <option value="phantom_XAU_median" selected>phantom_XAU_median</option>
               <option value="phantom_US100_median">phantom_US100_median</option>
@@ -756,7 +758,7 @@
               <option value="phantom_fx_median">phantom_fx_median</option>
             </select>
           </div>
-          <button class="btn" id="loadPreloadedBtn" type="button">Load Instrument Data</button>
+          <button class="btn" id="loadPreloadedBtn" type="button">Confirm & Load Strategy</button>
         </div>
         <p class="footnote" id="preloadedSummary" style="margin:0;">Runs live PHANTOM validation for the selected instrument using the timeframes required by the selected strategy profile.</p>
       </div>
@@ -780,10 +782,6 @@
             <option value="absolute">Absolute Capital</option>
             <option value="normalized">Normalised (Start = 100)</option>
           </select>
-        </div>
-        <div>
-          <label for="startCapitalInput">Scenario: Starting Capital (£)</label>
-          <input id="startCapitalInput" type="number" min="1000" step="500" value="5000" />
         </div>
         <div>
           <label for="riskMultiplierInput">Scenario: Risk Multiplier</label>
@@ -1002,10 +1000,31 @@
       if (explicitApiBase) {
         candidates.push(explicitApiBase.replace(/\/$/, ''));
       }
-      candidates.push('');
-      candidates.push('https://niko-ai.onrender.com');
-      candidates.push('http://localhost:3000');
       return Array.from(new Set(candidates.filter(Boolean).map((base) => base.replace(/\/$/, ''))));
+    }
+
+    function getDevApiOriginCandidates() {
+      const out = [];
+      const host = String(window.location.hostname || '').toLowerCase();
+      const port = String(window.location.port || '');
+      const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+      if (isLocalHost) {
+        if (port !== '3113') {
+          out.push(`http://${host}:3113`);
+        }
+        if (port !== '3000') {
+          out.push(`http://${host}:3000`);
+        }
+        if (host !== 'localhost') {
+          out.push('http://localhost:3113');
+          out.push('http://localhost:3000');
+        }
+        if (host !== '127.0.0.1') {
+          out.push('http://127.0.0.1:3113');
+          out.push('http://127.0.0.1:3000');
+        }
+      }
+      return out;
     }
 
     function buildApiCandidates(path) {
@@ -1023,6 +1042,10 @@
 
       for (const base of getConfiguredApiBaseCandidates()) {
         candidates.push(`${base}/${normalized}`);
+      }
+
+      for (const origin of getDevApiOriginCandidates()) {
+        candidates.push(`${origin}/${normalized}`);
       }
 
       return Array.from(new Set(candidates.map((candidate) => candidate.replace(/([^:]\/)\/+/g, '$1'))));
@@ -1044,6 +1067,9 @@
     };
     const curveView = { start: 0, span: 1 };
     const periodOrder = { '2023-24': 1, '2024-25': 2, '2025-26': 3 };
+    const strategySuggestedStartCapital = {
+      phantom_xau_median: 10000,
+    };
     let latestResultsSummary = null;
     let validationSummary = null;
     let executionImpactSummary = null;
@@ -1134,10 +1160,46 @@
     }
 
     function getScenarioSettings() {
-      const startCapital = Math.max(1000, Number(startCapitalInput.value || 5000));
+      const enteredCapital = Number(startCapitalInput.value || NaN);
+      const startCapital = Number.isFinite(enteredCapital) && enteredCapital >= 1000
+        ? enteredCapital
+        : Math.max(1000, Number(validationSummary?.capital || curveData?.startCapital || 5000));
       const riskMultiplier = Math.max(0.1, Number(riskMultiplierInput.value || 1));
       const withdrawalPct = Math.min(100, Math.max(0, Number(withdrawalPctInput.value || 0)));
       return { startCapital, riskMultiplier, withdrawalPct };
+    }
+
+    function getSuggestedStartCapitalForStrategy(strategyValue) {
+      const key = String(strategyValue || '').trim().toLowerCase();
+      return Number(strategySuggestedStartCapital[key] || 5000);
+    }
+
+    function getEnteredStartCapital() {
+      const entered = Number(startCapitalInput.value || NaN);
+      if (!Number.isFinite(entered) || entered < 1000) {
+        return null;
+      }
+      return entered;
+    }
+
+    function getRequiredStartCapitalOrThrow() {
+      const entered = getEnteredStartCapital();
+      if (entered === null) {
+        throw new Error('Enter account size (minimum £1,000) before confirming strategy load.');
+      }
+      return entered;
+    }
+
+    function updateLoadPreloadedButtonState() {
+      const hasInstrument = Boolean(String(preloadedMarketSelect?.value || '').trim());
+      const hasStrategy = Boolean(String(phantomEngineSelect?.value || '').trim());
+      const hasCapital = getEnteredStartCapital() !== null;
+      loadPreloadedBtn.disabled = !(hasInstrument && hasStrategy && hasCapital);
+
+      if (!hasCapital) {
+        const suggested = getSuggestedStartCapitalForStrategy(String(phantomEngineSelect?.value || ''));
+        startCapitalInput.placeholder = `Enter account size (e.g. £${suggested.toLocaleString('en-GB')})`;
+      }
     }
 
     function getCurveSeries(period, version, scenario) {
@@ -1380,11 +1442,6 @@
       }
     }
 
-    function buildApiUrl(base, path) {
-      if (!base) return path;
-      return `${base}${path}`;
-    }
-
     function withTimeout(init, timeoutMs = 200000) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -1392,11 +1449,23 @@
       return { merged, clear: () => clearTimeout(id) };
     }
 
+    function describeFetchError(error) {
+      if (!error) return 'Unknown error';
+      const name = String(error.name || '').trim();
+      const message = String(error.message || '').trim();
+      if (!name && !message) return 'Unknown error';
+      if (!name) return message;
+      if (!message) return name;
+      return `${name}: ${message}`;
+    }
+
     async function fetchApiJson(path, init = {}) {
       const { timeoutMs = 200000, ...fetchInit } = init || {};
+      const candidates = buildApiCandidates(path);
+      const attempts = [];
       let lastError = null;
 
-      for (const url of buildApiCandidates(path)) {
+      for (const url of candidates) {
         try {
           const { merged, clear } = withTimeout(fetchInit, timeoutMs);
           const response = await fetch(url, merged);
@@ -1408,15 +1477,18 @@
           return { payload, response, url };
         } catch (error) {
           if (error?.name === 'AbortError') {
+            attempts.push(`${url} -> timed out after ${Math.round(timeoutMs / 1000)}s`);
             lastError = new Error('Validation request timed out. PHANTOM run took too long. Try again or switch scenario/engine.');
             continue;
           }
+          attempts.push(`${url} -> ${describeFetchError(error)}`);
           lastError = error;
         }
       }
 
-      const tried = buildApiCandidates(path).join(', ');
-      throw lastError || new Error(`API request failed after trying: ${tried}`);
+      const attemptDetails = attempts.length ? attempts.join(' | ') : candidates.join(', ');
+      const fallback = new Error(`API request failed for ${path}. Attempts: ${attemptDetails}`);
+      throw lastError ? new Error(`${describeFetchError(lastError)}. Attempts: ${attemptDetails}`) : fallback;
     }
 
     async function loadPreloadedCatalog() {
@@ -1434,7 +1506,7 @@
         preloadedMarketSelect.innerHTML = preloadedCatalog
           .map((market) => `<option value="${market.symbol}">${market.symbol}</option>`)
           .join('');
-        loadPreloadedBtn.disabled = false;
+        updateLoadPreloadedButtonState();
         preloadedSummary.textContent = `Loaded dataset catalog with ${preloadedCatalog.length} instruments from ${url}.`;
       } catch (error) {
         preloadedSummary.textContent = (error && error.message) ? error.message : 'Unable to load preloaded market datasets.';
@@ -2299,6 +2371,139 @@
       return normalized.length ? normalized : ['M1', 'M5', 'M15', 'H1', 'H4', '1D'];
     }
 
+    function resolveRiskProfileFromEngineSelection() {
+      const engine = String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase();
+      if (engine.endsWith('_high')) return 'high';
+      if (engine.endsWith('_low')) return 'low';
+      return 'median';
+    }
+
+    function getBranchKeyFromRiskProfile(riskProfile) {
+      const profile = String(riskProfile || '').trim().toLowerCase();
+      if (profile === 'high') return 'profile_high';
+      if (profile === 'low') return 'profile_low';
+      return 'profile_median';
+    }
+
+    function buildComparativePayloadFromLiveValidation(payload) {
+      const curve = payload?.curveData;
+      if (!curve || !curve.periods || typeof curve.periods !== 'object') {
+        return null;
+      }
+
+      const scenarioLetter = getScenarioLetter(payload?.best?.scenario || payload?.scenario || 'B') || 'B';
+      const points = [];
+
+      Object.values(curve.periods || {}).forEach((seriesList) => {
+        if (!Array.isArray(seriesList)) return;
+        seriesList.forEach((series) => {
+          if (getScenarioLetter(series?.scenario) !== scenarioLetter) return;
+          const rawPoints = Array.isArray(series?.points) ? series.points : [];
+          rawPoints.forEach((point) => {
+            const date = new Date(String(point?.date || ''));
+            const equity = Number(point?.capital);
+            if (!Number.isFinite(date.getTime()) || !Number.isFinite(equity)) return;
+            points.push({ date: date.toISOString(), equity });
+          });
+        });
+      });
+
+      if (!points.length) {
+        return null;
+      }
+
+      points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const startCapital = Number(payload?.capital || 5000);
+      const branch = getBranchKeyFromRiskProfile(payload?.riskProfile || resolveRiskProfileFromEngineSelection());
+      const monthMap = new Map();
+      let rollingPeak = startCapital;
+
+      points.forEach((point) => {
+        const month = point.date.slice(0, 7);
+        rollingPeak = Math.max(rollingPeak, point.equity);
+        const ddAmt = point.equity - rollingPeak;
+        const ddPct = rollingPeak ? (ddAmt / rollingPeak) * 100 : 0;
+        const existing = monthMap.get(month) || {
+          month,
+          month_end_equity_gbp: point.equity,
+          worst_intramonth_dd_amt_gbp: 0,
+          worst_intramonth_dd_pct: 0,
+        };
+        existing.month_end_equity_gbp = point.equity;
+        existing.worst_intramonth_dd_amt_gbp = Math.min(Number(existing.worst_intramonth_dd_amt_gbp || 0), ddAmt);
+        existing.worst_intramonth_dd_pct = Math.min(Number(existing.worst_intramonth_dd_pct || 0), ddPct);
+        monthMap.set(month, existing);
+      });
+
+      const rows = Array.from(monthMap.values()).sort((a, b) => String(a.month).localeCompare(String(b.month)));
+      if (!rows.length) {
+        return null;
+      }
+
+      let prevEnd = startCapital;
+      let endPeak = startCapital;
+      rows.forEach((row) => {
+        const endEquity = Number(row.month_end_equity_gbp || prevEnd);
+        row.monthly_pnl_gbp = Number((endEquity - prevEnd).toFixed(2));
+        prevEnd = endEquity;
+        endPeak = Math.max(endPeak, endEquity);
+        const endDdAmt = endEquity - endPeak;
+        const endDdPct = endPeak ? (endDdAmt / endPeak) * 100 : 0;
+        row.month_end_drawdown_amt_gbp = Number(endDdAmt.toFixed(2));
+        row.month_end_drawdown_pct = Number(endDdPct.toFixed(3));
+        row.month_end_equity_gbp = Number(endEquity.toFixed(2));
+        row.worst_intramonth_dd_amt_gbp = Number(Number(row.worst_intramonth_dd_amt_gbp || 0).toFixed(2));
+        row.worst_intramonth_dd_pct = Number(Number(row.worst_intramonth_dd_pct || 0).toFixed(3));
+      });
+
+      const monthPnls = rows.map((row) => Number(row.monthly_pnl_gbp || 0));
+      const finalEquity = Number(rows[rows.length - 1].month_end_equity_gbp || startCapital);
+      const netPnl = Number((finalEquity - startCapital).toFixed(2));
+      const netReturn = startCapital ? Number(((netPnl / startCapital) * 100).toFixed(2)) : 0;
+      const positiveMonths = monthPnls.filter((value) => value > 0).length;
+      const negativeMonths = monthPnls.filter((value) => value < 0).length;
+      const flatMonths = monthPnls.length - positiveMonths - negativeMonths;
+      const bestMonth = Math.max(...monthPnls);
+      const worstMonth = Math.min(...monthPnls);
+      const maxDdAmt = Math.min(...rows.map((row) => Number(row.month_end_drawdown_amt_gbp || 0)));
+      const maxDdPct = Math.min(...rows.map((row) => Number(row.month_end_drawdown_pct || 0)));
+
+      return {
+        windows: [{
+          mode: 'full',
+          start_date: `${rows[0].month}-01`,
+          end_date: `${rows[rows.length - 1].month}-01`,
+          timescale_months: rows.length,
+        }],
+        summary: [{
+          branch,
+          mode: 'full',
+          start_cap_gbp: Number(startCapital.toFixed(2)),
+          final_equity_gbp: Number(finalEquity.toFixed(2)),
+          net_pnl_gbp: netPnl,
+          net_return_pct: netReturn,
+          max_dd_amt_gbp: Number(maxDdAmt.toFixed(2)),
+          max_dd_pct: Number(maxDdPct.toFixed(3)),
+          months: rows.length,
+        }],
+        highlights: [{
+          branch,
+          mode: 'full',
+          positive_month_ratio_pct: rows.length ? Number(((positiveMonths / rows.length) * 100).toFixed(1)) : 0,
+          best_month_pnl_gbp: Number(bestMonth.toFixed(2)),
+          worst_month_pnl_gbp: Number(worstMonth.toFixed(2)),
+          positive_months: positiveMonths,
+          negative_months: negativeMonths,
+          flat_months: flatMonths,
+        }],
+        monthly: {
+          full: {
+            [branch]: rows,
+          },
+        },
+      };
+    }
+
     function formatValidationTimeframes(payload) {
       return getValidationTimeframeList(payload).join('/');
     }
@@ -2308,6 +2513,7 @@
       if (!symbol) {
         throw new Error('Could not infer market symbol from imported file name.');
       }
+      const requiredCapital = getRequiredStartCapitalOrThrow();
       const startDate = String(curveStartDateInput?.value || '').trim();
       const executionSettings = options?.executionSettings || getExecutionSettings();
 
@@ -2318,12 +2524,8 @@
         body: JSON.stringify({
           symbol,
           scenario: 'B',
-          riskProfile: String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_high')
-            ? 'high'
-            : String(phantomEngineSelect?.value || 'phantom_XAU_median').toLowerCase().endsWith('_low')
-              ? 'low'
-              : 'median',
-          capital: Number(startCapitalInput.value || 5000),
+          riskProfile: resolveRiskProfileFromEngineSelection(),
+          capital: requiredCapital,
           startDate: startDate || undefined,
           spreadBps: Number(executionSettings.spreadBps || 0),
           slippageBps: Number(executionSettings.slippageBps || 0),
@@ -2898,12 +3100,16 @@
 
         latestResultsSummary = {
           generatedAt: new Date().toISOString(),
+          source: 'strategy-test',
           datasetTitle: datasetTitle.textContent || 'Imported market data',
           market: validationSummary.symbol,
           periodKey: `LIVE ${currentVersion.toUpperCase()} VALIDATION`,
+          strategy: validationSummary.strategy,
+          riskProfile: validationSummary.riskProfile || resolveRiskProfileFromEngineSelection(),
           startCapital: validationSummary.capital,
           riskMultiplier: Number(riskMultiplierInput.value || 1),
           withdrawalPct: Number(withdrawalPctInput.value || 0),
+          comparativeData: buildComparativePayloadFromLiveValidation(validationSummary),
           best: {
             label: formatStrategyBadge(currentVersion, best.scenario),
             avgRet: best.netReturnPct,
@@ -3060,6 +3266,7 @@
 
       latestResultsSummary = {
         generatedAt: new Date().toISOString(),
+        source: 'strategy-test',
         datasetTitle: datasetTitle.textContent || 'Imported market data',
         market: curveData?.market || 'Imported market',
         periodKey: curveYearSelect.value,
@@ -3937,12 +4144,20 @@
     });
 
     startCapitalInput.addEventListener('input', () => {
+      updateLoadPreloadedButtonState();
       render();
       if (marketChartState.active) {
         renderMarketCandles();
       } else {
         renderCurve(curveYearSelect.value);
       }
+    });
+
+    phantomEngineSelect?.addEventListener('change', () => {
+      updateLoadPreloadedButtonState();
+    });
+    preloadedMarketSelect?.addEventListener('change', () => {
+      updateLoadPreloadedButtonState();
     });
     riskMultiplierInput.addEventListener('input', () => {
       render();
@@ -3968,6 +4183,7 @@
     });
 
     render();
+    updateLoadPreloadedButtonState();
     activateDataTab('upload');
     void loadPreloadedCatalog();
     initCurves();

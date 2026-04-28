@@ -2235,14 +2235,6 @@
         throw new Error('Select at least one strategy before saving to profile.');
       }
 
-      const includesRunSnapshots = selectedIds.some((reportId) => {
-        const report = getReportById(reportId);
-        return report && report.source === 'runs';
-      });
-      if (includesRunSnapshots) {
-        throw new Error('Live validation snapshots can be loaded for comparison, but cannot be saved to profile sets yet.');
-      }
-
       const payload = {
         id: state.selectedSetId && state.selectedSetId !== 'default-live-selection' ? state.selectedSetId : '',
         name: getCurrentSetName(selectedIds),
