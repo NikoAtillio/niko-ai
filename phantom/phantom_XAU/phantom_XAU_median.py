@@ -22,7 +22,7 @@ Usage
     python phantom_p2.py --instrument XAU \\
         --m1 path/M1.csv --m5 path/M5.csv --h1 path/H1.csv --h4 path/H4.csv \\
         --daily path/Daily.csv \\
-        [--scenario p2A] [--capital 5000]
+        [--scenario p2A] [--capital 10000]
 
     Instrument choices: XAU | US100 | BTC
 """
@@ -934,7 +934,7 @@ def main():
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
     parser.add_argument('--scenario',    default='B', choices=['B'],
                         help=f'{ENGINE_VERSION}B only (locked best scenario)')
-    parser.add_argument('--capital',     type=float, default=5_000)
+    parser.add_argument('--capital',     type=float, default=10_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
     parser.add_argument('--spread-bps',  type=float, default=0.0,

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import PDFDocument from 'pdfkit';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { ChartAIAnalyzer } from './services/ChartAIAnalyzer';
@@ -339,18 +340,11 @@ function loadRunHistory(): StrategyRunRecord[] {
 
 		const nowMs = Date.now();
 		const allRuns = Array.from(combined.values());
-		const keptRuns = allRuns.filter((run) => {
-			const createdAtMs = Date.parse(String(run?.createdAt || ''));
-			if (!Number.isFinite(createdAtMs)) {
-				return true;
-			}
-			return (nowMs - createdAtMs) <= SAVED_STRATEGY_TTL_MS;
-		});
+		const keptRuns = allRuns.filter((run) => !isRunExpired(run, nowMs));
 
 		if (keptRuns.length !== allRuns.length) {
 			for (const [runId, run] of volatileRunHistory.entries()) {
-				const createdAtMs = Date.parse(String(run?.createdAt || ''));
-				if (Number.isFinite(createdAtMs) && (nowMs - createdAtMs) > SAVED_STRATEGY_TTL_MS) {
+				if (isRunExpired(run, nowMs)) {
 					volatileRunHistory.delete(runId);
 				}
 			}
@@ -746,6 +740,22 @@ function getRunSummaryObject(run: StrategyRunRecord): Record<string, unknown> {
 function isStrategyLabRun(run: StrategyRunRecord): boolean {
 	const summary = getRunSummaryObject(run);
 	return summary.source === 'strategy-lab';
+}
+
+function isRunPinnedByProfile(run: StrategyRunRecord): boolean {
+	const summary = getRunSummaryObject(run);
+	return summary.pinnedByProfile === true || summary.savedToProfile === true;
+}
+
+function isRunExpired(run: StrategyRunRecord, nowMs: number): boolean {
+	if (isRunPinnedByProfile(run)) {
+		return false;
+	}
+	const createdAtMs = Date.parse(String(run?.createdAt || ''));
+	if (!Number.isFinite(createdAtMs)) {
+		return false;
+	}
+	return (nowMs - createdAtMs) > SAVED_STRATEGY_TTL_MS;
 }
 
 function updateRunSummary(runId: string, patch: Record<string, unknown>): boolean {
@@ -2258,8 +2268,6 @@ function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 		}
 
 		const out: ComparativeProfileSetRecord[] = [];
-		let droppedExpired = false;
-		const nowMs = Date.now();
 		for (const item of parsed) {
 			if (!item || typeof item !== 'object') {
 				continue;
@@ -2277,11 +2285,6 @@ function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 			}
 
 			const createdAt = String((item as { createdAt?: unknown }).createdAt || '').trim() || new Date().toISOString();
-			const createdAtMs = Date.parse(createdAt);
-			if (Number.isFinite(createdAtMs) && (nowMs - createdAtMs) > SAVED_STRATEGY_TTL_MS) {
-				droppedExpired = true;
-				continue;
-			}
 
 			out.push({
 				id,
@@ -2292,10 +2295,6 @@ function loadComparativeProfileSets(): ComparativeProfileSetRecord[] {
 				createdAt,
 				updatedAt: String((item as { updatedAt?: unknown }).updatedAt || '').trim() || new Date().toISOString(),
 			});
-		}
-
-		if (droppedExpired) {
-			saveComparativeProfileSets(out);
 		}
 
 		return out;
@@ -2677,7 +2676,7 @@ function findLatestTradesFileForMarket(marketInput: string): string | null {
 
 function inferRiskProfileFromRunSummary(summary: Record<string, unknown>): 'high' | 'median' | 'low' {
 	const best = summary.best && typeof summary.best === 'object' ? (summary.best as Record<string, unknown>) : {};
-	const haystack = `${String(summary.riskProfile || '')} ${String(summary.periodKey || '')} ${String(best.label || '')}`.toLowerCase();
+	const haystack = `${String(summary.riskProfile || '')} ${String(summary.periodKey || '')} ${String(summary.strategy || '')} ${String(summary.note || '')} ${String(best.label || '')}`.toLowerCase();
 	if (haystack.includes('high')) return 'high';
 	if (haystack.includes('low')) return 'low';
 	return 'median';
@@ -2739,8 +2738,12 @@ function findNearestTradesFileForRun(run: StrategyRunRecord, marketInput: string
 					continue;
 				}
 
-				const profileTag = `-${riskProfile.toUpperCase()}-VALIDATE-`;
-				const matchesProfile = upperPath.includes(profileTag);
+				const profileToken = riskProfile.toUpperCase();
+				const matchesProfile =
+					upperPath.includes(`-${profileToken}-VALIDATE-`)
+					|| upperPath.includes(`_${profileToken}_VALIDATE_`)
+					|| upperPath.includes(`-${profileToken}-`)
+					|| upperPath.includes(`_${profileToken}_`);
 				if (!matchesProfile) {
 					continue;
 				}
@@ -2906,6 +2909,11 @@ function buildComparativeDataForRun(run: StrategyRunRecord): Record<string, unkn
 	const summary = getRunSummaryObject(run);
 	if (summary.comparativeData && typeof summary.comparativeData === 'object' && !Array.isArray(summary.comparativeData)) {
 		return summary.comparativeData as Record<string, unknown>;
+	}
+
+	const source = String(summary.source || '').trim().toLowerCase();
+	if (source === 'strategy-test') {
+		return null;
 	}
 
 	const market = String(summary.market || '').trim();
@@ -3504,8 +3512,11 @@ app.post('/platform/comparative-profile/sets', (req: Request, res: Response): vo
 
 		const availableReports = loadComparativeReportManifest();
 		const availableIds = new Set(availableReports.map((report) => report.id));
+		const allRuns = loadRunHistory();
+		const runIds = new Set(allRuns.map((run) => String(run.id || '')).filter(Boolean));
+		const runReportIds = new Set(Array.from(runIds).map((runId) => `run-${runId}`));
 		for (const reportId of reportIds) {
-			if (!availableIds.has(reportId)) {
+			if (!availableIds.has(reportId) && !runReportIds.has(reportId)) {
 				res.status(404).json({ error: `Unknown report id: ${reportId}` });
 				return;
 			}
@@ -3514,7 +3525,20 @@ app.post('/platform/comparative-profile/sets', (req: Request, res: Response): vo
 		const incomingId = normalizeComparativeReportId(String(req.body?.id || ''));
 		const incomingName = String(req.body?.name || '').trim();
 		const fallbackName = reportIds
-			.map((reportId) => availableReports.find((item) => item.id === reportId)?.title || reportId)
+			.map((reportId) => {
+				const comparativeTitle = availableReports.find((item) => item.id === reportId)?.title;
+				if (comparativeTitle) {
+					return comparativeTitle;
+				}
+				if (reportId.startsWith('run-')) {
+					const runId = reportId.slice(4);
+					const run = allRuns.find((entry) => String(entry.id || '') === runId);
+					const summary = run ? getRunSummaryObject(run) : {};
+					const best = summary.best && typeof summary.best === 'object' ? (summary.best as Record<string, unknown>) : {};
+					return String(best.label || summary.periodKey || summary.market || reportId);
+				}
+				return reportId;
+			})
 			.join(' + ');
 		const setName = incomingName || fallbackName;
 		if (!setName) {
@@ -3544,6 +3568,38 @@ app.post('/platform/comparative-profile/sets', (req: Request, res: Response): vo
 				return;
 			}
 			sets.unshift(payload);
+		}
+
+		const pinnedRunIds = Array.from(new Set(reportIds
+			.filter((reportId) => reportId.startsWith('run-'))
+			.map((reportId) => reportId.slice(4))
+			.filter(Boolean)));
+		if (pinnedRunIds.length) {
+			const runIndex = new Map(allRuns.map((run) => [String(run.id || ''), run]));
+			let changed = false;
+			for (const runId of pinnedRunIds) {
+				const run = runIndex.get(runId);
+				if (!run) {
+					continue;
+				}
+				const summary = getRunSummaryObject(run);
+				if (summary.pinnedByProfile === true) {
+					continue;
+				}
+				run.summary = {
+					...summary,
+					pinnedByProfile: true,
+					savedToProfile: true,
+					updatedAt: nowIso,
+				};
+				if (volatileRunHistory.has(runId)) {
+					volatileRunHistory.set(runId, run);
+				}
+				changed = true;
+			}
+			if (changed) {
+				saveRunHistory(allRuns);
+			}
 		}
 
 		saveComparativeProfileSets(sets);
@@ -3971,6 +4027,7 @@ app.get('/platform/zones', (req: Request, res: Response): void => {
 });
 
 app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): Promise<void> => {
+	let workingDir = '';
 	try {
 		const symbol = canonicalizeDatasetSymbol(String(req.body?.symbol || 'XAUUSD'));
 		const capital = toNumber(req.body?.capital, 5_000);
@@ -3999,8 +4056,8 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		const pythonExec = path.join(WORKSPACE_ROOT, '.venv', 'bin', 'python');
 		const scriptCandidates = resolvePhantomScriptCandidates(symbol, riskProfile);
 		const scriptPath = scriptCandidates.find((candidate) => fileExists(candidate)) || scriptCandidates[0];
-		const artifactPrefix = `phantom-${symbol.toLowerCase()}-${riskProfile}-validate-`;
-		const workingDir = fs.mkdtempSync(path.join(ARTIFACT_DIR, artifactPrefix));
+		const tempPrefix = path.join(os.tmpdir(), `niko-ai-phantom-${symbol.toLowerCase()}-${riskProfile}-validate-`);
+		workingDir = fs.mkdtempSync(tempPrefix);
 
 		const args = [
 			'-u',
@@ -4056,7 +4113,7 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 			proc.on('close', (code) => {
 				clearTimeout(timeoutHandle);
 				if (timedOut) {
-					reject(new Error('Validation timed out after 180 seconds. Try a single scenario or retry.'));
+					reject(new Error('Validation timed out after 600 seconds. Try a single scenario or retry.'));
 					return;
 				}
 				if (code !== 0) {
@@ -4091,6 +4148,14 @@ app.post('/platform/phantom-v2/validate', async (req: Request, res: Response): P
 		});
 	} catch (error) {
 		res.status(500).json({ error: (error as Error).message });
+	} finally {
+		if (workingDir) {
+			try {
+				fs.rmSync(workingDir, { recursive: true, force: true });
+			} catch {
+				// Best-effort cleanup for per-request validation temp data.
+			}
+		}
 	}
 });
 
@@ -4147,6 +4212,10 @@ app.get('/platform/report', (req: Request, res: Response): void => {
 app.get('/platform/runs', (_req: Request, res: Response): void => {
 	const runs = loadRunHistory().map((run) => {
 		const enriched = enrichRunForComparativeReports(run) as StrategyRunRecord & { expiresAt?: string };
+		if (isRunPinnedByProfile(run)) {
+			enriched.expiresAt = '';
+			return enriched;
+		}
 		const createdAtMs = Date.parse(String(run.createdAt || ''));
 		enriched.expiresAt = Number.isFinite(createdAtMs)
 			? new Date(createdAtMs + SAVED_STRATEGY_TTL_MS).toISOString()
