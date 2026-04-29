@@ -753,10 +753,18 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
    
    if(m_trade.ResultRetcode() == TRADE_RETCODE_DONE) {
       ulong ticket = 0;
-      if(PositionSelect(Symbol())) {
-         ticket = (ulong)PositionGetInteger(POSITION_TICKET);
+      // Find the newly opened position by searching the latest entry
+      int posCount = PositionsTotal();
+      for(int i = posCount - 1; i >= 0; i--) {
+         if(m_position.SelectByIndex(i)) {
+            if(m_position.Symbol() == Symbol() && m_position.Magic() == InpMagicNumber) {
+               ticket = m_position.Ticket();
+               break;
+            }
+         }
       }
       if(ticket == 0) {
+         Print("Warning: Could not find newly opened position after successful trade");
          return;
       }
       int metaIndex = ArraySize(m_pos_meta);
@@ -788,14 +796,8 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
    }
 }
 
-//+------------------------------------------------------------------+
-//| Handle trade events (for circuit breaker tracking)               |
-//+------------------------------------------------------------------+
-void OnTrade() {
-   // This would need history deal checking
-   // For simplicity, circuit breaker logic can be implemented in a 
-   // more sophisticated version using OnTradeTransaction
-}
+// Note: Trade event handling is implemented in OnTradeTransaction().
+// OnTrade() is not needed for this EA.
 
 //+------------------------------------------------------------------+
 //| Draw zones on chart                                              |
@@ -1004,8 +1006,11 @@ int FindPositionMeta(ulong ticket) {
 
 void CleanPositionMeta() {
    for(int i = ArraySize(m_pos_meta) - 1; i >= 0; i--) {
+      if(i >= ArraySize(m_pos_meta)) continue; // Safety check
       if(!PositionSelectByTicket(m_pos_meta[i].ticket)) {
-         ArrayRemove(m_pos_meta, i, 1);
+         if(i >= 0 && i < ArraySize(m_pos_meta)) {
+            ArrayRemove(m_pos_meta, i, 1);
+         }
       }
    }
 }
