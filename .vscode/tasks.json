@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile MQL5 with MetaEditor (Wine)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/scripts/compile_mq5.sh",
+      "args": [
+        "${file}"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

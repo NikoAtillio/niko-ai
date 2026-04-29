@@ -1,0 +1,25 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "MQL5",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/Program Files/MetaTrader 5/MQL5/Include",
+                "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/Program Files/MetaTrader 5/MQL5/Include/**"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/**",
+                    "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/Program Files/MetaTrader 5/MQL5/Include"
+                ]
+            },
+            "defines": [
+                "__MQL5__"
+            ],
+            "intelliSenseMode": "macos-clang-x64",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ]
+}

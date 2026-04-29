@@ -29,7 +29,7 @@ input bool     InpPeakSessionBoost = true;            // Enable 1.2x size during
 
 // --- Confirmation ---
 input int      InpMinConfirmBars = 1;                // Min H1 bars before zone active
-input int      InpConfirmTF = PERIOD_H1;             // Confirmation timeframe
+input ENUM_TIMEFRAMES InpConfirmTF = PERIOD_H1;      // Confirmation timeframe
 
 // --- Scoring ---
 input int      InpScoreMin = 3;                      // Minimum total score

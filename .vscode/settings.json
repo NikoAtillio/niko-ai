@@ -3,9 +3,9 @@
         "cp": true
     },
     "files.associations": {
-        "*.mq5": "mql",
-        "*.mqh": "mql",
-        "*.mq4": "mql"
+        "*.mq5": "cpp",
+        "*.mqh": "cpp",
+        "*.mq4": "cpp"
     },
     "mql_tools.PortableMT5": false,
     "mql_tools.Metaeditor.WinePrefixME5": "/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5",
