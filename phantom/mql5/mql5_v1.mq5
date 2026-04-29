@@ -69,7 +69,7 @@ input int      InpWinterUTCOffset = 2;               // Winter offset (Nov-Mar)
 input int      InpSummerUTCOffset = 3;               // Summer offset (Mar-Nov)
 
 // --- Development ---
-input bool     InpEnableDebugPrint = false;           // Enable debug output
+input bool     InpEnableDebugPrint = true;           // Enable debug output
 input bool     InpEnableVisuals = true;               // Draw zones on chart
 
 //+------------------------------------------------------------------+
@@ -340,7 +340,16 @@ void AddZone(datetime confirmedAt, double price, int direction) {
    int confirmMinutes = InpMinConfirmBars * PeriodSeconds(InpConfirmTF) / 60;
    m_zones[size].confirmed_at = confirmedUtc + confirmMinutes * 60;
    m_zones[size].confirmed = (ToUTC(TimeCurrent()) >= m_zones[size].confirmed_at);
-   
+
+   if(InpEnableDebugPrint) {
+      PrintFormat("AddZone: time=%s price=%.5f dir=%s confirmed=%s confirmed_at=%s",
+                  TimeToString(m_zones[size].time, TIME_DATE|TIME_SECONDS),
+                  m_zones[size].price,
+                  (m_zones[size].direction == 1) ? "LONG" : "SHORT",
+                  m_zones[size].confirmed ? "true" : "false",
+                  TimeToString(m_zones[size].confirmed_at, TIME_DATE|TIME_SECONDS));
+   }
+
    m_zoneCount++;
 }
 
@@ -484,6 +493,15 @@ void CheckEntryConditions() {
       
       // Zone proximity check
       double zoneDist = MathAbs(signalPrice - m_zones[i].price) / m_zones[i].price;
+         if(InpEnableDebugPrint) {
+            PrintFormat("ScanZone idx=%d time=%s zone_price=%.5f dir=%s zoneDist=%.5f signal=%.5f",
+                  i,
+                  TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS),
+                  m_zones[i].price,
+                  (m_zones[i].direction == 1) ? "LONG" : "SHORT",
+                  zoneDist,
+                  signalPrice);
+         }
       if(zoneDist > InpZoneTolerance) continue;
       
       // Chasing filter (M15 ATR)
@@ -496,9 +514,15 @@ void CheckEntryConditions() {
       
       // Bounce filter
       if(m_zones[i].direction == 1) { // Long/demand zone
-         if(signalPrice < m_zones[i].price * (1 - InpZoneTolerance)) continue; // Broke below
+         if(signalPrice < m_zones[i].price * (1 - InpZoneTolerance)) {
+            if(InpEnableDebugPrint) PrintFormat("BounceReject: idx=%d LONG price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
+            continue; // Broke below
+         }
       } else { // Short/supply zone
-         if(signalPrice > m_zones[i].price * (1 + InpZoneTolerance)) continue; // Broke above
+         if(signalPrice > m_zones[i].price * (1 + InpZoneTolerance)) {
+            if(InpEnableDebugPrint) PrintFormat("BounceReject: idx=%d SHORT price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
+            continue; // Broke above
+         }
       }
       
       // Session filter
@@ -748,8 +772,17 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
                                 GetDailyRegime(barTime),
                                 confMult);
    
-   // Execute trade (manual stop/TP management)
-   m_trade.PositionOpen(Symbol(), orderType, volume, entryPrice, 0.0, 0.0, comment);
+   // Execute trade (set SL/TP at open)
+   if(InpEnableDebugPrint) {
+      PrintFormat("ExecuteEntry: dir=%s order=%s price=%.5f SL=%.5f TP=%.5f vol=%.2f",
+                  (zone.direction == 1) ? "LONG" : "SHORT",
+                  (orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL",
+                  entryPrice,
+                  stopPrice,
+                  takeProfit,
+                  volume);
+   }
+   m_trade.PositionOpen(Symbol(), orderType, volume, entryPrice, stopPrice, takeProfit, comment);
    
    if(m_trade.ResultRetcode() == TRADE_RETCODE_DONE) {
       ulong ticket = 0;

@@ -39,5 +39,5 @@ InpBrokerUTCOffset=2
 InpAutoUTCOffset=true
 InpWinterUTCOffset=2
 InpSummerUTCOffset=3
-InpEnableDebugPrint=false
+InpEnableDebugPrint=true
 InpEnableVisuals=true
