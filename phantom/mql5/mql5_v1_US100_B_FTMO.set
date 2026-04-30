@@ -1,0 +1,51 @@
+;Phantom P2 US100 Scenario B - Recommended Live Settings
+;Generated: 2026-04-29
+;Version: mql5_v1
+
+[Inputs]
+InpPivotBars=2
+InpZoneLookback=50
+InpZoneTolerance=0.002
+InpChaseFilterATR=1.5
+InpSessionStart=13
+InpSessionEnd=21
+InpPeakSessionBoost=false
+InpMinConfirmBars=1
+InpConfirmTF=PERIOD_H1
+InpScoreMin=3
+InpH4ScoreMin=1
+InpH1ScoreMin=1
+InpLTFScoreMin=1
+InpLTFScoreCap=3
+InpLongScoreOffset=1
+InpRiskPercent=0.5
+InpATRStopMult=1.5
+InpTPMult=1.3
+InpTrailATRMult=0.8
+InpBreakevenR=0.8
+InpMaxConcurrent=2
+InpCooldownMin=30
+InpLockoutMin=60
+InpCircuitBreakerLosses=5
+InpCircuitBreakerHours=24
+InpEnableFTMOGuardrails=true
+InpFTMOAccountSize=70000.0
+InpFTMOProfitTargetPct=10.0
+InpFTMOMaxLossPct=10.0
+InpFTMOMaxDailyLossPct=5.0
+InpFTMOTradingPeriodDays=0
+InpFTMOMinTradingDays=2
+InpFTMOMaxLeverage=30.0
+InpConfidenceMult=1.5
+InpSessionSoftMult=0.5
+InpCounterTrendMult=0.5
+InpSpreadBPS=1.0
+InpSlippageBPS=1.0
+InpMagicNumber=202407
+InpComment=Phantom P2 US100 B FTMO
+InpBrokerUTCOffset=2
+InpAutoUTCOffset=true
+InpWinterUTCOffset=2
+InpSummerUTCOffset=3
+InpEnableDebugPrint=true
+InpEnableVisuals=true
