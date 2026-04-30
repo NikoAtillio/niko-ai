@@ -1066,12 +1066,21 @@ def main():
                         help='Fixed commission per closed trade')
     parser.add_argument('--start-date', default=None,
                         help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+    parser.add_argument('--disable-ftmo', action='store_true',
+                        help='Run without FTMO guardrails (for comparison)')
     args = parser.parse_args()
 
     output_dir = args.output_dir or '.'
     os.makedirs(output_dir, exist_ok=True)
 
     inst_cfg = INSTRUMENT_CONFIG[args.instrument]
+
+    # Optionally disable FTMO guardrails for comparison runs
+    if getattr(args, 'disable_ftmo', False):
+        FTMO_CONFIG['profit_target_pct'] = 999999.0
+        FTMO_CONFIG['max_loss_pct'] = 999999.0
+        FTMO_CONFIG['max_daily_loss_pct'] = 999999.0
+        FTMO_CONFIG['min_trading_days'] = 0
     print(f"\nPhantom {ENGINE_VERSION.upper()} | Instrument: {args.instrument}")
     print(
         f"  Session: {inst_cfg['session_start']:02d}:00–{inst_cfg['session_end']:02d}:00 UTC"
@@ -1095,7 +1104,6 @@ def main():
     daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date)
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
-    print(f"  Range: {m1.index[0]} → {m1.index[-1]}")
 
     print("\nBuilding H4 pivot zones...")
     zone_ts, zone_px, zone_dir = build_h4_zones(
@@ -1130,6 +1138,10 @@ def main():
     cfg = ACTIVE_SCENARIO_CFG
     sc_id = ACTIVE_SCENARIO_ID
     candles = m1 if cfg['entry_tf'] == 'm1' else m5
+    # Show which timeframe is used for entries and the actual candle ranges
+    print(f"\n  Entry TF: {cfg['entry_tf'].upper()} | Candles Range: {candles.index[0]} → {candles.index[-1]}")
+    # Also print M1 range to highlight any mismatch between M1 and the entry timeframe
+    print(f"  M1 Range: {m1.index[0]} → {m1.index[-1]}")
     print(f"\nRunning Scenario {sc_id}...")
     df_r = run_scenario(
         candles=candles,
