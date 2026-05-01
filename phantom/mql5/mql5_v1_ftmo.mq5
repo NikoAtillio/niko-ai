@@ -1,4 +1,7 @@
 //+------------------------------------------------------------------+
+double GetEffectiveZoneTolerance() {
+   return InpZoneTolerance;
+}
 //|                                          Phantom_P2_US100_B.mq5  |
 //|                                    Multi-Timeframe Zone Strategy  |
 //|                                             US100 Scenario B      |
@@ -81,6 +84,10 @@ input int      InpSummerUTCOffset = 3;               // Summer offset (Mar-Nov)
 // --- Development ---
 input bool     InpEnableDebugPrint = true;           // Enable debug output
 input bool     InpEnableVisuals = true;               // Draw zones on chart
+input bool     InpShowOnlyActiveZones = true;         // Hide old/inactive zones from the chart
+input bool     InpShowZoneOrigins = true;             // Show each zone's origin point and label
+input bool     InpShowInactiveZoneMarkers = true;     // Mark zones after they fall out of the active state
+input bool     InpShowZoneTimeframe = true;           // Include detected timeframe in labels
 
 //+------------------------------------------------------------------+
 //| Global Variables                                                  |
@@ -104,6 +111,8 @@ struct SZone {
    datetime    time;          // Zone timestamp (UTC)
    double      price;         // Zone price level
    int         direction;     // 1 = demand (long), -1 = supply (short)
+   ENUM_TIMEFRAMES source_tf; // Timeframe used to detect this zone
+   datetime    origin_time_utc; // Origin timestamp used for chart labels
    bool        confirmed;     // Confirmation delay passed
    datetime    confirmed_at;  // When zone becomes active (UTC)
 };
@@ -366,6 +375,8 @@ void AddZone(datetime confirmedAt, double price, int direction) {
    m_zones[size].time = confirmedUtc;
    m_zones[size].price = price;
    m_zones[size].direction = direction;
+   m_zones[size].source_tf = PERIOD_H4;
+   m_zones[size].origin_time_utc = confirmedUtc;
    
    // Calculate confirmation time
    int confirmMinutes = InpMinConfirmBars * PeriodSeconds(InpConfirmTF) / 60;
@@ -509,36 +520,72 @@ void CheckEntryConditions() {
    
    // Get H4 ATR
    double h4ATR = GetATRAtTime(PERIOD_H4, m_handleH4ATR, barTime);
-   if(h4ATR <= 0) return;
+   double m15ATR = GetATRAtTime(PERIOD_M15, m_handleM15ATR, barTime);
+   if(h4ATR <= 0) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("ATRDebug: invalid H4 ATR symbol=%s bar=%s h4ATR=%.8f m15ATR=%.8f", Symbol(), TimeToString(barTime, TIME_DATE|TIME_SECONDS), h4ATR, m15ATR);
+      }
+      return;
+   }
+   if(InpEnableDebugPrint) {
+      PrintFormat("ATRDebug: symbol=%s bar=%s h4ATR=%.8f m15ATR=%.8f zoneTol=%.6f signal=%.5f",
+                  Symbol(), TimeToString(barTime, TIME_DATE|TIME_SECONDS), h4ATR, m15ATR, GetEffectiveZoneTolerance(), signalPrice);
+   }
    
    // Rolling window filter (UTC)
    datetime windowStartUtc = barTimeUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4));
+
+   int skipOutOfWindow = 0;
+   int skipPending = 0;
+   int skipZoneTolerance = 0;
+   int skipChase = 0;
+   int skipBounce = 0;
+   int skipSession = 0;
+   int skipCluster = 0;
+   int skipScoreFloor = 0;
+   int skipLtfCap = 0;
+   bool entryExecuted = false;
    
    // Scan zones for potential entries
    for(int i = 0; i < m_zoneCount; i++) {
-      if(m_zones[i].time < windowStartUtc) continue;
-      if(m_zones[i].time >= barTimeUtc) continue;
+      if(m_zones[i].time < windowStartUtc) {
+         skipOutOfWindow++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=out_of_window zone_time=%s", i, TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS));
+         continue;
+      }
+      if(m_zones[i].time >= barTimeUtc) {
+         skipOutOfWindow++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=future_zone zone_time=%s", i, TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS));
+         continue;
+      }
       if(!m_zones[i].confirmed && barTimeUtc < m_zones[i].confirmed_at) {
+         skipPending++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=pending_confirmation confirmed_at=%s", i, TimeToString(m_zones[i].confirmed_at, TIME_DATE|TIME_SECONDS));
          continue;
       }
       
       // Zone proximity check
       double zoneDist = MathAbs(signalPrice - m_zones[i].price) / m_zones[i].price;
-         if(InpEnableDebugPrint) {
-            PrintFormat("ScanZone idx=%d time=%s zone_price=%.5f dir=%s zoneDist=%.5f signal=%.5f",
-                  i,
-                  TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS),
-                  m_zones[i].price,
-                  (m_zones[i].direction == 1) ? "LONG" : "SHORT",
-                  zoneDist,
-                  signalPrice);
-         }
-      if(zoneDist > InpZoneTolerance) continue;
+      if(InpEnableDebugPrint) {
+         PrintFormat("ScanZone idx=%d time=%s zone_price=%.5f dir=%s zoneDist=%.5f tol=%.6f signal=%.5f",
+                     i,
+                     TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS),
+                     m_zones[i].price,
+                     (m_zones[i].direction == 1) ? "LONG" : "SHORT",
+                     zoneDist,
+                     GetEffectiveZoneTolerance(),
+                     signalPrice);
+      }
+      if(zoneDist > GetEffectiveZoneTolerance()) {
+         skipZoneTolerance++;
+         continue;
+      }
       
       // Chasing filter (M15 ATR)
-      double m15ATR = GetATRAtTime(PERIOD_M15, m_handleM15ATR, barTime);
       if(m15ATR > 0) {
          if(MathAbs(signalPrice - m_zones[i].price) > InpChaseFilterATR * m15ATR) {
+            skipChase++;
+            if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=chase_filter distance=%.5f limit=%.5f m15ATR=%.8f", i, MathAbs(signalPrice - m_zones[i].price), InpChaseFilterATR * m15ATR, m15ATR);
             continue; // Too far, skip
          }
       }
@@ -546,22 +593,32 @@ void CheckEntryConditions() {
       // Bounce filter
       if(m_zones[i].direction == 1) { // Long/demand zone
          if(signalPrice < m_zones[i].price * (1 - InpZoneTolerance)) {
-            if(InpEnableDebugPrint) PrintFormat("BounceReject: idx=%d LONG price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
+            skipBounce++;
+            if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=bounce_reject LONG price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
             continue; // Broke below
          }
       } else { // Short/supply zone
          if(signalPrice > m_zones[i].price * (1 + InpZoneTolerance)) {
-            if(InpEnableDebugPrint) PrintFormat("BounceReject: idx=%d SHORT price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
+            skipBounce++;
+            if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=bounce_reject SHORT price=%.5f zone=%.5f", i, signalPrice, m_zones[i].price);
             continue; // Broke above
          }
       }
       
       // Session filter
       double sessionMult = GetSessionMultiplier();
-      if(sessionMult <= 0) continue;
+      if(sessionMult <= 0) {
+         skipSession++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=session_filter", i);
+         continue;
+      }
       
       // Cluster cap
-      if(!CheckClusterCap(barTimeUtc)) continue;
+      if(!CheckClusterCap(barTimeUtc)) {
+         skipCluster++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=cluster_cap", i);
+         continue;
+      }
       
       // Daily regime
       string regime = GetDailyRegime(barTime);
@@ -573,6 +630,8 @@ void CheckEntryConditions() {
       int ltfScore = GetTFScoreAtTime(PERIOD_M5, m_zones[i].direction, barTime);
       
       if(h4Score < InpH4ScoreMin || h1Score < InpH1ScoreMin || ltfScore < InpLTFScoreMin) {
+         skipScoreFloor++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=score_floor h4=%d h1=%d ltf=%d mins=%d/%d/%d", i, h4Score, h1Score, ltfScore, InpH4ScoreMin, InpH1ScoreMin, InpLTFScoreMin);
          continue;
       }
       
@@ -584,16 +643,41 @@ void CheckEntryConditions() {
          effectiveScoreMin += InpLongScoreOffset;
       }
       
-      if(totalScore < effectiveScoreMin) continue;
-      if(ltfScore > InpLTFScoreCap) continue;
+      if(totalScore < effectiveScoreMin) {
+         skipScoreFloor++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=score_total total=%d min=%d", i, totalScore, effectiveScoreMin);
+         continue;
+      }
+      if(ltfScore > InpLTFScoreCap) {
+         skipLtfCap++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=ltf_cap ltf=%d cap=%d", i, ltfScore, InpLTFScoreCap);
+         continue;
+      }
       
       // Confidence multiplier
       double confMult = CalculateConfidenceMultiplier(barTimeUtc);
       
       // Calculate position size and execute
       ExecuteEntry(m_zones[i], h4ATR, sessionMult, regimeMult, confMult, totalScore, barTime, barTimeUtc, signalPrice);
+      entryExecuted = true;
       
       break; // One entry per bar
+   }
+
+   if(InpEnableDebugPrint && !entryExecuted) {
+      PrintFormat("EntryScanSummary: symbol=%s bar=%s zones=%d outOfWindow=%d pending=%d zoneTol=%d chase=%d bounce=%d session=%d cluster=%d scoreFloor=%d ltfCap=%d",
+                  Symbol(),
+                  TimeToString(barTime, TIME_DATE|TIME_SECONDS),
+                  m_zoneCount,
+                  skipOutOfWindow,
+                  skipPending,
+                  skipZoneTolerance,
+                  skipChase,
+                  skipBounce,
+                  skipSession,
+                  skipCluster,
+                  skipScoreFloor,
+                  skipLtfCap);
    }
 }
 
@@ -896,23 +980,42 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
 
    double initialRisk = MathAbs(entryPrice - stopPrice);
    if(initialRisk <= 0) initialRisk = stopDistance;
-   
+
+   // Compute monetary risk per single lot using tick size/value when available.
+   double tickSize = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_SIZE);
+   double tickValue = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_VALUE);
+   double contractSize = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_CONTRACT_SIZE);
+   if(contractSize <= 0.0) contractSize = 1.0;
+
+   double riskPerLot = 0.0;
+   if(tickSize > 0.0 && tickValue > 0.0) {
+      double ticks = initialRisk / tickSize;
+      riskPerLot = ticks * tickValue; // monetary risk for 1.0 lot at this stop distance
+   }
+   // Fallback: estimate using contract size if tick metadata missing
+   if(riskPerLot <= 0.0) {
+      riskPerLot = initialRisk * contractSize;
+   }
+
    double sizeMultiplier = sessionMult * regimeMult * confMult;
-   double volume = (riskAmount / initialRisk) * sizeMultiplier;
-   
-   // Normalize volume
+   double rawVolume = riskAmount / riskPerLot;
+   double volume = rawVolume * sizeMultiplier;
+
+   // Normalize volume to broker steps and clamp to min/max
    double lotStep = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_STEP);
+   if(lotStep <= 0.0) lotStep = 0.01;
    volume = MathFloor(volume / lotStep) * lotStep;
-   
+
    double minLot = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
    double maxLot = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX);
-   
+   if(minLot <= 0.0) minLot = lotStep;
+   if(maxLot <= 0.0) maxLot = lotStep * 1000;
+
    if(volume < minLot) volume = minLot;
    if(volume > maxLot) volume = maxLot;
 
+   // Enforce FTMO leverage cap as a further hard cap on volume
    if(InpEnableFTMOGuardrails && InpFTMOMaxLeverage > 0.0) {
-      double contractSize = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_CONTRACT_SIZE);
-      if(contractSize <= 0.0) contractSize = 1.0;
       double notionalPerLot = MathAbs(entryPrice * contractSize);
       if(notionalPerLot > 0.0) {
          double maxNotional = accountEquity * InpFTMOMaxLeverage;
@@ -927,6 +1030,22 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
          }
          return;
       }
+   }
+
+   // Pre-check required margin and free margin to avoid No money errors
+   double requiredMargin = 0.0;
+   bool marginCalcOk = OrderCalcMargin(orderType, Symbol(), volume, entryPrice, requiredMargin);
+   double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   if(marginCalcOk && requiredMargin > freeMargin) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("Entry blocked: insufficient free margin. required=%.2f free=%.2f vol=%.2f", requiredMargin, freeMargin, volume);
+      }
+      return;
+   }
+
+   if(InpEnableDebugPrint) {
+      PrintFormat("SizingDebug: entry=%.5f stop=%.5f initialRisk=%.5f tickSize=%.8f tickValue=%.5f contractSize=%.2f riskPerLot=%.5f rawVolume=%.4f sizeMult=%.3f finalVol=%.2f",
+                  entryPrice, stopPrice, initialRisk, tickSize, tickValue, contractSize, riskPerLot, rawVolume, sizeMultiplier, volume);
    }
    
    // Prepare comment with metadata
@@ -1006,32 +1125,79 @@ void DrawZones() {
    
    // Clear old zone objects
    ObjectsDeleteAll(0, "Zone_");
+
+   datetime nowServer = TimeCurrent();
+   datetime nowUtc = ToUTC(nowServer);
+   datetime activeCutoffUtc = nowUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4));
    
    for(int i = 0; i < m_zoneCount; i++) {
-      string objName = StringFormat("Zone_%d", i);
+      bool isWithinActiveWindow = (m_zones[i].time >= activeCutoffUtc);
+      bool isTouchedOrBroken = false;
+      double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+      if(m_zones[i].direction == 1) {
+         isTouchedOrBroken = (currentPrice < m_zones[i].price * (1 - InpZoneTolerance));
+      } else {
+         isTouchedOrBroken = (currentPrice > m_zones[i].price * (1 + InpZoneTolerance));
+      }
+
+      bool isActive = m_zones[i].confirmed && isWithinActiveWindow && !isTouchedOrBroken;
+      string tfLabel = InpShowZoneTimeframe ? StringFormat("%s ", TfToShortString(m_zones[i].source_tf)) : "";
+      string sideLabel = (m_zones[i].direction == 1) ? "Demand" : "Supply";
+      string stateLabel = "Inactive";
+      if(!m_zones[i].confirmed) {
+         stateLabel = "Pending";
+      } else if(!isWithinActiveWindow) {
+         stateLabel = "Old";
+      } else if(isTouchedOrBroken) {
+         stateLabel = "Mitigated";
+      } else {
+         stateLabel = "Active";
+      }
+      string originLabel = TimeToString(FromUTC(m_zones[i].origin_time_utc), TIME_DATE|TIME_MINUTES);
+
+      string baseName = StringFormat("Zone_%d", i);
       color zoneColor = (m_zones[i].direction == 1) ? m_demandColor : m_supplyColor;
       
-      // Draw horizontal line
-      if(!ObjectCreate(0, objName, OBJ_HLINE, 0, 0, m_zones[i].price)) {
-         continue;
+      if(isActive || !InpShowOnlyActiveZones) {
+         string lineName = baseName + "_line";
+         datetime originServer = FromUTC(m_zones[i].origin_time_utc);
+         if(!ObjectCreate(0, lineName, OBJ_TREND, 0, originServer, m_zones[i].price, nowServer, m_zones[i].price)) {
+            continue;
+         }
+         ObjectSetInteger(0, lineName, OBJPROP_COLOR, zoneColor);
+         ObjectSetInteger(0, lineName, OBJPROP_STYLE, isActive ? STYLE_SOLID : STYLE_DASH);
+         ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, lineName, OBJPROP_RAY_RIGHT, false);
+         ObjectSetInteger(0, lineName, OBJPROP_RAY_LEFT, false);
+         ObjectSetInteger(0, lineName, OBJPROP_BACK, true);
+
+         if(InpShowZoneOrigins) {
+            string labelName = baseName + "_label";
+            string labelText = StringFormat("%s%s | %s | origin %s",
+                                            tfLabel,
+                                            sideLabel,
+                                            stateLabel,
+                                            originLabel);
+            ObjectCreate(0, labelName, OBJ_TEXT, 0, nowServer, m_zones[i].price);
+            ObjectSetString(0, labelName, OBJPROP_TEXT, labelText);
+            ObjectSetInteger(0, labelName, OBJPROP_COLOR, zoneColor);
+            ObjectSetInteger(0, labelName, OBJPROP_FONTSIZE, 8);
+         }
+      } else if(InpShowInactiveZoneMarkers) {
+         string markerName = baseName + "_marker";
+         datetime originServer = FromUTC(m_zones[i].origin_time_utc);
+         if(!ObjectCreate(0, markerName, OBJ_TEXT, 0, originServer, m_zones[i].price)) {
+            continue;
+         }
+         string markerText = StringFormat("%s%s | %s | origin %s",
+                                          tfLabel,
+                                          sideLabel,
+                                          stateLabel,
+                                          originLabel);
+         ObjectSetString(0, markerName, OBJPROP_TEXT, markerText);
+         ObjectSetInteger(0, markerName, OBJPROP_COLOR, zoneColor);
+         ObjectSetInteger(0, markerName, OBJPROP_FONTSIZE, 7);
       }
-      
-      ObjectSetInteger(0, objName, OBJPROP_COLOR, zoneColor);
-      ObjectSetInteger(0, objName, OBJPROP_STYLE, 
-                      m_zones[i].confirmed ? STYLE_SOLID : STYLE_DASH);
-      ObjectSetInteger(0, objName, OBJPROP_WIDTH, 2);
-      
-      // Add zone label
-      string labelName = objName + "_label";
-      string labelText = StringFormat("%s Zone %.2f [%s]",
-                                     (m_zones[i].direction == 1) ? "Demand" : "Supply",
-                                     m_zones[i].price,
-                                     m_zones[i].confirmed ? "Active" : "Pending");
-      
-      ObjectCreate(0, labelName, OBJ_TEXT, 0, TimeCurrent(), m_zones[i].price);
-      ObjectSetString(0, labelName, OBJPROP_TEXT, labelText);
-      ObjectSetInteger(0, labelName, OBJPROP_COLOR, zoneColor);
-      ObjectSetInteger(0, labelName, OBJPROP_FONTSIZE, 8);
    }
    
    ChartRedraw();
@@ -1122,6 +1288,26 @@ int GetEffectiveUTCOffset() {
 datetime ToUTC(datetime serverTime) {
    int offset = GetEffectiveUTCOffset();
    return serverTime - (offset * 3600);
+}
+
+datetime FromUTC(datetime utcTime) {
+   int offset = GetEffectiveUTCOffset();
+   return utcTime + (offset * 3600);
+}
+
+string TfToShortString(ENUM_TIMEFRAMES tf) {
+   switch(tf) {
+      case PERIOD_M1:  return "M1";
+      case PERIOD_M5:  return "M5";
+      case PERIOD_M15: return "M15";
+      case PERIOD_M30: return "M30";
+      case PERIOD_H1:  return "H1";
+      case PERIOD_H4:  return "H4";
+      case PERIOD_D1:  return "D1";
+      case PERIOD_W1:  return "W1";
+      case PERIOD_MN1: return "MN1";
+      default:         return "TF";
+   }
 }
 
 void GetUTCTime(MqlDateTime &utc) {
