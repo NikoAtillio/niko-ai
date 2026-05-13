@@ -1,0 +1,1 @@
+entry_time_utc;exit_time_utc;ticket;symbol;direction;volume;entry_price;exit_price;stop_price;tp_price;initial_risk;exit_reason;gross_profit;commission;swap;net_profit;r_value;score;confidence_mult;regime;broker_exit_reason;entry_comment;session_mult;regime_mult;zone_price;zone_time_utc;exit_comment

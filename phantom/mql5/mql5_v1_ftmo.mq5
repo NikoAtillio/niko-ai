@@ -1,7 +1,4 @@
 //+------------------------------------------------------------------+
-double GetEffectiveZoneTolerance() {
-   return InpZoneTolerance;
-}
 //|                                          Phantom_P2_US100_B.mq5  |
 //|                                    Multi-Timeframe Zone Strategy  |
 //|                                             US100 Scenario B      |
@@ -28,7 +25,7 @@ input double   InpChaseFilterATR = 1.5;              // Max distance from zone (
 // --- Session Filter ---
 input int      InpSessionStart = 13;                 // Session start (UTC hour)
 input int      InpSessionEnd = 21;                   // Session end (UTC hour)
-input bool     InpPeakSessionBoost = false;           // Disable peak-hour boost for FTMO profile
+input bool     InpPeakSessionBoost = true;           // CRITICAL: Peak-hour boost for profitability!
 
 // --- Confirmation ---
 input int      InpMinConfirmBars = 1;                // Min H1 bars before zone active
@@ -43,24 +40,25 @@ input int      InpLTFScoreCap = 3;                   // Maximum LTF score
 input int      InpLongScoreOffset = 1;               // Additional score required for longs
 
 // --- Risk Management ---
-input double   InpRiskPercent = 0.5;                 // Risk per trade (% of capital)
+input double   InpRiskPercent = 0.7;                 // Risk per trade (% of capital) - matches Python "high"
+input double   InpRiskMultiplier = 2.0;              // Aggressive sizing multiplier (CRITICAL: makes strategy profitable!)
 input double   InpATRStopMult = 1.5;                 // Stop loss (H4 ATR multiplier)
 input double   InpTPMult = 1.3;                      // Take profit (R multiple)
 input double   InpTrailATRMult = 0.8;                // Trailing stop (H4 ATR multiplier)
 input double   InpBreakevenR = 0.8;                  // Move stop to BE at this R
-input int      InpMaxConcurrent = 2;                 // Max positions per 4H window
+input int      InpMaxConcurrent = 3;                 // Max positions per 4H window (matches Python "high")
 input int      InpCooldownMin = 30;                  // Cooldown between entries (minutes)
 input int      InpLockoutMin = 60;                   // Lockout after loss (minutes)
 input int      InpCircuitBreakerLosses = 5;          // Consecutive losses to trigger pause
 input int      InpCircuitBreakerHours = 24;          // Pause duration (hours)
 
 // --- FTMO Guardrails ---
-input bool     InpEnableFTMOGuardrails = true;       // Enforce FTMO-style account limits
+input bool     InpEnableFTMOGuardrails = false;      // Enforce FTMO-style account limits
 input double   InpFTMOAccountSize = 70000.0;         // Challenge account size
 input double   InpFTMOProfitTargetPct = 5.0;         // Profit target (% of account size)
 input double   InpFTMOMaxLossPct = 10.0;             // Max overall loss (% of account size)
 input double   InpFTMOMaxDailyLossPct = 5.0;         // Max daily loss (% of account size)
-input int      InpFTMOTradingPeriodDays = 14;        // Challenge window (days)
+input int      InpFTMOTradingPeriodDays = 0;         // Challenge window (days, 0 disables)
 input int      InpFTMOMinTradingDays = 2;            // Minimum active trading days
 input double   InpFTMOMaxLeverage = 30.0;            // Max notional leverage
 
@@ -124,6 +122,7 @@ struct SPositionMeta {
    ulong      ticket;
    datetime   entry_time;     // Entry bar time (server time)
    datetime   entry_time_utc; // Entry bar time (UTC)
+   string     entry_comment;
    double     entry_price;
    double     stop_price;
    double     tp_price;
@@ -131,8 +130,27 @@ struct SPositionMeta {
    double     atr_entry;      // H4 ATR at entry
    bool       be_triggered;
    int        direction;      // 1 = long, -1 = short
+   int        total_score;
+   double     confidence_mult;
+   double     session_mult;
+   double     regime_mult;
+   string     regime;
+   datetime   zone_time_utc;
+   double     zone_price;
+   bool       logged;         // Track if this position's exit has been logged
 };
 SPositionMeta m_pos_meta[];
+ulong        m_closed_positions[]; // Track closed position IDs to avoid duplicate logging
+
+struct STesterEntry {
+   ulong      position_id;
+   datetime   entry_time;
+   double     entry_price;
+   double     volume;
+   int        direction;
+   double     stop_price;
+   double     tp_price;
+};
 
 datetime      m_entry_times_utc[]; // Track entry timestamps for cluster counting
 
@@ -146,6 +164,8 @@ int           m_consecutiveLosses;
 datetime      m_lastEntryTime;
 datetime      m_lastLossExitTime;
 datetime      m_circuitBreakerUntil;
+int           m_tradeCsvHandle = INVALID_HANDLE;
+string        m_tradeCsvFileName = "phantom_mql5_trade_log.csv";
 
 // FTMO state tracking
 double        m_ftmoInitialEquity;
@@ -159,6 +179,433 @@ datetime      m_ftmoLastStatusPrint;
 // Zone colors
 color         m_demandColor = clrDodgerBlue;
 color         m_supplyColor = clrTomato;
+
+//+------------------------------------------------------------------+
+//| Compact trade CSV logging                                        |
+//+------------------------------------------------------------------+
+bool OpenTradeCsv() {
+   if(m_tradeCsvHandle != INVALID_HANDLE) {
+      FileClose(m_tradeCsvHandle);
+      m_tradeCsvHandle = INVALID_HANDLE;
+   }
+
+   m_tradeCsvHandle = FileOpen(m_tradeCsvFileName, FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
+   if(m_tradeCsvHandle == INVALID_HANDLE) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("TradeCsv: failed to open %s (err=%d)", m_tradeCsvFileName, GetLastError());
+      }
+      return false;
+   }
+
+   FileWrite(m_tradeCsvHandle,
+             "entry_time_utc",
+             "exit_time_utc",
+             "ticket",
+             "symbol",
+             "direction",
+             "volume",
+             "entry_price",
+             "exit_price",
+             "stop_price",
+             "tp_price",
+             "initial_risk",
+             "exit_reason",
+             "gross_profit",
+             "commission",
+             "swap",
+             "net_profit",
+             "r_value",
+             "score",
+             "confidence_mult",
+             "regime",
+             "broker_exit_reason",
+             "entry_comment",
+             "session_mult",
+             "regime_mult",
+             "zone_price",
+             "zone_time_utc",
+             "exit_comment");
+   FileFlush(m_tradeCsvHandle);
+   return true;
+}
+
+void CloseTradeCsv() {
+   if(m_tradeCsvHandle != INVALID_HANDLE) {
+      FileFlush(m_tradeCsvHandle);
+      FileClose(m_tradeCsvHandle);
+      m_tradeCsvHandle = INVALID_HANDLE;
+   }
+}
+
+string TradeDirectionToString(int direction) {
+   return (direction == 1) ? "long" : "short";
+}
+
+string InferExitReason(double dealPrice, double stopPrice, double tpPrice) {
+   double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+   double tolerance = MathMax(point * 2.0, point);
+   if(MathAbs(dealPrice - stopPrice) <= tolerance) return "stop";
+   if(MathAbs(dealPrice - tpPrice) <= tolerance) return "tp";
+   return "close";
+}
+
+string DealReasonToString(long reason) {
+   switch(reason) {
+      case DEAL_REASON_CLIENT: return "client";
+      case DEAL_REASON_MOBILE: return "mobile";
+      case DEAL_REASON_WEB: return "web";
+      case DEAL_REASON_EXPERT: return "expert";
+      case DEAL_REASON_SL: return "sl";
+      case DEAL_REASON_TP: return "tp";
+      case DEAL_REASON_SO: return "stop_out";
+      case DEAL_REASON_ROLLOVER: return "rollover";
+      case DEAL_REASON_VMARGIN: return "margin";
+      case DEAL_REASON_SPLIT: return "split";
+      case DEAL_REASON_CORPORATE_ACTION: return "corp_action";
+      default: return StringFormat("reason_%d", (int)reason);
+   }
+}
+
+void LogTradeCsvRow(datetime entryUtc, datetime exitUtc, ulong ticket, int direction, double volume,
+                    double entryPrice, double exitPrice, double stopPrice, double tpPrice,
+                    double initialRisk, string exitReason, double grossProfit, double commission,
+                    double swap, double netProfit, double rValue, int score,
+                    double confidenceMult, string regime, string brokerExitReason,
+                    string entryComment, double sessionMult,
+                    double regimeMult, double zonePrice, datetime zoneTimeUtc,
+                    string exitComment) {
+   if(m_tradeCsvHandle == INVALID_HANDLE) return;
+
+   FileWrite(m_tradeCsvHandle,
+             TimeToString(entryUtc, TIME_DATE | TIME_SECONDS),
+             TimeToString(exitUtc, TIME_DATE | TIME_SECONDS),
+             (long)ticket,
+             Symbol(),
+             TradeDirectionToString(direction),
+             DoubleToString(volume, 2),
+             DoubleToString(entryPrice, _Digits),
+             DoubleToString(exitPrice, _Digits),
+             DoubleToString(stopPrice, _Digits),
+             DoubleToString(tpPrice, _Digits),
+             DoubleToString(initialRisk, _Digits),
+             exitReason,
+             DoubleToString(grossProfit, 2),
+             DoubleToString(commission, 2),
+             DoubleToString(swap, 2),
+             DoubleToString(netProfit, 2),
+             DoubleToString(rValue, 3),
+             score,
+             DoubleToString(confidenceMult, 2),
+             regime,
+             brokerExitReason,
+             entryComment,
+             DoubleToString(sessionMult, 2),
+             DoubleToString(regimeMult, 2),
+             DoubleToString(zonePrice, _Digits),
+             TimeToString(zoneTimeUtc, TIME_DATE | TIME_SECONDS),
+             exitComment);
+   FileFlush(m_tradeCsvHandle);
+}
+
+//+------------------------------------------------------------------+
+//| Export tester trades to CSV                                      |
+//+------------------------------------------------------------------+
+void ExportTesterTrades() {
+   string fileName = "phantom_mt5_tester_export.csv";
+   int handle = FileOpen(fileName, FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
+   if(handle == INVALID_HANDLE) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("TesterExport: failed to open %s (err=%d)", fileName, GetLastError());
+      }
+      return;
+   }
+
+   FileWrite(handle,
+             "entry_time_utc",
+             "exit_time_utc",
+             "ticket",
+             "symbol",
+             "direction",
+             "volume",
+             "entry_price",
+             "exit_price",
+             "stop_price",
+             "tp_price",
+             "initial_risk",
+             "exit_reason",
+             "gross_profit",
+             "commission",
+             "swap",
+             "net_profit",
+             "r_value",
+             "score",
+             "confidence_mult",
+             "regime",
+             "broker_exit_reason",
+             "entry_comment",
+             "session_mult",
+             "regime_mult",
+             "zone_price",
+             "zone_time_utc",
+             "exit_comment",
+             "holding_minutes");
+
+   if(!HistorySelect(0, TimeCurrent() + 86400)) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("TesterExport: HistorySelect failed (err=%d)", GetLastError());
+      }
+      FileClose(handle);
+      return;
+   }
+
+   int dealsTotal = HistoryDealsTotal();
+   int rowsWritten = 0;
+
+   for(int i = 0; i < dealsTotal; i++) {
+      ulong deal = HistoryDealGetTicket(i);
+      if(deal == 0) continue;
+
+      long dealMagic = HistoryDealGetInteger(deal, DEAL_MAGIC);
+      if(dealMagic != InpMagicNumber) continue;
+
+      long dealEntry = HistoryDealGetInteger(deal, DEAL_ENTRY);
+      if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY && dealEntry != DEAL_ENTRY_INOUT) {
+         continue;
+      }
+
+      ulong positionId = (ulong)HistoryDealGetInteger(deal, DEAL_POSITION_ID);
+      datetime exitTime = (datetime)HistoryDealGetInteger(deal, DEAL_TIME);
+      double exitPrice = HistoryDealGetDouble(deal, DEAL_PRICE);
+      double exitProfit = HistoryDealGetDouble(deal, DEAL_PROFIT);
+      double exitCommission = HistoryDealGetDouble(deal, DEAL_COMMISSION);
+      double exitSwap = HistoryDealGetDouble(deal, DEAL_SWAP);
+      double exitVolume = HistoryDealGetDouble(deal, DEAL_VOLUME);
+      string exitComment = HistoryDealGetString(deal, DEAL_COMMENT);
+      long dealReason = HistoryDealGetInteger(deal, DEAL_REASON);
+
+      datetime entryTime = 0;
+      double entryPrice = 0.0;
+      int direction = 0;
+
+      for(int j = 0; j < dealsTotal; j++) {
+         ulong entryDeal = HistoryDealGetTicket(j);
+         if(entryDeal == 0) continue;
+
+         if((ulong)HistoryDealGetInteger(entryDeal, DEAL_POSITION_ID) != positionId) continue;
+         if(HistoryDealGetInteger(entryDeal, DEAL_MAGIC) != InpMagicNumber) continue;
+         if(HistoryDealGetInteger(entryDeal, DEAL_ENTRY) != DEAL_ENTRY_IN) continue;
+
+         entryTime = (datetime)HistoryDealGetInteger(entryDeal, DEAL_TIME);
+         entryPrice = HistoryDealGetDouble(entryDeal, DEAL_PRICE);
+         long entryType = HistoryDealGetInteger(entryDeal, DEAL_TYPE);
+         direction = (entryType == DEAL_TYPE_BUY) ? 1 : -1;
+         break;
+      }
+
+      if(entryTime == 0) continue;
+
+      double stopPrice = 0.0;
+      double tpPrice = 0.0;
+      int score = 0;
+      double confidenceMult = 1.0;
+      string regime = "unknown";
+      string entryComment = "";
+      double sessionMult = 1.0;
+      double regimeMult = 1.0;
+      double zonePrice = 0.0;
+      datetime zoneTimeUtc = 0;
+
+      int metaIndex = FindPositionMeta(positionId);
+      if(metaIndex >= 0) {
+         stopPrice = m_pos_meta[metaIndex].stop_price;
+         tpPrice = m_pos_meta[metaIndex].tp_price;
+         score = m_pos_meta[metaIndex].total_score;
+         confidenceMult = m_pos_meta[metaIndex].confidence_mult;
+         regime = m_pos_meta[metaIndex].regime;
+         entryComment = m_pos_meta[metaIndex].entry_comment;
+         sessionMult = m_pos_meta[metaIndex].session_mult;
+         regimeMult = m_pos_meta[metaIndex].regime_mult;
+         zonePrice = m_pos_meta[metaIndex].zone_price;
+         zoneTimeUtc = m_pos_meta[metaIndex].zone_time_utc;
+      }
+
+      double initialRisk = MathAbs(entryPrice - stopPrice);
+      double netProfit = exitProfit + exitCommission + exitSwap;
+      double rValue = 0.0;
+      if(initialRisk > 0.0) {
+         rValue = (direction == 1) ? (exitPrice - entryPrice) / initialRisk
+                                   : (entryPrice - exitPrice) / initialRisk;
+      }
+
+      double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+      double tolerance = MathMax(point * 5.0, point);
+      string exitReason = "close";
+      if(stopPrice > 0.0 && MathAbs(exitPrice - stopPrice) <= tolerance) {
+         exitReason = "stop";
+      } else if(tpPrice > 0.0 && MathAbs(exitPrice - tpPrice) <= tolerance) {
+         exitReason = "tp";
+      }
+
+      double holdingMinutes = (double)(exitTime - entryTime) / 60.0;
+
+      FileWrite(handle,
+                TimeToString(entryTime, TIME_DATE | TIME_SECONDS),
+                TimeToString(exitTime, TIME_DATE | TIME_SECONDS),
+                (long)positionId,
+                Symbol(),
+                TradeDirectionToString(direction),
+                DoubleToString(exitVolume, 2),
+                DoubleToString(entryPrice, _Digits),
+                DoubleToString(exitPrice, _Digits),
+                DoubleToString(stopPrice, _Digits),
+                DoubleToString(tpPrice, _Digits),
+                DoubleToString(initialRisk, _Digits),
+                exitReason,
+                DoubleToString(exitProfit, 2),
+                DoubleToString(exitCommission, 2),
+                DoubleToString(exitSwap, 2),
+                DoubleToString(netProfit, 2),
+                DoubleToString(rValue, 3),
+                score,
+                DoubleToString(confidenceMult, 2),
+                regime,
+                DealReasonToString(dealReason),
+                entryComment,
+                DoubleToString(sessionMult, 2),
+                DoubleToString(regimeMult, 2),
+                DoubleToString(zonePrice, _Digits),
+                TimeToString(zoneTimeUtc, TIME_DATE | TIME_SECONDS),
+                exitComment,
+                DoubleToString(holdingMinutes, 1));
+      rowsWritten++;
+   }
+
+   FileClose(handle);
+   if(InpEnableDebugPrint) {
+      PrintFormat("TesterExport: wrote %d trades to %s", rowsWritten, fileName);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Export all deals from history to CSV (for backtest data analysis)|
+//+------------------------------------------------------------------+
+void ExportAllDealsToCSV() {
+   // Open CSV file for export
+   int fileHandle = FileOpen("phantom_mt5_export.csv", FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
+   if(fileHandle == INVALID_HANDLE) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("ExportAllDeals: failed to open export file (err=%d)", GetLastError());
+      }
+      return;
+   }
+
+   // Select history for the entire backtest period
+   if(!HistorySelect(0, TimeCurrent() + 86400)) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("ExportAllDeals: HistorySelect failed (err=%d)", GetLastError());
+      }
+      FileClose(fileHandle);
+      return;
+   }
+
+   // Write header
+   FileWrite(fileHandle,
+             "entry_time", "exit_time", "ticket", "symbol", "direction", "volume",
+             "entry_price", "exit_price", "stop_loss", "take_profit", "gross_profit",
+             "commission", "swap", "net_profit", "profit_percent", "exit_type");
+   
+   // Iterate through all deals in history
+   int dealsTotal = HistoryDealsTotal();
+   int rowsWritten = 0;
+   for(int i = 0; i < dealsTotal; i++) {
+      ulong deal = HistoryDealGetTicket(i);
+      if(deal == 0) continue;
+      
+      // Filter by magic number
+      long dealMagic = HistoryDealGetInteger(deal, DEAL_MAGIC);
+      if(dealMagic != InpMagicNumber) continue;
+      
+      // Only log exit deals
+      long dealEntry = HistoryDealGetInteger(deal, DEAL_ENTRY);
+      if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY && dealEntry != DEAL_ENTRY_INOUT) {
+         continue;
+      }
+      
+      // Get exit deal info
+      datetime exitTime = (datetime)HistoryDealGetInteger(deal, DEAL_TIME);
+      double exitPrice = HistoryDealGetDouble(deal, DEAL_PRICE);
+      double exitVolume = HistoryDealGetDouble(deal, DEAL_VOLUME);
+      double exitProfit = HistoryDealGetDouble(deal, DEAL_PROFIT);
+      double exitCommission = HistoryDealGetDouble(deal, DEAL_COMMISSION);
+      double exitSwap = HistoryDealGetDouble(deal, DEAL_SWAP);
+      long dealType = HistoryDealGetInteger(deal, DEAL_TYPE);
+      ulong positionId = HistoryDealGetInteger(deal, DEAL_POSITION_ID);
+      
+      // Find corresponding entry deal
+      datetime entryTime = 0;
+      double entryPrice = 0;
+      int direction = 0;
+      double stopPrice = 0;
+      double tpPrice = 0;
+      
+      for(int j = 0; j < dealsTotal; j++) {
+         ulong entryDeal = HistoryDealGetTicket(j);
+         if(entryDeal == 0) continue;
+         
+         long entryMagic = HistoryDealGetInteger(entryDeal, DEAL_MAGIC);
+         if(entryMagic != InpMagicNumber) continue;
+         
+         long entryType = HistoryDealGetInteger(entryDeal, DEAL_ENTRY);
+         ulong entryPosId = HistoryDealGetInteger(entryDeal, DEAL_POSITION_ID);
+         
+         if(entryType == DEAL_ENTRY_IN && entryPosId == positionId) {
+            entryTime = (datetime)HistoryDealGetInteger(entryDeal, DEAL_TIME);
+            entryPrice = HistoryDealGetDouble(entryDeal, DEAL_PRICE);
+            long entryDealType = HistoryDealGetInteger(entryDeal, DEAL_TYPE);
+            direction = (entryDealType == DEAL_TYPE_BUY) ? 1 : -1;
+            break;
+         }
+      }
+      
+      if(entryTime == 0) continue; // Entry not found, skip
+      
+      // Look up position info from metadata if available
+      int metaIndex = FindPositionMeta(positionId);
+      if(metaIndex >= 0) {
+         stopPrice = m_pos_meta[metaIndex].stop_price;
+         tpPrice = m_pos_meta[metaIndex].tp_price;
+      }
+      
+      // Write trade row
+      string exitType = (exitPrice <= stopPrice + SymbolInfoDouble(Symbol(), SYMBOL_POINT)) ? "sl" : "tp";
+      double netProfit = exitProfit + exitCommission + exitSwap;
+      double profitPercent = (entryPrice > 0) ? ((exitPrice - entryPrice) / entryPrice * 100) : 0;
+      
+      FileWrite(fileHandle,
+                TimeToString(entryTime, TIME_DATE | TIME_SECONDS),
+                TimeToString(exitTime, TIME_DATE | TIME_SECONDS),
+                (long)positionId,
+                Symbol(),
+                (direction == 1) ? "long" : "short",
+                DoubleToString(exitVolume, 2),
+                DoubleToString(entryPrice, _Digits),
+                DoubleToString(exitPrice, _Digits),
+                DoubleToString(stopPrice, _Digits),
+                DoubleToString(tpPrice, _Digits),
+                DoubleToString(exitProfit, 2),
+                DoubleToString(exitCommission, 2),
+                DoubleToString(exitSwap, 2),
+                DoubleToString(netProfit, 2),
+                DoubleToString(profitPercent, 2),
+                exitType);
+      rowsWritten++;
+   }
+   
+   FileClose(fileHandle);
+   if(InpEnableDebugPrint) {
+      PrintFormat("ExportAllDeals: exported %d trades to phantom_mt5_export.csv", rowsWritten);
+   }
+}
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -219,6 +666,13 @@ int OnInit() {
    ArrayResize(m_pos_meta, 0);
    ArrayResize(m_entry_times_utc, 0);
    ArrayResize(m_ftmoTradeDayKeys, 0);
+   ArrayResize(m_closed_positions, 0);
+
+   if(!OpenTradeCsv()) {
+      Print("Warning: trade CSV logging disabled for this run");
+   } else if(InpEnableDebugPrint) {
+      PrintFormat("TradeCsv: writing compact trade log to %s", m_tradeCsvFileName);
+   }
    
    // Build initial zones
    BuildH4Zones();
@@ -261,6 +715,11 @@ void OnDeinit(const int reason) {
    if(InpEnableVisuals) {
       ObjectsDeleteAll(0, "Zone_");
    }
+
+   // Export all trades from MT5 history to CSV (backtest data export)
+   ExportAllDealsToCSV();
+   
+   CloseTradeCsv();
    
    EventKillTimer();
    Comment("");
@@ -277,6 +736,11 @@ void OnTick() {
    if(currentBarM5 == lastBarM5) return; // Only process on new M5 bar
    lastBarM5 = currentBarM5;
    
+   // Debug: Log every bar processed
+   if(InpEnableDebugPrint) {
+      Print("OnTick: M5 bar processed " + TimeToString(currentBarM5, TIME_DATE|TIME_SECONDS));
+   }
+   
    // Refresh zones periodically
    static datetime lastZoneRefresh = 0;
    if(TimeCurrent() - lastZoneRefresh > 300) { // Every 5 minutes
@@ -286,6 +750,9 @@ void OnTick() {
    
    // Check for exits first
    ManageOpenPositions();
+   
+   // Log any closed trades from history (fallback for backtesting reliability)
+   LogClosedTradesFromHistory();
    
    // Check for entry conditions
    CheckEntryConditions();
@@ -396,6 +863,71 @@ void AddZone(datetime confirmedAt, double price, int direction) {
 }
 
 //+------------------------------------------------------------------+
+//| Log closed trades from history (fallback for backtesting)        |
+//+------------------------------------------------------------------+
+void LogClosedTradesFromHistory() {
+   // Scan trading history for any closed deals that haven't been logged yet
+   int dealsTotal = HistoryDealsTotal();
+   for(int i = 0; i < dealsTotal; i++) {
+      ulong deal = HistoryDealGetTicket(i);
+      if(deal == 0) continue;
+      
+      long dealMagic = HistoryDealGetInteger(deal, DEAL_MAGIC);
+      if(dealMagic != InpMagicNumber) continue;
+      
+      long dealEntry = HistoryDealGetInteger(deal, DEAL_ENTRY);
+      if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY && dealEntry != DEAL_ENTRY_INOUT) {
+         continue; // Only log exits
+      }
+      
+      ulong positionId = HistoryDealGetInteger(deal, DEAL_POSITION_ID);
+      
+      // Check if this position has already been logged
+      bool alreadyLogged = false;
+      for(int j = 0; j < ArraySize(m_pos_meta); j++) {
+         if(m_pos_meta[j].ticket == positionId && m_pos_meta[j].logged) {
+            alreadyLogged = true;
+            break;
+         }
+      }
+      if(alreadyLogged) continue;
+      
+      // Find the entry deal and position metadata
+      int metaIndex = FindPositionMeta(positionId);
+      if(metaIndex < 0) continue; // No metadata found
+      
+      // Log this exit
+      datetime dealTime = (datetime)HistoryDealGetInteger(deal, DEAL_TIME);
+      double dealPrice = HistoryDealGetDouble(deal, DEAL_PRICE);
+      double dealProfit = HistoryDealGetDouble(deal, DEAL_PROFIT);
+      double dealCommission = HistoryDealGetDouble(deal, DEAL_COMMISSION);
+      double dealSwap = HistoryDealGetDouble(deal, DEAL_SWAP);
+      double dealVolume = HistoryDealGetDouble(deal, DEAL_VOLUME);
+      string dealComment = HistoryDealGetString(deal, DEAL_COMMENT);
+      long dealReason = HistoryDealGetInteger(deal, DEAL_REASON);
+      
+      SPositionMeta meta = m_pos_meta[metaIndex];
+      string exitReason = InferExitReason(dealPrice, meta.stop_price, meta.tp_price);
+      string brokerExitReason = DealReasonToString(dealReason);
+      double netProfit = dealProfit + dealCommission + dealSwap;
+      double rValue = (meta.initial_risk > 0.0)
+         ? ((meta.direction == 1) ? (dealPrice - meta.entry_price) / meta.initial_risk
+                                  : (meta.entry_price - dealPrice) / meta.initial_risk)
+         : 0.0;
+      
+      LogTradeCsvRow(meta.entry_time_utc, dealTime, positionId, meta.direction, dealVolume,
+                     meta.entry_price, dealPrice, meta.stop_price, meta.tp_price,
+                     meta.initial_risk, exitReason, dealProfit, dealCommission, dealSwap,
+                     netProfit, rValue, meta.total_score, meta.confidence_mult, meta.regime,
+                     brokerExitReason, meta.entry_comment, meta.session_mult, meta.regime_mult,
+                     meta.zone_price, meta.zone_time_utc, dealComment);
+      
+      // Mark as logged to avoid duplicate entries
+      m_pos_meta[metaIndex].logged = true;
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Manage open positions (trailing, breakeven, exits)               |
 //+------------------------------------------------------------------+
 void ManageOpenPositions() {
@@ -480,12 +1012,55 @@ void ManageOpenPositions() {
          // Persist updated stop
          m_pos_meta[metaIndex].stop_price = stopPrice;
          
+         // Apply trailing stop or breakeven modification to broker (CRITICAL: was missing before)
+         double currentBrokerStop = m_position.StopLoss();
+         if(MathAbs(stopPrice - currentBrokerStop) > SymbolInfoDouble(Symbol(), SYMBOL_POINT)) {
+            if(!m_trade.PositionModify(ticket, stopPrice, tpPrice)) {
+               if(InpEnableDebugPrint) {
+                  PrintFormat("TrailDebug: PositionModify FAILED ticket=%I64u newStop=%.5f error=%s", 
+                     ticket, stopPrice, m_trade.ResultComment());
+               }
+            } else if(InpEnableDebugPrint) {
+               PrintFormat("TrailDebug: PositionModify SUCCESS ticket=%I64u oldStop=%.5f newStop=%.5f r=%.2f", 
+                  ticket, currentBrokerStop, stopPrice, currentR);
+            }
+         }
+         
          if(exitNow) {
+            // Log the trade immediately before closing (use exit signal price as exit price)
+            double volume = m_position.Volume();
+            double grossProfit = 0.0;
+            double commission = 0.0;
+            double swap = 0.0;
+            
+            // Calculate PNL based on exit signal price
+            if(isLong) {
+               grossProfit = (exitSignalPx - entryPrice) * volume * SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_VALUE) / SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_SIZE);
+            } else {
+               grossProfit = (entryPrice - exitSignalPx) * volume * SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_VALUE) / SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_SIZE);
+            }
+            
+            double netProfit = grossProfit + commission + swap;
+            double rValue = (initialRisk > 0.0) ? (grossProfit / (initialRisk * SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_VALUE) / SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_SIZE))) : 0.0;
+            string exitReason = InferExitReason(exitSignalPx, stopPrice, tpPrice);
+            
+            // Log the trade
+            LogTradeCsvRow(m_pos_meta[metaIndex].entry_time_utc, barTimeUtc, ticket, 
+                          m_pos_meta[metaIndex].direction, volume,
+                          entryPrice, exitSignalPx, stopPrice, tpPrice,
+                          initialRisk, exitReason, grossProfit, commission, swap,
+                          netProfit, rValue, m_pos_meta[metaIndex].total_score, 
+                          m_pos_meta[metaIndex].confidence_mult, m_pos_meta[metaIndex].regime,
+                          (exitSignalPx <= stopPrice + SymbolInfoDouble(Symbol(), SYMBOL_POINT)) ? "sl" : "tp",
+                          m_pos_meta[metaIndex].entry_comment, m_pos_meta[metaIndex].session_mult,
+                          m_pos_meta[metaIndex].regime_mult, m_pos_meta[metaIndex].zone_price,
+                          m_pos_meta[metaIndex].zone_time_utc, "auto_close");
+            
             m_trade.PositionClose(ticket);
          }
       }
    }
-   CleanPositionMeta();
+   // Preserve closed position metadata so OnTester() can export the full backtest history.
 }
 
 //+------------------------------------------------------------------+
@@ -766,7 +1341,8 @@ bool CheckFTMOGuardrails(string &reason) {
    reason = "ok";
    if(!InpEnableFTMOGuardrails) return true;
    if(m_ftmoHardStop) {
-      reason = "hard stop already active";
+      reason = StringFormat("hard stop active | equity=%.2f dayStart=%.2f initial=%.2f",
+                            AccountInfoDouble(ACCOUNT_EQUITY), m_ftmoDayStartEquity, m_ftmoInitialEquity);
       return false;
    }
 
@@ -780,28 +1356,34 @@ bool CheckFTMOGuardrails(string &reason) {
 
    double dailyFloor = m_ftmoDayStartEquity - dailyLimitCash;
    if(equity <= dailyFloor) {
-      reason = "max daily loss reached";
+      reason = StringFormat("max daily loss reached | equity=%.2f floor=%.2f dayStart=%.2f limitCash=%.2f",
+                            equity, dailyFloor, m_ftmoDayStartEquity, dailyLimitCash);
       m_ftmoHardStop = true;
       return false;
    }
 
    double totalFloor = m_ftmoInitialEquity - maxLossCash;
    if(equity <= totalFloor) {
-      reason = "max overall loss reached";
+      reason = StringFormat("max overall loss reached | equity=%.2f floor=%.2f initial=%.2f limitCash=%.2f",
+                            equity, totalFloor, m_ftmoInitialEquity, maxLossCash);
       m_ftmoHardStop = true;
       return false;
    }
 
    datetime nowUtc = ToUTC(TimeCurrent());
    if(InpFTMOTradingPeriodDays > 0 && nowUtc >= (m_ftmoTradingStartUtc + InpFTMOTradingPeriodDays * 86400)) {
-      reason = "trading period expired";
+      reason = StringFormat("trading period expired | now=%s start=%s days=%d",
+                            TimeToString(nowUtc, TIME_DATE|TIME_SECONDS),
+                            TimeToString(m_ftmoTradingStartUtc, TIME_DATE|TIME_SECONDS),
+                            InpFTMOTradingPeriodDays);
       m_ftmoHardStop = true;
       return false;
    }
 
    int tradedDays = ArraySize(m_ftmoTradeDayKeys);
    if(equity >= (m_ftmoInitialEquity + profitTargetCash) && tradedDays >= InpFTMOMinTradingDays) {
-      reason = "profit target reached";
+      reason = StringFormat("profit target reached | equity=%.2f target=%.2f tradedDays=%d minDays=%d",
+                            equity, m_ftmoInitialEquity + profitTargetCash, tradedDays, InpFTMOMinTradingDays);
       m_ftmoHardStop = true;
       return false;
    }
@@ -959,6 +1541,9 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
    // Calculate position size
    double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
    double riskAmount = accountEquity * (InpRiskPercent / 100.0);
+   
+   // Apply aggressive sizing multiplier (critical for profitability!)
+   riskAmount *= InpRiskMultiplier;
 
    if(InpEnableFTMOGuardrails) {
       SyncFTMODailyBaseline();
@@ -1089,6 +1674,7 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
       m_pos_meta[metaIndex].ticket = ticket;
       m_pos_meta[metaIndex].entry_time = barTime;
       m_pos_meta[metaIndex].entry_time_utc = barTimeUtc;
+      m_pos_meta[metaIndex].entry_comment = comment;
       m_pos_meta[metaIndex].entry_price = entryPrice;
       m_pos_meta[metaIndex].stop_price = stopPrice;
       m_pos_meta[metaIndex].tp_price = takeProfit;
@@ -1096,6 +1682,14 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
       m_pos_meta[metaIndex].atr_entry = h4ATR;
       m_pos_meta[metaIndex].be_triggered = false;
       m_pos_meta[metaIndex].direction = zone.direction;
+      m_pos_meta[metaIndex].total_score = totalScore;
+      m_pos_meta[metaIndex].confidence_mult = confMult;
+      m_pos_meta[metaIndex].session_mult = sessionMult;
+      m_pos_meta[metaIndex].regime_mult = regimeMult;
+      m_pos_meta[metaIndex].regime = GetDailyRegime(barTime);
+      m_pos_meta[metaIndex].zone_time_utc = zone.time;
+      m_pos_meta[metaIndex].zone_price = zone.price;
+      m_pos_meta[metaIndex].logged = false;  // Mark as not yet logged
       
       RegisterEntryTime(barTimeUtc);
       RegisterFTMOTradingDay(barTimeUtc);
@@ -1221,6 +1815,29 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
             long dealEntry = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
             if(dealEntry == DEAL_ENTRY_OUT || dealEntry == DEAL_ENTRY_OUT_BY || dealEntry == DEAL_ENTRY_INOUT) {
                datetime dealTime = (datetime)HistoryDealGetInteger(trans.deal, DEAL_TIME);
+               ulong positionId = (ulong)HistoryDealGetInteger(trans.deal, DEAL_POSITION_ID);
+               double dealVolume = HistoryDealGetDouble(trans.deal, DEAL_VOLUME);
+               double dealPrice = HistoryDealGetDouble(trans.deal, DEAL_PRICE);
+               string dealComment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
+               long dealReason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
+
+               int metaIndex = FindPositionMeta(positionId);
+               if(metaIndex >= 0) {
+                  SPositionMeta meta = m_pos_meta[metaIndex];
+                  string exitReason = InferExitReason(dealPrice, meta.stop_price, meta.tp_price);
+                  string brokerExitReason = DealReasonToString(dealReason);
+                  double rValue = (meta.initial_risk > 0.0)
+                     ? ((meta.direction == 1) ? (dealPrice - meta.entry_price) / meta.initial_risk
+                                              : (meta.entry_price - dealPrice) / meta.initial_risk)
+                     : 0.0;
+                  LogTradeCsvRow(meta.entry_time_utc, dealTime, positionId, meta.direction, dealVolume,
+                                 meta.entry_price, dealPrice, meta.stop_price, meta.tp_price,
+                                 meta.initial_risk, exitReason, dealProfit, dealCommission, dealSwap,
+                                 netProfit, rValue, meta.total_score, meta.confidence_mult, meta.regime,
+                                 brokerExitReason, meta.entry_comment, meta.session_mult, meta.regime_mult,
+                                 meta.zone_price, meta.zone_time_utc, dealComment);
+               }
+
                if(netProfit > 0) {
                   m_consecutiveLosses = 0;
                } else {
@@ -1410,4 +2027,36 @@ void OnChartEvent(const int id,
    if(id == CHARTEVENT_CHART_CHANGE) {
       if(InpEnableVisuals) DrawZones();
    }
+}
+
+//+------------------------------------------------------------------+
+//| Custom optimization metric for MT5 Strategy Tester               |
+//+------------------------------------------------------------------+
+double OnTester() {
+   ExportTesterTrades();
+
+   // Custom max metric: favor profitable runs with controlled drawdown.
+   double profit = TesterStatistics(STAT_PROFIT);
+   double ddRelPct = TesterStatistics(STAT_EQUITY_DDREL_PERCENT);
+   double pf = TesterStatistics(STAT_PROFIT_FACTOR);
+   double trades = TesterStatistics(STAT_TRADES);
+
+   // Penalize very low-trade configurations during optimization.
+   if(trades < 5.0) {
+      return -1000000.0 + trades;
+   }
+
+   if(ddRelPct <= 0.0) ddRelPct = 0.01;
+   if(pf <= 0.0) pf = 0.01;
+
+   // Score = (profit / drawdown%) * capped profit factor multiplier.
+   double pfMult = MathMin(pf, 5.0);
+   double score = (profit / ddRelPct) * pfMult;
+   return score;
+}
+//+------------------------------------------------------------------+
+//| GetEffectiveZoneTolerance()                                       |
+//+------------------------------------------------------------------+
+double GetEffectiveZoneTolerance() {
+   return InpZoneTolerance;
 }
