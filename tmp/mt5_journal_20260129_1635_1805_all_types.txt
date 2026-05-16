@@ -1,0 +1,394 @@
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.020	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.030	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	01:24:20.044	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.00 regimeMult=0.50
+CS	0	01:24:20.140	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	01:24:20.140	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	01:24:20.140	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	01:24:20.140	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	01:24:20.140	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.00 regimeMult=0.50
+CS	0	01:24:20.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00617 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00390 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.00364 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00827 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.00685 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.01174 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.01125 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.02753 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.01431 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.214	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=31 time=2026.01.29 14:00:00 zone_price=26153.05000 dir=SHORT zoneDist=0.02506 tol=0.002000 signal=25497.53000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02390 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00122 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00532 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00474 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.00279 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00911 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.00599 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.01258 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.01209 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.02836 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.01515 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.220	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:50:00   ScanZone idx=31 time=2026.01.29 14:00:00 zone_price=26153.05000 dir=SHORT zoneDist=0.02589 tol=0.002000 signal=25475.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02157 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00349 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00303 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00701 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.00050 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01137 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.00370 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.01483 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.01434 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.03057 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.01739 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.226	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:55:00   ScanZone idx=31 time=2026.01.29 14:00:00 zone_price=26153.05000 dir=SHORT zoneDist=0.02811 tol=0.002000 signal=25417.93000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00229 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00425 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00581 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.00172 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01017 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.00492 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.01363 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.01315 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.02939 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.01620 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.230	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:00:00   ScanZone idx=31 time=2026.01.29 14:00:00 zone_price=26153.05000 dir=SHORT zoneDist=0.02693 tol=0.002000 signal=25448.73000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02215 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00292 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00361 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00644 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.00107 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01080 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.00428 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.01426 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.01378 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.234	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.03002 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.235	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.01683 tol=0.002000 signal=25432.43000
+CS	0	01:24:20.235	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 18:05:00   ScanZone idx=31 time=2026.01.29 14:00:00 zone_price=26153.05000 dir=SHORT zoneDist=0.02755 tol=0.002000 signal=25432.43000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.512	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.513	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	12:22:30.514	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.514	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	12:22:30.515	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	12:22:30.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	12:22:30.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	12:22:30.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	12:22:30.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	12:22:30.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	12:22:30.536	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	12:22:30.536	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	12:22:30.536	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.042	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.052	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	12:34:49.063	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	12:34:49.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	12:34:49.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	12:34:49.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	12:34:49.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	12:34:49.213	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	12:34:49.332	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	12:34:49.332	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	12:34:49.332	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	13:19:35.412	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   BAR_DATA: bar=2026.01.29 16:30 O=26006.55000 H=26047.73000 L=25957.53000 C=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.413	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   BAR_DATA: bar=2026.01.29 16:35 O=25970.13000 H=25973.53000 L=25878.13000 C=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.487	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   BAR_DATA: bar=2026.01.29 16:40 O=25902.23000 H=25911.13000 L=25821.43000 C=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	13:19:35.493	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   BAR_DATA: bar=2026.01.29 17:10 O=25657.93000 H=25698.93000 L=25591.73000 C=25592.73000
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	13:19:35.587	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	13:19:35.632	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   BAR_DATA: bar=2026.01.29 17:40 O=25531.03000 H=25532.43000 L=25483.63000 C=25497.53000
+CS	0	13:19:35.632	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	13:19:35.632	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	13:19:35.632	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   BAR_DATA: bar=2026.01.29 16:30 O=26006.55000 H=26047.73000 L=25957.53000 C=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.334	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   BAR_DATA: bar=2026.01.29 16:35 O=25970.13000 H=25973.53000 L=25878.13000 C=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   BAR_DATA: bar=2026.01.29 16:40 O=25902.23000 H=25911.13000 L=25821.43000 C=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	14:23:50.347	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	14:23:50.432	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   BAR_DATA: bar=2026.01.29 17:10 O=25657.93000 H=25698.93000 L=25591.73000 C=25592.73000
+CS	0	14:23:50.433	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	14:23:50.433	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	14:23:50.433	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	14:23:50.433	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	14:23:50.433	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	14:23:50.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   BAR_DATA: bar=2026.01.29 17:40 O=25531.03000 H=25532.43000 L=25483.63000 C=25497.53000
+CS	0	14:23:50.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	14:23:50.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	14:23:50.524	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   BAR_DATA: bar=2026.01.29 16:30 O=26006.55000 H=26047.73000 L=25957.53000 C=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.765	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   BAR_DATA: bar=2026.01.29 16:35 O=25970.13000 H=25973.53000 L=25878.13000 C=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   BAR_DATA: bar=2026.01.29 16:40 O=25902.23000 H=25911.13000 L=25821.43000 C=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	15:41:17.786	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   BAR_DATA: bar=2026.01.29 17:10 O=25657.93000 H=25698.93000 L=25591.73000 C=25592.73000
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	15:41:17.842	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	15:41:17.898	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   BAR_DATA: bar=2026.01.29 17:40 O=25531.03000 H=25532.43000 L=25483.63000 C=25497.53000
+CS	0	15:41:17.899	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	15:41:17.899	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	15:41:17.899	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   BAR_DATA: bar=2026.01.29 16:30 O=26006.55000 H=26047.73000 L=25957.53000 C=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.710	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	17:41:56.717	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   BAR_DATA: bar=2026.01.29 16:35 O=25970.13000 H=25973.53000 L=25878.13000 C=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.718	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   BAR_DATA: bar=2026.01.29 16:40 O=25902.23000 H=25911.13000 L=25821.43000 C=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	17:41:56.725	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   BAR_DATA: bar=2026.01.29 17:10 O=25657.93000 H=25698.93000 L=25591.73000 C=25592.73000
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	17:41:56.758	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	17:41:56.839	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   BAR_DATA: bar=2026.01.29 17:40 O=25531.03000 H=25532.43000 L=25483.63000 C=25497.53000
+CS	0	17:41:56.839	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	17:41:56.839	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	17:41:56.839	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	17:55:02.808	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   BAR_DATA: bar=2026.01.29 16:30 O=26006.55000 H=26047.73000 L=25957.53000 C=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04378 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01817 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02484 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01458 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.02225 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.01013 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02552 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00659 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00709 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.00949 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.809	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:35:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00397 tol=0.002000 signal=25970.53000
+CS	0	17:55:02.815	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   BAR_DATA: bar=2026.01.29 16:35 O=25970.13000 H=25973.53000 L=25878.13000 C=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.04101 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01547 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.02213 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.01189 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01955 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00745 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.02281 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00393 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=28 time=2026.01.27 22:00:00 zone_price=25787.73000 dir=LONG zoneDist=0.00442 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=29 time=2026.01.28 14:00:00 zone_price=26219.45000 dir=SHORT zoneDist=0.01212 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.816	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   ScanZone idx=30 time=2026.01.29 02:00:00 zone_price=25867.76000 dir=LONG zoneDist=0.00131 tol=0.002000 signal=25901.73000
+CS	0	17:55:02.822	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   BAR_DATA: bar=2026.01.29 16:40 O=25902.23000 H=25911.13000 L=25821.43000 C=25823.73000
+CS	0	17:55:02.822	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.03788 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.01242 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.01905 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00884 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=24 time=2026.01.23 14:00:00 zone_price=25405.15000 dir=LONG zoneDist=0.01648 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=25 time=2026.01.25 22:00:00 zone_price=25710.13000 dir=SHORT zoneDist=0.00442 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=26 time=2026.01.26 06:00:00 zone_price=25324.16000 dir=LONG zoneDist=0.01973 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   ScanZone idx=27 time=2026.01.26 22:00:00 zone_price=25800.43000 dir=SHORT zoneDist=0.00090 tol=0.002000 signal=25823.73000
+CS	0	17:55:02.823	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:45:00   EXECUTING: bar=2026.01.29 16:40 dir=SHORT signalPrice=25823.73000 zonePrice=25800.43000 h4ATR=134.98929 score=7 confMult=1.50 sessionMult=1.20 regimeMult=0.50
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   BAR_DATA: bar=2026.01.29 17:10 O=25657.93000 H=25698.93000 L=25591.73000 C=25592.73000
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02860 tol=0.002000 signal=25592.73000
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00336 tol=0.002000 signal=25592.73000
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=22 time=2026.01.22 14:00:00 zone_price=25341.05000 dir=LONG zoneDist=0.00993 tol=0.002000 signal=25592.73000
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   ScanZone idx=23 time=2026.01.22 18:00:00 zone_price=25597.35000 dir=SHORT zoneDist=0.00018 tol=0.002000 signal=25592.73000
+CS	0	17:55:02.932	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:15:00   EXECUTING: bar=2026.01.29 17:10 dir=SHORT signalPrice=25592.73000 zonePrice=25597.35000 h4ATR=151.39643 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50
+CS	0	17:55:02.991	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   BAR_DATA: bar=2026.01.29 17:40 O=25531.03000 H=25532.43000 L=25483.63000 C=25497.53000
+CS	0	17:55:02.992	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=20 time=2026.01.21 18:00:00 zone_price=24881.25000 dir=LONG zoneDist=0.02477 tol=0.002000 signal=25497.53000
+CS	0	17:55:02.992	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   ScanZone idx=21 time=2026.01.22 02:00:00 zone_price=25507.03000 dir=SHORT zoneDist=0.00037 tol=0.002000 signal=25497.53000
+CS	0	17:55:02.992	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 17:45:00   EXECUTING: bar=2026.01.29 17:40 dir=SHORT signalPrice=25497.53000 zonePrice=25507.03000 h4ATR=159.11786 score=7 confMult=1.00 sessionMult=1.20 regimeMult=0.50

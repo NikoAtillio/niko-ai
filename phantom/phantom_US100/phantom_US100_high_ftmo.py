@@ -29,6 +29,10 @@ import warnings
 from typing import Optional
 import numpy as np
 import pandas as pd
+try:
+    import pytz
+except ImportError:
+    pytz = None
 
 warnings.filterwarnings('ignore')
 
@@ -168,6 +172,17 @@ def load_csv(path: str) -> pd.DataFrame:
         date_str = df['date'].astype(str).str.strip()
         time_str = df['time'].astype(str).str.strip()
         df['datetime'] = pd.to_datetime(date_str + ' ' + time_str, errors='coerce')
+        # CSV times are in NYSE local time (EST/EDT), convert to UTC for session consistency
+        if pytz is not None:
+            # Use pytz for proper DST handling (EST = UTC-5 in winter, EDT = UTC-4 in summer)
+            nyc_tz = pytz.timezone('America/New_York')
+            df['datetime'] = (df['datetime']
+                              .dt.tz_localize(None)
+                              .dt.tz_localize(nyc_tz, ambiguous='NaT', nonexistent='NaT')
+                              .dt.tz_convert('UTC'))
+        else:
+            # Fallback: assume fixed EST (UTC-5) for January testing
+            df['datetime'] = df['datetime'] - pd.Timedelta(hours=5)
     elif 'date' in df.columns:
         # Daily exports often omit a separate time column.
         date_str = df['date'].astype(str).str.strip()

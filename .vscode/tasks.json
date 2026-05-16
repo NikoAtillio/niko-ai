@@ -2,10 +2,11 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Compile MQL5 with MetaEditor (Wine)",
+      "label": "Sync and Compile MQL5 with MetaEditor (Wine)",
       "type": "shell",
-      "command": "${workspaceFolder}/.vscode/scripts/compile_mq5.sh",
+      "command": "bash",
       "args": [
+        "${workspaceFolder}/scripts/sync_mt5_ea.sh",
         "${file}"
       ],
       "presentation": {

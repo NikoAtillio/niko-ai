@@ -1,0 +1,13 @@
+CS	0	14:23:50.341	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   SessionDebug: serverTime=2026.01.29 16:40 utcHour=14 utcDay=4 start=13 end=21
+CS	0	15:41:17.624	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 14:40:00   SessionDebug: serverTime=2026.01.29 14:40 utcHour=12 utcDay=4 start=13 end=21
+CS	0	15:41:17.662	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:10:00   SessionDebug: serverTime=2026.01.29 15:10 utcHour=13 utcDay=4 start=13 end=21
+CS	0	15:41:17.692	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:35:00   SessionDebug: serverTime=2026.01.29 15:35 utcHour=13 utcDay=4 start=13 end=21
+CS	0	15:41:17.775	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   SessionDebug: serverTime=2026.01.29 16:40 utcHour=14 utcDay=4 start=13 end=21
+CS	0	17:41:56.544	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 14:40:00   SessionDebug: serverTime=2026.01.29 14:40 utcHour=12 utcDay=4 start=13 end=21
+CS	0	17:41:56.582	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:10:00   SessionDebug: serverTime=2026.01.29 15:10 utcHour=13 utcDay=4 start=13 end=21
+CS	0	17:41:56.617	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:35:00   SessionDebug: serverTime=2026.01.29 15:35 utcHour=13 utcDay=4 start=13 end=21
+CS	0	17:41:56.717	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   SessionDebug: serverTime=2026.01.29 16:40 utcHour=14 utcDay=4 start=13 end=21
+CS	0	17:55:02.539	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 14:40:00   SessionDebug: serverTime=2026.01.29 14:40 utcHour=12 utcDay=4 start=13 end=21
+CS	0	17:55:02.564	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:10:00   SessionDebug: serverTime=2026.01.29 15:10 utcHour=13 utcDay=4 start=13 end=21
+CS	0	17:55:02.633	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 15:35:00   SessionDebug: serverTime=2026.01.29 15:35 utcHour=13 utcDay=4 start=13 end=21
+CS	0	17:55:02.815	mql5_v1_ftmo (US100.cash,M5)	2026.01.29 16:40:00   SessionDebug: serverTime=2026.01.29 16:40 utcHour=14 utcDay=4 start=13 end=21

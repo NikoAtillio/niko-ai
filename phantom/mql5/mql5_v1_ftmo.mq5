@@ -47,7 +47,8 @@ input double   InpTPMult = 1.3;                      // Take profit (R multiple)
 input double   InpTrailATRMult = 0.8;                // Trailing stop (H4 ATR multiplier)
 input double   InpBreakevenR = 0.8;                  // Move stop to BE at this R
 input int      InpMaxConcurrent = 3;                 // Max positions per 4H window (matches Python "high")
-input int      InpCooldownMin = 30;                  // Cooldown between entries (minutes)
+input int      InpCooldownMin = 20;                  // Cooldown between entries (minutes)
+input bool     InpEnableDebugLogs = true;            // Enable verbose debug Print() logs
 input int      InpLockoutMin = 60;                   // Lockout after loss (minutes)
 input int      InpCircuitBreakerLosses = 5;          // Consecutive losses to trigger pause
 input int      InpCircuitBreakerHours = 24;          // Pause duration (hours)
@@ -74,10 +75,10 @@ input ulong     InpMagicNumber = 202406;              // EA Magic Number
 input string   InpComment = "Phantom P2 US100 B";    // Order comment
 
 // --- Time handling ---
-input int      InpBrokerUTCOffset = 2;               // Broker time = UTC + offset
+input int      InpBrokerUTCOffset = -5;              // Broker time = UTC + offset (US100 = EST = UTC-5)
 input bool     InpAutoUTCOffset = true;              // Auto-switch between winter/summer offsets
-input int      InpWinterUTCOffset = 2;               // Winter offset (Nov-Mar)
-input int      InpSummerUTCOffset = 3;               // Summer offset (Mar-Nov)
+input int      InpWinterUTCOffset = -5;              // Winter offset (EST, Nov-Mar)
+input int      InpSummerUTCOffset = -4;              // Summer offset (EDT, Mar-Nov)
 
 // --- Development ---
 input bool     InpEnableDebugPrint = true;           // Enable debug output
@@ -262,7 +263,7 @@ string DealReasonToString(long reason) {
       case DEAL_REASON_VMARGIN: return "margin";
       case DEAL_REASON_SPLIT: return "split";
       case DEAL_REASON_CORPORATE_ACTION: return "corp_action";
-      default: return StringFormat("reason_%d", (int)reason);
+      default: return StringFormat("reason_%I64d", reason);
    }
 }
 
@@ -517,17 +518,30 @@ void ExportAllDealsToCSV() {
    // Iterate through all deals in history
    int dealsTotal = HistoryDealsTotal();
    int rowsWritten = 0;
+   
+   if(InpEnableDebugPrint) {
+      PrintFormat("ExportAllDeals: Starting export. Total deals in history: %d", dealsTotal);
+   }
+   
    for(int i = 0; i < dealsTotal; i++) {
       ulong deal = HistoryDealGetTicket(i);
       if(deal == 0) continue;
       
       // Filter by magic number
       long dealMagic = HistoryDealGetInteger(deal, DEAL_MAGIC);
-      if(dealMagic != InpMagicNumber) continue;
+      if(dealMagic != InpMagicNumber) {
+         if(i < 5 && InpEnableDebugPrint) {
+            PrintFormat("ExportAllDeals: Deal %d - Magic mismatch: got %d, want %d", i, dealMagic, InpMagicNumber);
+         }
+         continue;
+      }
       
       // Only log exit deals
       long dealEntry = HistoryDealGetInteger(deal, DEAL_ENTRY);
       if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY && dealEntry != DEAL_ENTRY_INOUT) {
+         if(InpEnableDebugPrint) {
+            PrintFormat("ExportAllDeals: Deal %d - Not an exit deal (dealEntry=%d)", i, dealEntry);
+         }
          continue;
       }
       
@@ -1087,11 +1101,20 @@ double GetPositionATR(ulong ticket) {
 //+------------------------------------------------------------------+
 void CheckEntryConditions() {
    // Check if we can trade
-   if(!CanTrade()) return;
-   
    datetime barTime = iTime(Symbol(), PERIOD_M5, 1);
+   if(!CanTrade(barTime)) return;
+   
    datetime barTimeUtc = ToUTC(barTime);
    double signalPrice = iClose(Symbol(), PERIOD_M5, 1);
+   double signalOpen = iOpen(Symbol(), PERIOD_M5, 1);
+   double signalHigh = iHigh(Symbol(), PERIOD_M5, 1);
+   double signalLow = iLow(Symbol(), PERIOD_M5, 1);
+
+   if(InpEnableDebugPrint) {
+      PrintFormat("BAR_DATA: bar=%s O=%.5f H=%.5f L=%.5f C=%.5f",
+                  TimeToString(barTime, TIME_DATE|TIME_MINUTES),
+                  signalOpen, signalHigh, signalLow, signalPrice);
+   }
    
    // Get H4 ATR
    double h4ATR = GetATRAtTime(PERIOD_H4, m_handleH4ATR, barTime);
@@ -1106,6 +1129,27 @@ void CheckEntryConditions() {
       PrintFormat("ATRDebug: symbol=%s bar=%s h4ATR=%.8f m15ATR=%.8f zoneTol=%.6f signal=%.5f",
                   Symbol(), TimeToString(barTime, TIME_DATE|TIME_SECONDS), h4ATR, m15ATR, GetEffectiveZoneTolerance(), signalPrice);
    }
+  
+     // Compute session multiplier once and log it for the bar (ensures SessionDebug visibility)
+     double sessionMultForBar = GetSessionMultiplier(barTimeUtc);
+     if(InpEnableDebugPrint) {
+        PrintFormat("SessionMultDebug: bar=%s sessionMult=%.2f",
+                    TimeToString(barTimeUtc, TIME_DATE|TIME_SECONDS), sessionMultForBar);
+     }
+
+     // Dump current zone list (indices, times, price, dir, confirmed) to ensure full data capture
+     if(InpEnableDebugPrint) {
+        for(int zi = 0; zi < m_zoneCount; zi++) {
+           PrintFormat("ZoneDump idx=%d time=%s price=%.5f dir=%s confirmed=%d confirmed_at=%s source_tf=%s",
+                       zi,
+                       TimeToString(m_zones[zi].time, TIME_DATE|TIME_SECONDS),
+                       m_zones[zi].price,
+                       (m_zones[zi].direction==1)?"LONG":"SHORT",
+                       m_zones[zi].confirmed ? 1 : 0,
+                       TimeToString(m_zones[zi].confirmed_at, TIME_DATE|TIME_SECONDS),
+                       TfToShortString(m_zones[zi].source_tf));
+        }
+     }
    
    // Rolling window filter (UTC)
    datetime windowStartUtc = barTimeUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4));
@@ -1153,6 +1197,7 @@ void CheckEntryConditions() {
       }
       if(zoneDist > GetEffectiveZoneTolerance()) {
          skipZoneTolerance++;
+         if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=tolerance zoneDist=%.6f tol=%.6f", i, zoneDist, GetEffectiveZoneTolerance());
          continue;
       }
       
@@ -1180,9 +1225,8 @@ void CheckEntryConditions() {
          }
       }
       
-      // Session filter
-      double sessionMult = GetSessionMultiplier();
-      if(sessionMult <= 0) {
+      // Session filter (use pre-computed value)
+      if(sessionMultForBar <= 0) {
          skipSession++;
          if(InpEnableDebugPrint) PrintFormat("SkipZone idx=%d reason=session_filter", i);
          continue;
@@ -1233,14 +1277,14 @@ void CheckEntryConditions() {
       double confMult = CalculateConfidenceMultiplier(barTimeUtc);
       
       // Calculate position size and execute
-      ExecuteEntry(m_zones[i], h4ATR, sessionMult, regimeMult, confMult, totalScore, barTime, barTimeUtc, signalPrice);
+      ExecuteEntry(m_zones[i], h4ATR, sessionMultForBar, regimeMult, confMult, totalScore, barTime, barTimeUtc, signalPrice);
       entryExecuted = true;
       
       break; // One entry per bar
    }
 
    if(InpEnableDebugPrint && !entryExecuted) {
-      PrintFormat("EntryScanSummary: symbol=%s bar=%s zones=%d outOfWindow=%d pending=%d zoneTol=%d chase=%d bounce=%d session=%d cluster=%d scoreFloor=%d ltfCap=%d",
+      PrintFormat("EntryScanSummary: symbol=%s bar=%s zones=%d outOfWindow=%d pending=%d zoneTol=%d chase=%d bounce=%d session=%d cluster=%d scoreFloor=%d ltfCap=%d sessionMult=%.2f",
                   Symbol(),
                   TimeToString(barTime, TIME_DATE|TIME_SECONDS),
                   m_zoneCount,
@@ -1252,14 +1296,31 @@ void CheckEntryConditions() {
                   skipSession,
                   skipCluster,
                   skipScoreFloor,
-                  skipLtfCap);
+                  skipLtfCap,
+                  sessionMultForBar);
    }
 }
 
 //+------------------------------------------------------------------+
 //| Check if trading is allowed                                      |
 //+------------------------------------------------------------------+
-bool CanTrade() {
+bool CanTrade(datetime referenceTime) {
+   // Top-level diagnostic: print key gating state for this reference time
+   if(InpEnableDebugPrint) {
+      int currentPositions = CountPositions();
+      int cooldownRemaining = 0;
+      if(m_lastEntryTime > 0) cooldownRemaining = MathMax(0, (int)(InpCooldownMin * 60 - (referenceTime - m_lastEntryTime)));
+      int lockoutRemaining = 0;
+      if(m_lastLossExitTime > 0) lockoutRemaining = MathMax(0, (int)(InpLockoutMin * 60 - (referenceTime - m_lastLossExitTime)));
+      PrintFormat("CanTradeDebug: reference=%s lastEntry=%s cooldownRem=%d lastLossExit=%s lockoutRem=%d circuitUntil=%s positions=%d",
+                  TimeToString(referenceTime, TIME_DATE|TIME_SECONDS),
+                  (m_lastEntryTime==0)?"0":TimeToString(m_lastEntryTime, TIME_DATE|TIME_SECONDS),
+                  cooldownRemaining,
+                  (m_lastLossExitTime==0)?"0":TimeToString(m_lastLossExitTime, TIME_DATE|TIME_SECONDS),
+                  lockoutRemaining,
+                  (m_circuitBreakerUntil==0)?"0":TimeToString(m_circuitBreakerUntil, TIME_DATE|TIME_SECONDS),
+                  currentPositions);
+   }
    if(InpEnableFTMOGuardrails) {
       string ftmoReason = "";
       if(!CheckFTMOGuardrails(ftmoReason)) {
@@ -1272,26 +1333,30 @@ bool CanTrade() {
    }
 
    // Circuit breaker check
-   if(TimeCurrent() < m_circuitBreakerUntil) {
+   if(referenceTime < m_circuitBreakerUntil) {
+      if(InpEnableDebugPrint) PrintFormat("CanTrade: Circuit breaker active until %s", TimeToString(m_circuitBreakerUntil, TIME_DATE|TIME_SECONDS));
       return false;
    }
    
    // Max concurrent positions check
    int currentPositions = CountPositions();
    if(currentPositions >= InpMaxConcurrent) {
+      if(InpEnableDebugPrint) PrintFormat("CanTrade: Max concurrent reached (%d >= %d)", currentPositions, InpMaxConcurrent);
       return false;
    }
    
    // Cooldown check
    if(m_lastEntryTime > 0) {
-      if(TimeCurrent() - m_lastEntryTime < InpCooldownMin * 60) {
+      if(referenceTime - m_lastEntryTime < InpCooldownMin * 60) {
+         if(InpEnableDebugPrint) PrintFormat("CanTrade: Cooldown active (%d sec remaining)", InpCooldownMin * 60 - (int)(referenceTime - m_lastEntryTime));
          return false;
       }
    }
    
    // Lockout after loss check
    if(m_lastLossExitTime > 0) {
-      if(TimeCurrent() - m_lastLossExitTime < InpLockoutMin * 60) {
+      if(referenceTime - m_lastLossExitTime < InpLockoutMin * 60) {
+         if(InpEnableDebugPrint) PrintFormat("CanTrade: Lockout active (%d sec remaining)", InpLockoutMin * 60 - (int)(referenceTime - m_lastLossExitTime));
          return false;
       }
    }
@@ -1409,15 +1474,26 @@ int CountPositions() {
 //+------------------------------------------------------------------+
 //| Get session size multiplier                                      |
 //+------------------------------------------------------------------+
-double GetSessionMultiplier() {
+double GetSessionMultiplier(datetime barTimeUtc = 0) {
    MqlDateTime utc;
-   GetUTCTime(utc);
-   
+   if(barTimeUtc == 0) {
+      GetUTCTime(utc);
+   } else {
+      TimeToStruct(barTimeUtc, utc);
+   }
+
+   // Debug: always log what the EA sees for session checks when debug enabled
+   if(InpEnableDebugPrint) {
+      PrintFormat("SessionDebug: serverTime=%s utcHour=%d utcDay=%d start=%d end=%d",
+                  TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES),
+                  utc.hour, utc.day_of_week, InpSessionStart, InpSessionEnd);
+   }
+
    // Check weekend (UTC)
    if(utc.day_of_week == 0 || utc.day_of_week == 6) {
       return 0.0; // US100 only weekdays
    }
-   
+
    // Core session check (13:00-21:00 UTC)
    if(utc.hour >= InpSessionStart && utc.hour < InpSessionEnd) {
       double mult = 1.0;
@@ -1427,7 +1503,7 @@ double GetSessionMultiplier() {
       }
       return mult;
    }
-   
+
    return 0.0; // Outside session
 }
 
@@ -1491,11 +1567,26 @@ int GetTFScoreAtTime(ENUM_TIMEFRAMES tf, int direction, datetime barTime) {
    
    double close[1], ema20[1], ema50[1], rsi[1];
    int shift = iBarShift(Symbol(), tf, barTime, false);
-   if(shift < 0) return 0;
-   if(CopyClose(Symbol(), tf, shift, 1, close) < 1) return 0;
-   if(CopyBuffer(handleEMA20, 0, shift, 1, ema20) < 1) return 0;
-   if(CopyBuffer(handleEMA50, 0, shift, 1, ema50) < 1) return 0;
-   if(CopyBuffer(handleRSI, 0, shift, 1, rsi) < 1) return 0;
+   if(shift < 0) {
+      if(InpEnableDebugPrint) PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d -> iBarShift<0", TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift);
+      return 0;
+   }
+   if(CopyClose(Symbol(), tf, shift, 1, close) < 1) {
+      if(InpEnableDebugPrint) PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d -> CopyClose failed", TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift);
+      return 0;
+   }
+   if(CopyBuffer(handleEMA20, 0, shift, 1, ema20) < 1) {
+      if(InpEnableDebugPrint) PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d -> CopyBuffer EMA20 failed", TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift);
+      return 0;
+   }
+   if(CopyBuffer(handleEMA50, 0, shift, 1, ema50) < 1) {
+      if(InpEnableDebugPrint) PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d -> CopyBuffer EMA50 failed", TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift);
+      return 0;
+   }
+   if(CopyBuffer(handleRSI, 0, shift, 1, rsi) < 1) {
+      if(InpEnableDebugPrint) PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d -> CopyBuffer RSI failed", TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift);
+      return 0;
+   }
    
    int score = 0;
    
@@ -1509,6 +1600,12 @@ int GetTFScoreAtTime(ENUM_TIMEFRAMES tf, int direction, datetime barTime) {
       if(rsi[0] < 50) score++;
    }
    
+   if(InpEnableDebugPrint && score == 0) {
+      PrintFormat("ScoreDebug: tf=%s dir=%d barTime=%s shift=%d close=%.5f ema20=%.5f ema50=%.5f rsi=%.5f score=%d",
+                  TfToShortString(tf), direction, TimeToString(barTime, TIME_DATE|TIME_SECONDS), shift,
+                  (double)close[0], (double)ema20[0], (double)ema50[0], (double)rsi[0], score);
+   }
+
    return score;
 }
 
@@ -1517,6 +1614,12 @@ int GetTFScoreAtTime(ENUM_TIMEFRAMES tf, int direction, datetime barTime) {
 //+------------------------------------------------------------------+
 double CalculateConfidenceMultiplier(datetime entryUtc) {
    int entriesInWindow = CountEntriesInWindow(entryUtc);
+   if(InpEnableDebugPrint) {
+      datetime windowStart = Get4HWindowStart(entryUtc);
+      PrintFormat("ConfDebug: entryUtc=%s windowStart=%s entriesInWindow=%d totalRegistered=%d",
+                  TimeToString(entryUtc, TIME_DATE|TIME_SECONDS), TimeToString(windowStart, TIME_DATE|TIME_SECONDS),
+                  entriesInWindow, ArraySize(m_entry_times_utc));
+   }
    return (entriesInWindow == 0) ? InpConfidenceMult : 1.0;
 }
 
@@ -1526,14 +1629,22 @@ double CalculateConfidenceMultiplier(datetime entryUtc) {
 void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
                   double regimeMult, double confMult, int totalScore,
                   datetime barTime, datetime barTimeUtc, double signalPrice) {
+   if(InpEnableDebugPrint) {
+      PrintFormat("EXECUTING: bar=%s dir=%s signalPrice=%.5f zonePrice=%.5f h4ATR=%.5f score=%d confMult=%.2f sessionMult=%.2f regimeMult=%.2f",
+                  TimeToString(barTime, TIME_DATE|TIME_MINUTES),
+                  (zone.direction == 1) ? "LONG" : "SHORT",
+                  signalPrice, zone.price, h4ATR, totalScore, confMult, sessionMult, regimeMult);
+   }
+   
    double entryPrice = ApplyExecutionAdjustment(signalPrice, zone.direction, true);
    ENUM_ORDER_TYPE orderType = (zone.direction == 1) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
    
    // Calculate stop and take profit
    double stopDistance = InpATRStopMult * h4ATR;
+   // Use the raw signal price to compute stop distance (match Python logic)
    double stopPrice = (zone.direction == 1)
-      ? entryPrice - stopDistance
-      : entryPrice + stopDistance;
+      ? signalPrice - stopDistance
+      : signalPrice + stopDistance;
    double takeProfit = (zone.direction == 1)
       ? entryPrice + (InpTPMult * stopDistance)
       : entryPrice - (InpTPMult * stopDistance);
@@ -1697,11 +1808,12 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
       
       if(InpEnableDebugPrint) {
          Print("Entry executed: ", (zone.direction == 1) ? "LONG" : "SHORT",
-               " | Price: ", entryPrice,
-               " | SL: ", stopPrice,
-               " | TP: ", takeProfit,
-               " | Volume: ", volume,
-               " | Score: ", totalScore);
+            " | Price: ", entryPrice,
+            " | SL: ", stopPrice,
+            " | TP: ", takeProfit,
+            " | Volume: ", volume,
+            " | Score: ", totalScore,
+            " | Conf: ", DoubleToString(confMult, 2));
       }
    } else {
       Print("Entry failed: ", m_trade.ResultRetcodeDescription());
@@ -2033,6 +2145,20 @@ void OnChartEvent(const int id,
 //| Custom optimization metric for MT5 Strategy Tester               |
 //+------------------------------------------------------------------+
 double OnTester() {
+   // Diagnostic: write deal history count to a debug file
+   {
+      int debugHandle = FileOpen("phantom_mt5_tester_diagnostic.txt", FILE_WRITE | FILE_TXT | FILE_ANSI, ' ');
+      if(debugHandle != INVALID_HANDLE) {
+         if(HistorySelect(0, TimeCurrent() + 86400)) {
+            int dealsTotal = HistoryDealsTotal();
+            FileWrite(debugHandle, StringFormat("HistorySelect succeeded. HistoryDealsTotal=%d", dealsTotal));
+         } else {
+            FileWrite(debugHandle, StringFormat("HistorySelect FAILED. GetLastError=%d", GetLastError()));
+         }
+         FileClose(debugHandle);
+      }
+   }
+   
    ExportTesterTrades();
 
    // Custom max metric: favor profitable runs with controlled drawdown.

@@ -470,7 +470,10 @@ double GetPositionATR(ulong ticket) {
 //+------------------------------------------------------------------+
 void CheckEntryConditions() {
    // Check if we can trade
-   if(!CanTrade()) return;
+   if(!CanTrade()) {
+      if(InpEnableDebugPrint) PrintFormat("CanTrade BLOCKED at bar=%s", TimeToString(iTime(Symbol(), PERIOD_M5, 1), TIME_DATE|TIME_MINUTES));
+      return;
+   }
    
    datetime barTime = iTime(Symbol(), PERIOD_M5, 1);
    datetime barTimeUtc = ToUTC(barTime);
@@ -526,7 +529,7 @@ void CheckEntryConditions() {
       }
       
       // Session filter
-      double sessionMult = GetSessionMultiplier();
+      double sessionMult = GetSessionMultiplier(barTimeUtc);
       if(sessionMult <= 0) continue;
       
       // Cluster cap
@@ -572,18 +575,21 @@ void CheckEntryConditions() {
 bool CanTrade() {
    // Circuit breaker check
    if(TimeCurrent() < m_circuitBreakerUntil) {
+      if(InpEnableDebugPrint) PrintFormat("CanTrade: Circuit breaker active until %s", TimeToString(m_circuitBreakerUntil, TIME_DATE|TIME_SECONDS));
       return false;
    }
    
    // Max concurrent positions check
    int currentPositions = CountPositions();
    if(currentPositions >= InpMaxConcurrent) {
+      if(InpEnableDebugPrint) PrintFormat("CanTrade: Max concurrent reached (%d >= %d)", currentPositions, InpMaxConcurrent);
       return false;
    }
    
    // Cooldown check
    if(m_lastEntryTime > 0) {
       if(TimeCurrent() - m_lastEntryTime < InpCooldownMin * 60) {
+         if(InpEnableDebugPrint) PrintFormat("CanTrade: Cooldown active (%d sec remaining)", InpCooldownMin * 60 - (int)(TimeCurrent() - m_lastEntryTime));
          return false;
       }
    }
@@ -591,6 +597,7 @@ bool CanTrade() {
    // Lockout after loss check
    if(m_lastLossExitTime > 0) {
       if(TimeCurrent() - m_lastLossExitTime < InpLockoutMin * 60) {
+         if(InpEnableDebugPrint) PrintFormat("CanTrade: Lockout active (%d sec remaining)", InpLockoutMin * 60 - (int)(TimeCurrent() - m_lastLossExitTime));
          return false;
       }
    }
@@ -616,15 +623,28 @@ int CountPositions() {
 //+------------------------------------------------------------------+
 //| Get session size multiplier                                      |
 //+------------------------------------------------------------------+
-double GetSessionMultiplier() {
+double GetSessionMultiplier(datetime barTimeUtc = 0) {
    MqlDateTime utc;
-   GetUTCTime(utc);
-   
+   if(barTimeUtc == 0) {
+      GetUTCTime(utc);
+   } else {
+      TimeToStruct(barTimeUtc, utc);
+   }
+
+   // Debug: log what the EA sees (throttled)
+   static datetime lastDebug = 0;
+   if(InpEnableDebugPrint && TimeCurrent() - lastDebug >= 300) {
+      PrintFormat("SessionDebug: serverTime=%s utcHour=%d utcDay=%d start=%d end=%d",
+                  TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES),
+                  utc.hour, utc.day_of_week, InpSessionStart, InpSessionEnd);
+      lastDebug = TimeCurrent();
+   }
+
    // Check weekend (UTC)
    if(utc.day_of_week == 0 || utc.day_of_week == 6) {
       return 0.0; // US100 only weekdays
    }
-   
+
    // Core session check (13:00-21:00 UTC)
    if(utc.hour >= InpSessionStart && utc.hour < InpSessionEnd) {
       double mult = 1.0;
@@ -634,7 +654,7 @@ double GetSessionMultiplier() {
       }
       return mult;
    }
-   
+
    return 0.0; // Outside session
 }
 
