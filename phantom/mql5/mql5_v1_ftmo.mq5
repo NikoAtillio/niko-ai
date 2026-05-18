@@ -75,10 +75,11 @@ input ulong     InpMagicNumber = 202406;              // EA Magic Number
 input string   InpComment = "Phantom P2 US100 B";    // Order comment
 
 // --- Time handling ---
-input int      InpBrokerUTCOffset = -5;              // Broker time = UTC + offset (US100 = EST = UTC-5)
-input bool     InpAutoUTCOffset = true;              // Auto-switch between winter/summer offsets
-input int      InpWinterUTCOffset = -5;              // Winter offset (EST, Nov-Mar)
-input int      InpSummerUTCOffset = -4;              // Summer offset (EDT, Mar-Nov)
+// Broker server is UTC+2 (CEST). Disable auto-switch and use explicit offset.
+input int      InpBrokerUTCOffset = 2;               // Broker time = UTC + 2 (CEST)
+input bool     InpAutoUTCOffset = false;             // Disable auto-switch (we set explicit offset)
+input int      InpWinterUTCOffset = 2;               // Winter offset (fallback, unused when auto=false)
+input int      InpSummerUTCOffset = 2;               // Summer offset (fallback, unused when auto=false)
 
 // --- Development ---
 input bool     InpEnableDebugPrint = true;           // Enable debug output
@@ -788,10 +789,17 @@ void BuildH4Zones() {
    ArrayResize(m_zones, 0);
    m_zoneCount = 0;
    
-   // Get H4 data
-   int bars = InpZoneLookback + (InpPivotBars * 2) + 50;
+   // Get all available H4 data so zone availability matches the Python model.
+   int bars = iBars(Symbol(), PERIOD_H4);
    double highs[], lows[];
    datetime times[];
+
+   if(bars <= (InpPivotBars * 2)) {
+      if(InpEnableDebugPrint) {
+         PrintFormat("Zones refreshed: insufficient H4 bars (%d) for pivot detection", bars);
+      }
+      return;
+   }
    
    ArraySetAsSeries(highs, false);
    ArraySetAsSeries(lows, false);
@@ -975,15 +983,35 @@ void ManageOpenPositions() {
             double trailDistance = InpTrailATRMult * atrEntry;
             if(isLong) {
                double newTrail = barClose - trailDistance;
+               if(InpEnableDebugPrint) {
+                  PrintFormat("TrailCalc: ticket=%I64u dir=LONG atrEntry=%.5f trailDistance=%.5f barClose=%.5f stopBefore=%.5f stopAfter=%.5f",
+                              ticket,
+                              atrEntry,
+                              trailDistance,
+                              barClose,
+                              stopPrice,
+                              newTrail);
+               }
                if(newTrail > stopPrice) {
                   stopPrice = newTrail;
                }
             } else {
                double newTrail = barClose + trailDistance;
+               if(InpEnableDebugPrint) {
+                  PrintFormat("TrailCalc: ticket=%I64u dir=SHORT atrEntry=%.5f trailDistance=%.5f barClose=%.5f stopBefore=%.5f stopAfter=%.5f",
+                              ticket,
+                              atrEntry,
+                              trailDistance,
+                              barClose,
+                              stopPrice,
+                              newTrail);
+               }
                if(newTrail < stopPrice) {
                   stopPrice = newTrail;
                }
             }
+         } else if(InpEnableDebugPrint) {
+            PrintFormat("TrailCalc: ticket=%I64u skipped because atrEntry=%.5f", ticket, atrEntry);
          }
          
          // Breakeven check (after trailing)
@@ -1276,6 +1304,29 @@ void CheckEntryConditions() {
       // Confidence multiplier
       double confMult = CalculateConfidenceMultiplier(barTimeUtc);
       
+      if(InpEnableDebugPrint) {
+         PrintFormat("ENTRY_ZONE: bar=%s signal=%.5f zone_idx=%d zone_time=%s zone_price=%.5f dir=%s zoneDist=%.6f tol=%.6f h4=%d h1=%d ltf=%d total=%d effMin=%d session=%.2f regime=%s regimeMult=%.2f confMult=%.2f h4ATR=%.5f m15ATR=%.5f",
+               TimeToString(barTime, TIME_DATE|TIME_MINUTES),
+               signalPrice,
+               i,
+               TimeToString(m_zones[i].time, TIME_DATE|TIME_SECONDS),
+               m_zones[i].price,
+               (m_zones[i].direction == 1) ? "LONG" : "SHORT",
+               zoneDist,
+               GetEffectiveZoneTolerance(),
+               h4Score,
+               h1Score,
+               ltfScore,
+               totalScore,
+               effectiveScoreMin,
+               sessionMultForBar,
+               regime,
+               regimeMult,
+               confMult,
+               h4ATR,
+               m15ATR);
+      }
+
       // Calculate position size and execute
       ExecuteEntry(m_zones[i], h4ATR, sessionMultForBar, regimeMult, confMult, totalScore, barTime, barTimeUtc, signalPrice);
       entryExecuted = true;
@@ -1801,6 +1852,14 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
       m_pos_meta[metaIndex].zone_time_utc = zone.time;
       m_pos_meta[metaIndex].zone_price = zone.price;
       m_pos_meta[metaIndex].logged = false;  // Mark as not yet logged
+
+      if(InpEnableDebugPrint) {
+         PrintFormat("StoreATR: ticket=%I64u atr_entry=%.5f h4ATR=%.5f initialRisk=%.5f",
+               ticket,
+               m_pos_meta[metaIndex].atr_entry,
+               h4ATR,
+               initialRisk);
+      }
       
       RegisterEntryTime(barTimeUtc);
       RegisterFTMOTradingDay(barTimeUtc);
@@ -2016,6 +2075,7 @@ int GetEffectiveUTCOffset() {
 
 datetime ToUTC(datetime serverTime) {
    int offset = GetEffectiveUTCOffset();
+   // Broker time is already UTC, so offset should be 0 and this returns serverTime unchanged
    return serverTime - (offset * 3600);
 }
 

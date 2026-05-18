@@ -38,9 +38,9 @@ warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2_ftmo'
 
-# FTMO profile: reduce sizing and disable peak-hour boosting.
-HIGH_RISK_PCT_MULT = 1.0
-HIGH_PEAK_SESSION_BOOST = 1.0
+# Aligned profile: match MT5 high-risk sizing and peak-hour boost.
+HIGH_RISK_PCT_MULT = 2.0
+HIGH_PEAK_SESSION_BOOST = 1.2
 HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
 
 FTMO_CONFIG = {
@@ -127,8 +127,8 @@ INSTRUMENT_CONFIG = {
 # ══════════════════════════════════════════════════════════════════════════════
 DEFAULTS = {
     'capital'       : 70_000,
-    'max_concurrent': 2,
-    'cooldown_min'  : 30,
+    'max_concurrent': 3,
+    'cooldown_min'  : 20,
     'lockout_min'   : 60,
     'conf_tol'      : 0.002,     # 0.20% zone proximity
     'h4_pivot_bars' : 2,
@@ -145,7 +145,7 @@ DEFAULTS = {
 SCENARIOS = {
     'B': dict(
         entry_tf    = 'm5',
-        risk_pct    = 0.005,
+        risk_pct    = 0.007,
         score_min   = 3,
         h4_min      = 1,
         h1_min      = 1,
@@ -243,12 +243,26 @@ def add_daily_regime(daily: pd.DataFrame, inst_cfg: dict) -> pd.DataFrame:
     )
     return daily
 
-def apply_start_date(df: pd.DataFrame, start_date: Optional[str]) -> pd.DataFrame:
-    """Optionally filter a dataframe to rows on/after a UTC date string."""
-    if not start_date:
+def apply_start_date(df: pd.DataFrame, start_date: Optional[str], end_date: Optional[str] = None) -> pd.DataFrame:
+    """Optionally filter a dataframe to rows within a UTC date range."""
+    if not isinstance(df.index, pd.DatetimeIndex):
         return df
-    ts = pd.Timestamp(start_date)
-    return df[df.index >= ts]
+
+    def _align_ts(ts: pd.Timestamp) -> pd.Timestamp:
+        idx_tz = df.index.tz
+        if idx_tz is None:
+            return ts.tz_localize(None) if ts.tzinfo else ts
+        if ts.tzinfo is None:
+            return ts.tz_localize(idx_tz)
+        return ts.tz_convert(idx_tz)
+
+    if start_date:
+        ts = _align_ts(pd.Timestamp(start_date))
+        df = df[df.index >= ts]
+    if end_date:
+        ts_end = _align_ts(pd.Timestamp(end_date))
+        df = df[df.index <= ts_end]
+    return df
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FAST LOOKUP HELPERS
@@ -464,6 +478,8 @@ def run_scenario(
     commission_per_trade: float,
     label: str,
     zone_lookback_bars: int,
+    debug: bool = False,
+    debug_path: Optional[str] = None,
 ) -> pd.DataFrame:
 
     start_cap = capital
@@ -502,6 +518,8 @@ def run_scenario(
                   'not_bounce': 0, 'ftmo': 0}
     last_entry = None
     last_loss_exit = None
+    debug_rows = [] if debug else None
+    debug_tol_mult = 5.0
 
     ftmo = FTMO_CONFIG
     ftmo['profit_target_cash'] = ftmo['account_size'] * (ftmo['profit_target_pct'] / 100.0)
@@ -723,21 +741,49 @@ def run_scenario(
         # ── entry logic ───────────────────────────────────────────────────
         if len(positions) >= max_concurrent:
             skipped['concurrent'] += 1
+            if debug_rows is not None:
+                debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'concurrent',
+                })
             continue
 
         # Circuit breaker check
         if breaker.is_paused(ts_pd):
             skipped['circuit'] += 1
+            if debug_rows is not None:
+                debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'circuit',
+                })
             continue
 
         # Lockout after a losing exit to avoid immediate revenge entries.
         if last_loss_exit is not None:
             if (ts_pd - last_loss_exit).total_seconds() / 60 < lockout_min:
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'bar_skip',
+                        'reason': 'lockout',
+                    })
                 continue
 
         # Cooldown
         if last_entry is not None:
             if (ts_pd - last_entry).total_seconds() / 60 < cooldown_min:
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'bar_skip',
+                        'reason': 'cooldown',
+                    })
                 continue
 
         # ── scan zones ────────────────────────────────────────────────────
@@ -755,9 +801,22 @@ def run_scenario(
             z_ts  = zone_ts[z_i]
             z_px  = zone_px[z_i]
             z_dir = zone_dir[z_i]
+            z_dist = abs(price - z_px) / z_px
 
             # Zone proximity check
-            if abs(price - z_px) / z_px > conf_tol:
+            if z_dist > conf_tol:
+                if debug_rows is not None and z_dist <= conf_tol * debug_tol_mult:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'tolerance',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'conf_tol': conf_tol,
+                    })
                 continue
 
             # ── NOT-CHASING FILTER: entry must be within 1.5x M15 ATR of zone ──
@@ -765,6 +824,18 @@ def run_scenario(
             if not np.isnan(m15_atr_v) and m15_atr_v > 0:
                 if abs(price - z_px) > 1.5 * m15_atr_v:
                     skipped['chasing'] += 1
+                    if debug_rows is not None:
+                        debug_rows.append({
+                            'ts': ts_pd,
+                            'price': price,
+                            'event': 'zone_skip',
+                            'reason': 'chasing',
+                            'zone_ts': z_ts,
+                            'zone_px': z_px,
+                            'zone_dir': z_dir,
+                            'zone_dist': z_dist,
+                            'm15_atr': m15_atr_v,
+                        })
                     continue
 
             # ── BOUNCE-ONLY FILTER: price approaching from opposite side ──────
@@ -772,9 +843,31 @@ def run_scenario(
             # For a short zone (supply), price must be coming from below (bounce into resistance)
             if z_dir == 'long' and price < z_px * (1 - conf_tol):
                 skipped['not_bounce'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'not_bounce',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue  # price already broke below — not a bounce
             if z_dir == 'short' and price > z_px * (1 + conf_tol):
                 skipped['not_bounce'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'not_bounce',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue  # price already broke above — not a bounce
 
             # ── p2 FILTER 1: Session gate ─────────────────────────────────
@@ -783,16 +876,50 @@ def run_scenario(
                 session_mult *= HIGH_PEAK_SESSION_BOOST
             if session_mult == 0.0:
                 skipped['session'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'session',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'session_mult': session_mult,
+                    })
                 continue
 
             # ── p2 FILTER 2: Zone confirmation delay ──────────────────────
             if not zone_is_confirmed(ts_pd, z_ts, inst_cfg):
                 skipped['confirm'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'confirm',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue
 
             # ── p2 FILTER 3: Cluster cap ──────────────────────────────────
             if not cluster.can_enter(ts_pd):
                 skipped['cluster'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'cluster',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue
 
             # ── p2 FILTER 4: Trend regime ─────────────────────────────────
@@ -810,12 +937,54 @@ def run_scenario(
 
             if h4_score < h4_min:
                 skipped['score'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'score_h4',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'h4_score': h4_score,
+                        'h1_score': h1_score,
+                        'ltf_score': ltf_score,
+                    })
                 continue
             if h1_score < h1_min:
                 skipped['score'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'score_h1',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'h4_score': h4_score,
+                        'h1_score': h1_score,
+                        'ltf_score': ltf_score,
+                    })
                 continue
             if ltf_score < ltf_min:
                 skipped['score'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'score_ltf',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'h4_score': h4_score,
+                        'h1_score': h1_score,
+                        'ltf_score': ltf_score,
+                    })
                 continue
 
             total_score = h4_score + h1_score + ltf_score
@@ -823,9 +992,35 @@ def run_scenario(
             effective_score_min = score_min + int(dir_score_offset.get(z_dir, 0))
             if total_score < effective_score_min:
                 skipped['score'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'score_total',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'total_score': total_score,
+                        'effective_score_min': effective_score_min,
+                    })
                 continue
             if ltf_score > ltf_cap:
                 skipped['score'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'score_cap',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                        'ltf_score': ltf_score,
+                        'ltf_cap': ltf_cap,
+                    })
                 continue
 
             # Volume filter (Scenario A only)
@@ -845,6 +1040,17 @@ def run_scenario(
                               m5_vol[i_ltf] > m5_vol_ma[i_ltf])
                 if not vol_ok:
                     skipped['vol'] += 1
+                    if debug_rows is not None:
+                        debug_rows.append({
+                            'ts': ts_pd,
+                            'price': price,
+                            'event': 'zone_skip',
+                            'reason': 'vol',
+                            'zone_ts': z_ts,
+                            'zone_px': z_px,
+                            'zone_dir': z_dir,
+                            'zone_dist': z_dist,
+                        })
                     continue
 
             # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
@@ -878,6 +1084,17 @@ def run_scenario(
             risk_amt = min(capital * risk_pct, remaining_daily, remaining_total)
             if risk_amt <= 0.0:
                 skipped['ftmo'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'ftmo',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue
             stop_px    = price - stop_dist if z_dir == 'long' else price + stop_dist
             tp_px      = (price + tp_mult * stop_dist if z_dir == 'long'
@@ -900,6 +1117,17 @@ def run_scenario(
                 qty = min(qty, max_notional / entry_exec)
 
             if qty <= 0:
+                if debug_rows is not None:
+                    debug_rows.append({
+                        'ts': ts_pd,
+                        'price': price,
+                        'event': 'zone_skip',
+                        'reason': 'qty',
+                        'zone_ts': z_ts,
+                        'zone_px': z_px,
+                        'zone_dir': z_dir,
+                        'zone_dist': z_dist,
+                    })
                 continue
 
             # Register entry
@@ -923,6 +1151,29 @@ def run_scenario(
                 'regime'            : regime,
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
             })
+
+            if debug_rows is not None:
+                debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'enter',
+                    'reason': 'entry',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'session_mult': session_mult,
+                    'regime': regime,
+                    'regime_mult': regime_mult,
+                    'h4_score': h4_score,
+                    'h1_score': h1_score,
+                    'ltf_score': ltf_score,
+                    'total_score': total_score,
+                    'confidence_mult': conf_mult,
+                    'risk_amt': risk_amt,
+                    'qty': qty,
+                    'entry_exec': entry_exec,
+                })
 
             # Only take one zone per bar
             break
@@ -979,6 +1230,9 @@ def run_scenario(
         target_hit_equity=target_hit_equity,
         target_equity=profit_target_equity,
     )
+    if debug_rows is not None and debug_path:
+        debug_df = pd.DataFrame(debug_rows)
+        debug_df.to_csv(debug_path, index=False)
     return df_r
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1081,6 +1335,12 @@ def main():
                         help='Fixed commission per closed trade')
     parser.add_argument('--start-date', default=None,
                         help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+    parser.add_argument('--end-date', default=None,
+                        help='Optional end date filter (YYYY-MM-DD) applied to all timeframes')
+    parser.add_argument('--debug', action='store_true',
+                        help='Write debug decision CSV for entries/skips')
+    parser.add_argument('--debug-file', default=None,
+                        help='Optional debug CSV path (defaults to output-dir)')
     parser.add_argument('--disable-ftmo', action='store_true',
                         help='Run without FTMO guardrails (for comparison)')
     args = parser.parse_args()
@@ -1111,12 +1371,12 @@ def main():
     )
 
     print("\nLoading data...")
-    m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date)
-    m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date)
-    h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date)
-    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date)
-    m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date)
-    daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date)
+    m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date, args.end_date)
+    m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date, args.end_date)
+    h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date, args.end_date)
+    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date, args.end_date)
+    m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date, args.end_date)
+    daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date, args.end_date)
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
 
@@ -1153,6 +1413,12 @@ def main():
     cfg = ACTIVE_SCENARIO_CFG
     sc_id = ACTIVE_SCENARIO_ID
     candles = m1 if cfg['entry_tf'] == 'm1' else m5
+    debug_path = None
+    if args.debug:
+        debug_path = args.debug_file or os.path.join(
+            output_dir,
+            f'phantom_{ENGINE_VERSION}_debug_{args.instrument}_{sc_id}.csv'
+        )
     # Show which timeframe is used for entries and the actual candle ranges
     print(f"\n  Entry TF: {cfg['entry_tf'].upper()} | Candles Range: {candles.index[0]} → {candles.index[-1]}")
     # Also print M1 range to highlight any mismatch between M1 and the entry timeframe
@@ -1175,12 +1441,16 @@ def main():
         zone_lookback_bars=DEFAULTS['h4_lookback'],
         label=(f"Scenario {sc_id} | {args.instrument} | "
              f"{cfg['entry_tf'].upper()} entry | risk={(cfg['risk_pct'] * HIGH_RISK_PCT_MULT)*100:.2f}%"),
+        debug=args.debug,
+        debug_path=debug_path,
         **arrays,
     )
     if df_r is not None and len(df_r):
         out = os.path.join(output_dir, f'phantom_{ENGINE_VERSION}_trades_{args.instrument}_{sc_id}.csv')
         df_r.to_csv(out, index=False)
         print(f"  Trades saved → {out}")
+        if debug_path:
+            print(f"  Debug saved  → {debug_path}")
 
     print("\nDone.")
 

@@ -1,0 +1,38 @@
+Python vs MT5 trade alignment
+Python-only zone keys: 5
+MT5-only zone keys: 3
+
+Python-only rows:
+- 2025-12-04 09:00|25638.85|short (4 trades)
+  python 2025-12-09 13:40:00 price=25646.55 score=5 conf=1.0 regimeMult=0.5 qty=0.490369
+  python 2025-12-12 15:00:00 price=25650.55 score=5 conf=1.5 regimeMult=0.5 qty=0.537667
+  python 2025-12-12 15:20:00 price=25650.45 score=6 conf=1.0 regimeMult=0.5 qty=0.358445
+  python 2025-12-12 15:40:00 price=25644.45 score=6 conf=1.0 regimeMult=0.5 qty=0.358445
+- 2025-12-05 05:00|25686.55|short (2 trades)
+  python 2025-12-05 20:00:00 price=25665.15 score=6 conf=1.5 regimeMult=0.5 qty=0.686117
+  python 2025-12-10 17:05:00 price=25674.65 score=6 conf=1.5 regimeMult=0.5 qty=0.944761
+- 2025-12-16 21:00|24809.25|long (3 trades)
+  python 2025-12-18 17:05:00 price=24846.45 score=6 conf=1.5 regimeMult=1.0 qty=1.002793
+  python 2025-12-18 17:35:00 price=24841.55 score=5 conf=1.0 regimeMult=1.0 qty=0.668529
+  python 2025-12-18 17:55:00 price=24844.65 score=6 conf=1.0 regimeMult=1.0 qty=0.668529
+- 2025-12-24 13:00|25594.55|short (2 trades)
+  python 2025-12-29 13:00:00 price=25599.15 score=7 conf=1.5 regimeMult=0.5 qty=1.216186
+  python 2025-12-29 13:40:00 price=25607.65 score=7 conf=1.0 regimeMult=0.5 qty=0.810791
+- 2026-01-12 05:00|25442.20|long (1 trades)
+  python 2026-01-15 13:00:00 price=25464.65 score=8 conf=1.5 regimeMult=1.0 qty=1.172126
+
+MT5-only rows:
+- 2025-11-28 09:00|25223.95|long (7 ENTRY_ZONE rows)
+  mt5 2025-12-01 08:10:00 zone_idx=805 score=6 conf=1.5 regimeMult=1.0
+  mt5 2025-12-01 08:30:00 zone_idx=805 score=6 conf=1.0 regimeMult=1.0
+  mt5 2025-12-01 08:50:00 zone_idx=805 score=6 conf=1.0 regimeMult=1.0
+  mt5 2025-12-01 11:40:00 zone_idx=805 score=5 conf=1.5 regimeMult=1.0
+  mt5 2025-12-01 12:00:00 zone_idx=805 score=5 conf=1.0 regimeMult=1.0
+  mt5 2025-12-01 12:20:00 zone_idx=805 score=7 conf=1.0 regimeMult=1.0
+  mt5 2025-12-01 15:45:00 zone_idx=805 score=5 conf=1.5 regimeMult=1.0
+- 2025-12-17 09:00|25176.95|short (3 ENTRY_ZONE rows)
+  mt5 2025-12-17 10:10:00 zone_idx=833 score=5 conf=1.5 regimeMult=0.5
+  mt5 2025-12-17 10:55:00 zone_idx=833 score=5 conf=1.0 regimeMult=0.5
+  mt5 2025-12-17 15:20:00 zone_idx=833 score=6 conf=1.5 regimeMult=0.5
+- 2026-01-12 21:00|25464.15|long (1 ENTRY_ZONE rows)
+  mt5 2026-01-15 08:15:00 zone_idx=859 score=5 conf=1.5 regimeMult=1.0

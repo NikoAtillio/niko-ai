@@ -12,7 +12,15 @@ import pandas as pd
 def _read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(path)
-    return pd.read_csv(path)
+    with path.open('r', encoding='utf-8', errors='ignore') as handle:
+        header = handle.readline()
+    delim_counts = {
+        ',': header.count(','),
+        ';': header.count(';'),
+        '\t': header.count('\t'),
+    }
+    delimiter = max(delim_counts, key=delim_counts.get)
+    return pd.read_csv(path, sep=delimiter)
 
 
 def load_mt5_trades(path: Path) -> pd.DataFrame:

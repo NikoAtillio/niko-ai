@@ -1,0 +1,150 @@
+======================================================================
+MT5 HTML Report vs Python - Trade Alignment
+======================================================================
+Source: ReportTester-1513266318.html
+Date range: 2025-12-01 to 2026-01-31
+
+MT5 entry trades: 66
+Python entry trades: 70
+Matched (within 30 minutes): 5
+Python-only trades: 70
+MT5-only trades: 61
+
+======================================================================
+PYTHON TRADES MT5 MISSED:
+======================================================================
+2025-12-05 20:00:00 | SHORT | score=6 | conf=1.5
+2025-12-05 20:20:00 | SHORT | score=6 | conf=1.0
+2025-12-05 20:50:00 | SHORT | score=6 | conf=1.0
+2025-12-09 13:00:00 | SHORT | score=7 | conf=1.5
+2025-12-09 13:20:00 | SHORT | score=7 | conf=1.0
+2025-12-09 13:40:00 | SHORT | score=5 | conf=1.0
+2025-12-10 17:05:00 | SHORT | score=6 | conf=1.5
+2025-12-10 17:25:00 | SHORT | score=7 | conf=1.0
+2025-12-10 17:45:00 | SHORT | score=7 | conf=1.0
+2025-12-11 16:00:00 | LONG  | score=4 | conf=1.5
+2025-12-11 16:20:00 | LONG  | score=5 | conf=1.0
+2025-12-11 16:40:00 | LONG  | score=5 | conf=1.0
+2025-12-12 15:00:00 | SHORT | score=5 | conf=1.5
+2025-12-12 15:20:00 | SHORT | score=6 | conf=1.0
+2025-12-12 15:40:00 | SHORT | score=6 | conf=1.0
+2025-12-17 13:00:00 | LONG  | score=6 | conf=1.5
+2025-12-17 13:30:00 | LONG  | score=7 | conf=1.0
+2025-12-17 14:00:00 | LONG  | score=7 | conf=1.0
+2025-12-18 17:05:00 | LONG  | score=6 | conf=1.5
+2025-12-18 17:35:00 | LONG  | score=5 | conf=1.0
+2025-12-18 17:55:00 | LONG  | score=6 | conf=1.0
+2025-12-19 14:00:00 | LONG  | score=8 | conf=1.5
+2025-12-19 14:20:00 | LONG  | score=8 | conf=1.0
+2025-12-19 14:40:00 | LONG  | score=8 | conf=1.0
+2025-12-29 13:00:00 | SHORT | score=7 | conf=1.5
+2025-12-29 13:20:00 | LONG  | score=4 | conf=1.0
+2025-12-29 13:40:00 | SHORT | score=7 | conf=1.0
+2025-12-29 16:20:00 | SHORT | score=7 | conf=1.5
+2025-12-29 20:45:00 | SHORT | score=8 | conf=1.5
+2025-12-30 13:05:00 | SHORT | score=7 | conf=1.5
+2025-12-30 13:25:00 | SHORT | score=7 | conf=1.0
+2025-12-30 13:45:00 | SHORT | score=7 | conf=1.0
+2025-12-30 17:35:00 | SHORT | score=7 | conf=1.5
+2025-12-30 17:55:00 | SHORT | score=7 | conf=1.0
+2025-12-30 18:15:00 | SHORT | score=7 | conf=1.0
+2026-01-02 13:00:00 | LONG  | score=8 | conf=1.5
+2026-01-02 13:20:00 | LONG  | score=8 | conf=1.0
+2026-01-02 13:40:00 | LONG  | score=8 | conf=1.0
+2026-01-06 15:00:00 | LONG  | score=4 | conf=1.5
+2026-01-06 16:40:00 | LONG  | score=5 | conf=1.5
+2026-01-06 17:05:00 | LONG  | score=4 | conf=1.0
+2026-01-08 14:05:00 | LONG  | score=5 | conf=1.5
+2026-01-08 14:25:00 | LONG  | score=6 | conf=1.0
+2026-01-08 14:45:00 | LONG  | score=6 | conf=1.0
+2026-01-09 13:00:00 | LONG  | score=6 | conf=1.5
+2026-01-09 13:20:00 | SHORT | score=4 | conf=1.0
+2026-01-09 13:40:00 | LONG  | score=6 | conf=1.0
+2026-01-09 19:25:00 | LONG  | score=6 | conf=1.5
+2026-01-12 13:00:00 | SHORT | score=6 | conf=1.5
+2026-01-12 13:20:00 | SHORT | score=6 | conf=1.0
+2026-01-12 13:40:00 | SHORT | score=5 | conf=1.0
+2026-01-12 20:40:00 | LONG  | score=5 | conf=1.5
+2026-01-14 13:35:00 | SHORT | score=6 | conf=1.5
+2026-01-14 15:45:00 | SHORT | score=6 | conf=1.0
+2026-01-14 16:45:00 | SHORT | score=6 | conf=1.5
+2026-01-15 13:00:00 | LONG  | score=8 | conf=1.5
+2026-01-15 13:20:00 | LONG  | score=8 | conf=1.0
+2026-01-15 13:40:00 | LONG  | score=8 | conf=1.0
+2026-01-16 13:00:00 | LONG  | score=8 | conf=1.5
+2026-01-16 13:25:00 | LONG  | score=9 | conf=1.0
+2026-01-16 14:30:00 | LONG  | score=7 | conf=1.0
+2026-01-22 15:00:00 | LONG  | score=8 | conf=1.5
+2026-01-22 15:20:00 | LONG  | score=8 | conf=1.0
+2026-01-22 15:40:00 | LONG  | score=8 | conf=1.0
+2026-01-30 13:00:00 | SHORT | score=8 | conf=1.5
+2026-01-30 13:20:00 | SHORT | score=8 | conf=1.0
+2026-01-30 13:40:00 | SHORT | score=8 | conf=1.0
+2026-01-30 19:30:00 | LONG  | score=5 | conf=1.5
+2026-01-30 19:50:00 | SHORT | score=6 | conf=1.0
+2026-01-30 20:20:00 | SHORT | score=7 | conf=1.5
+
+======================================================================
+MT5 TRADES PYTHON MISSED:
+======================================================================
+2025-12-01 08:10:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=64.71500|REG=
+2025-12-01 08:30:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=65.35786|REG=
+2025-12-01 08:50:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=65.53643|REG=
+2025-12-01 11:40:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=70.69357|REG=
+2025-12-01 12:00:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=70.69357|REG=
+2025-12-01 12:20:00 | LONG  | score=7 | P2_B|LONG|S=7|ATR=70.87929|REG=
+2025-12-01 15:45:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=76.93643|REG=
+2025-12-09 08:05:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=94.12214|REG
+2025-12-09 08:25:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=94.55786|REG
+2025-12-09 08:50:00 | SHORT | score=4 | P2_B|SHORT|S=4|ATR=96.22929|REG
+2025-12-10 12:30:00 | SHORT | score=8 | P2_B|SHORT|S=8|ATR=90.89286|REG
+2025-12-10 12:50:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=92.07143|REG
+2025-12-10 13:10:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=92.07143|REG
+2025-12-11 11:55:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=122.47143|REG
+2025-12-11 12:15:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=121.42857|REG
+2025-12-11 13:10:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=121.84286|REG
+2025-12-17 10:10:00 | SHORT | score=5 | P2_B|SHORT|S=5|ATR=154.07214|RE
+2025-12-17 10:55:00 | SHORT | score=5 | P2_B|SHORT|S=5|ATR=154.35071|RE
+2025-12-17 15:20:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=160.06500|RE
+2025-12-19 09:05:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=158.75643|REG
+2025-12-19 09:25:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=161.33500|REG
+2025-12-19 09:45:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=161.33500|REG
+2025-12-29 08:20:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=49.91357|REG=
+2025-12-29 10:30:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=52.81357|REG
+2025-12-29 10:50:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=55.53500|REG
+2025-12-29 11:10:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=55.86357|REG
+2025-12-30 08:10:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=69.96786|REG
+2025-12-30 08:30:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=70.89643|REG
+2025-12-30 08:50:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=70.91071|REG
+2026-01-02 08:05:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=93.29214|REG=
+2026-01-02 08:25:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=93.47786|REG=
+2026-01-02 08:45:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=93.89214|REG=
+2026-01-06 10:05:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=120.99571|REG
+2026-01-06 11:45:00 | LONG  | score=4 | P2_B|LONG|S=4|ATR=127.74571|REG
+2026-01-06 12:40:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=122.86714|REG
+2026-01-08 08:05:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=97.82571|REG
+2026-01-08 08:25:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=100.22571|RE
+2026-01-08 08:45:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=100.27571|RE
+2026-01-08 11:40:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=104.67571|REG
+2026-01-08 12:05:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=101.44000|REG
+2026-01-12 08:05:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=124.48786|RE
+2026-01-12 08:25:00 | SHORT | score=7 | P2_B|SHORT|S=7|ATR=125.55214|RE
+2026-01-12 08:45:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=125.55214|RE
+2026-01-14 12:05:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=100.50857|RE
+2026-01-14 14:25:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=110.33714|RE
+2026-01-14 14:45:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=110.33714|RE
+2026-01-15 08:15:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=122.25286|REG
+2026-01-15 08:35:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=126.85286|REG
+2026-01-15 08:55:00 | LONG  | score=6 | P2_B|LONG|S=6|ATR=127.10286|REG
+2026-01-16 08:05:00 | LONG  | score=9 | P2_B|LONG|S=9|ATR=133.70214|REG
+2026-01-16 09:35:00 | LONG  | score=7 | P2_B|LONG|S=7|ATR=135.02714|REG
+2026-01-16 10:35:00 | LONG  | score=7 | P2_B|LONG|S=7|ATR=136.14643|REG
+2026-01-22 10:10:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=190.52786|REG
+2026-01-22 10:30:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=193.75643|REG
+2026-01-22 10:50:00 | LONG  | score=8 | P2_B|LONG|S=8|ATR=194.31357|REG
+2026-01-30 08:05:00 | SHORT | score=8 | P2_B|SHORT|S=8|ATR=180.71214|RE
+2026-01-30 08:25:00 | SHORT | score=8 | P2_B|SHORT|S=8|ATR=183.27643|RE
+2026-01-30 08:45:00 | SHORT | score=8 | P2_B|SHORT|S=8|ATR=185.01214|RE
+2026-01-30 14:25:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=203.71214|REG
+2026-01-30 14:55:00 | SHORT | score=6 | P2_B|SHORT|S=6|ATR=203.71214|RE
+2026-01-30 15:15:00 | LONG  | score=5 | P2_B|LONG|S=5|ATR=203.71214|REG
