@@ -4,9 +4,9 @@
 //|                                             US100 Scenario B      |
 //+------------------------------------------------------------------+
 #property copyright "Phantom P2 MT5"
-#property version   "1.00"
+#property version   "2.00"
 #property description "Multi-Timeframe Zone-Based Strategy for US100"
-#property description "Scenario B - High Risk Profile"
+#property description "Scenario B - FTMO Guardrailed Profile"
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
@@ -75,11 +75,10 @@ input ulong     InpMagicNumber = 202406;              // EA Magic Number
 input string   InpComment = "Phantom P2 US100 B";    // Order comment
 
 // --- Time handling ---
-// Winning configuration: keep auto UTC switching enabled and use the broker's seasonal offsets.
-input int      InpBrokerUTCOffset = 2;               // Broker time = UTC + offset
+input int      InpBrokerUTCOffset = -5;              // Broker time = UTC + offset (US100 = EST = UTC-5)
 input bool     InpAutoUTCOffset = true;              // Auto-switch between winter/summer offsets
-input int      InpWinterUTCOffset = 2;               // Winter offset (Nov-Mar)
-input int      InpSummerUTCOffset = 3;               // Summer offset (Mar-Nov)
+input int      InpWinterUTCOffset = -5;              // Winter offset (EST, Nov-Mar)
+input int      InpSummerUTCOffset = -4;              // Summer offset (EDT, Mar-Nov)
 
 // --- Development ---
 input bool     InpEnableDebugPrint = true;           // Enable debug output
@@ -167,7 +166,7 @@ datetime      m_lastEntryTime;
 datetime      m_lastLossExitTime;
 datetime      m_circuitBreakerUntil;
 int           m_tradeCsvHandle = INVALID_HANDLE;
-string        m_tradeCsvFileName = "phantom_mql5_trade_log.csv";
+string        m_tradeCsvFileName = "phantom_mql5_trade_log_v2.csv";
 
 // FTMO state tracking
 double        m_ftmoInitialEquity;
@@ -313,7 +312,7 @@ void LogTradeCsvRow(datetime entryUtc, datetime exitUtc, ulong ticket, int direc
 //| Export tester trades to CSV                                      |
 //+------------------------------------------------------------------+
 void ExportTesterTrades() {
-   string fileName = "phantom_mt5_tester_export.csv";
+   string fileName = "phantom_mt5_tester_export_v2.csv";
    int handle = FileOpen(fileName, FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
    if(handle == INVALID_HANDLE) {
       if(InpEnableDebugPrint) {
@@ -493,7 +492,7 @@ void ExportTesterTrades() {
 //+------------------------------------------------------------------+
 void ExportAllDealsToCSV() {
    // Open CSV file for export
-   int fileHandle = FileOpen("phantom_mt5_export.csv", FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
+   int fileHandle = FileOpen("phantom_mt5_export_v2.csv", FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
    if(fileHandle == INVALID_HANDLE) {
       if(InpEnableDebugPrint) {
          PrintFormat("ExportAllDeals: failed to open export file (err=%d)", GetLastError());
@@ -618,7 +617,7 @@ void ExportAllDealsToCSV() {
    
    FileClose(fileHandle);
    if(InpEnableDebugPrint) {
-      PrintFormat("ExportAllDeals: exported %d trades to phantom_mt5_export.csv", rowsWritten);
+      PrintFormat("ExportAllDeals: exported %d trades to phantom_mt5_export_v2.csv", rowsWritten);
    }
 }
 
@@ -688,6 +687,29 @@ int OnInit() {
    } else if(InpEnableDebugPrint) {
       PrintFormat("TradeCsv: writing compact trade log to %s", m_tradeCsvFileName);
    }
+
+   if(InpEnableDebugPrint) {
+      double tickSize = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_SIZE);
+      double tickValue = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_TICK_VALUE);
+      double contractSize = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_CONTRACT_SIZE);
+      PrintFormat("SymbolDebug: symbol=%s tickSize=%.8f tickValue=%.8f contractSize=%.2f point=%.8f digits=%d lotStep=%.2f minLot=%.2f maxLot=%.2f",
+                  Symbol(),
+                  tickSize,
+                  tickValue,
+                  contractSize,
+                  SymbolInfoDouble(Symbol(), SYMBOL_POINT),
+                  _Digits,
+                  SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_STEP),
+                  SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN),
+                  SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX));
+      PrintFormat("TimezoneDebug: autoUTC=%s brokerOffset=%d winterOffset=%d summerOffset=%d session=%d-%d",
+                  InpAutoUTCOffset ? "true" : "false",
+                  InpBrokerUTCOffset,
+                  InpWinterUTCOffset,
+                  InpSummerUTCOffset,
+                  InpSessionStart,
+                  InpSessionEnd);
+   }
    
    // Build initial zones
    BuildH4Zones();
@@ -696,25 +718,6 @@ int OnInit() {
    EventSetTimer(300); // Refresh zones every 5 minutes
    
    Print("Phantom P2 US100 Scenario B FTMO initialized successfully");
-   // Timezone diagnostic
-   datetime serverTime = TimeCurrent();
-   datetime gmtTime = TimeGMT();
-   int offsetSeconds = (int)(serverTime - gmtTime);
-   double offsetHours = offsetSeconds / 3600.0;
-
-   PrintFormat("TIMEZONE DIAGNOSTIC:");
-   PrintFormat("  Server Time (TimeCurrent): %s", TimeToString(serverTime, TIME_DATE|TIME_SECONDS));
-   PrintFormat("  GMT Time (TimeGMT):       %s", TimeToString(gmtTime, TIME_DATE|TIME_SECONDS));
-   PrintFormat("  Server - GMT = %d seconds (%.1f hours)", offsetSeconds, offsetHours);
-   PrintFormat("  Server is UTC%s%.0f", (offsetHours >= 0) ? "+" : "", offsetHours);
-
-   // Also check what the session filter sees
-   MqlDateTime utc;
-   GetUTCTime(utc);
-   PrintFormat("  GetUTCTime returns hour=%d (this is what session filter checks)", utc.hour);
-   PrintFormat("  Session window: %d:00 to %d:00 UTC", InpSessionStart, InpSessionEnd);
-   PrintFormat("  InpAutoUTCOffset=%s | InpBrokerUTCOffset=%d | EffectiveOffset=%d",
-               InpAutoUTCOffset ? "true" : "false", InpBrokerUTCOffset, GetEffectiveUTCOffset());
    Print("Symbol: ", Symbol(), " | Risk: ", InpRiskPercent, "% | ATR Stop: ", InpATRStopMult, "x");
    if(InpEnableFTMOGuardrails) {
       Print("FTMO Guardrails ON | Account=", InpFTMOAccountSize,
@@ -763,15 +766,9 @@ void OnDeinit(const int reason) {
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
-   // Check if new bar on M5; fall back to the tester/chart timeframe if M5 data is not available.
+   // Check if new bar on M5
    static datetime lastBarM5 = 0;
    datetime currentBarM5 = iTime(Symbol(), PERIOD_M5, 0);
-   if(currentBarM5 <= 0) {
-      currentBarM5 = iTime(Symbol(), (ENUM_TIMEFRAMES)Period(), 0);
-   }
-   if(currentBarM5 <= 0) {
-      currentBarM5 = TimeCurrent();
-   }
    
    if(currentBarM5 == lastBarM5) return; // Only process on new M5 bar
    lastBarM5 = currentBarM5;
@@ -981,10 +978,18 @@ void ManageOpenPositions() {
    double bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
    double ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
    datetime barTime = iTime(Symbol(), PERIOD_M5, 1);
+   double barOpen = iOpen(Symbol(), PERIOD_M5, 1);
    double barClose = iClose(Symbol(), PERIOD_M5, 1);
    double barHigh = iHigh(Symbol(), PERIOD_M5, 1);
    double barLow = iLow(Symbol(), PERIOD_M5, 1);
    datetime barTimeUtc = ToUTC(barTime);
+
+   if(InpEnableDebugPrint) {
+      PrintFormat("ManageOpenPositionsDebug: barTime=%s barTimeUtc=%s open=%.5f high=%.5f low=%.5f close=%.5f bid=%.5f ask=%.5f",
+                  TimeToString(barTime, TIME_DATE|TIME_SECONDS),
+                  TimeToString(barTimeUtc, TIME_DATE|TIME_SECONDS),
+                  barOpen, barHigh, barLow, barClose, bid, ask);
+   }
    
    for(int i = PositionsTotal() - 1; i >= 0; i--) {
       if(m_position.SelectByIndex(i)) {
@@ -1154,22 +1159,22 @@ double GetPositionATR(ulong ticket) {
 //+------------------------------------------------------------------+
 void CheckEntryConditions() {
    // Check if we can trade
-   ENUM_TIMEFRAMES signalTF = PERIOD_M5;
-   if(Bars(Symbol(), PERIOD_M5) <= 2) {
-      signalTF = (ENUM_TIMEFRAMES)Period();
-   }
-
-   datetime barTime = iTime(Symbol(), signalTF, 1);
-   if(barTime <= 0) {
-      barTime = TimeCurrent();
-   }
+   datetime barTime = iTime(Symbol(), PERIOD_M5, 1);
    if(!CanTrade(barTime)) return;
    
    datetime barTimeUtc = ToUTC(barTime);
-   double signalPrice = iClose(Symbol(), signalTF, 1);
-   double signalOpen = iOpen(Symbol(), signalTF, 1);
-   double signalHigh = iHigh(Symbol(), signalTF, 1);
-   double signalLow = iLow(Symbol(), signalTF, 1);
+   double signalPrice = iClose(Symbol(), PERIOD_M5, 1);
+   double signalOpen = iOpen(Symbol(), PERIOD_M5, 1);
+   double signalHigh = iHigh(Symbol(), PERIOD_M5, 1);
+   double signalLow = iLow(Symbol(), PERIOD_M5, 1);
+
+   if(InpEnableDebugPrint) {
+      PrintFormat("EntryTimeDebug: barTime=%s barTimeUtc=%s signalTF=%s m5Bars=%d",
+                  TimeToString(barTime, TIME_DATE|TIME_SECONDS),
+                  TimeToString(barTimeUtc, TIME_DATE|TIME_SECONDS),
+                  TfToShortString(PERIOD_M5),
+                  Bars(Symbol(), PERIOD_M5));
+   }
 
    if(InpEnableDebugPrint) {
       PrintFormat("BAR_DATA: bar=%s O=%.5f H=%.5f L=%.5f C=%.5f",
@@ -1307,7 +1312,7 @@ void CheckEntryConditions() {
       // Multi-timeframe scoring
       int h4Score = GetTFScoreAtTime(PERIOD_H4, m_zones[i].direction, barTime);
       int h1Score = GetTFScoreAtTime(PERIOD_H1, m_zones[i].direction, barTime);
-      int ltfScore = GetTFScoreAtTime(signalTF, m_zones[i].direction, barTime);
+      int ltfScore = GetTFScoreAtTime(PERIOD_M5, m_zones[i].direction, barTime);
       
       if(h4Score < InpH4ScoreMin || h1Score < InpH1ScoreMin || ltfScore < InpLTFScoreMin) {
          skipScoreFloor++;
@@ -1405,15 +1410,6 @@ bool CanTrade(datetime referenceTime) {
                   (m_circuitBreakerUntil==0)?"0":TimeToString(m_circuitBreakerUntil, TIME_DATE|TIME_SECONDS),
                   currentPositions);
    }
-
-   long tradeMode = SymbolInfoInteger(Symbol(), SYMBOL_TRADE_MODE);
-   if(tradeMode == SYMBOL_TRADE_MODE_DISABLED || tradeMode == SYMBOL_TRADE_MODE_CLOSEONLY) {
-      if(InpEnableDebugPrint) {
-         PrintFormat("CanTrade: symbol trade mode blocks opening new positions (mode=%d)", tradeMode);
-      }
-      return false;
-   }
-
    if(InpEnableFTMOGuardrails) {
       string ftmoReason = "";
       if(!CheckFTMOGuardrails(ftmoReason)) {
@@ -1917,14 +1913,7 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
             " | Conf: ", DoubleToString(confMult, 2));
       }
    } else {
-      if(InpEnableDebugPrint) {
-         PrintFormat("Entry failed: retcode=%d comment=%s symbolTradeMode=%d",
-                     m_trade.ResultRetcode(),
-                     m_trade.ResultComment(),
-                     (int)SymbolInfoInteger(Symbol(), SYMBOL_TRADE_MODE));
-      } else {
-         Print("Entry failed: ", m_trade.ResultRetcodeDescription());
-      }
+      Print("Entry failed: ", m_trade.ResultRetcodeDescription());
    }
 }
 
@@ -2026,57 +2015,49 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
    // Track losses for circuit breaker when a position closes
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD) {
       if(HistoryDealSelect(trans.deal)) {
-         long dealEntry = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
-         if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY && dealEntry != DEAL_ENTRY_INOUT) {
-            return;
-         }
-
-         datetime dealTime = (datetime)HistoryDealGetInteger(trans.deal, DEAL_TIME);
-         ulong positionId = (ulong)HistoryDealGetInteger(trans.deal, DEAL_POSITION_ID);
          long dealMagic = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
-         int metaIndex = FindPositionMeta(positionId);
+         if(dealMagic == InpMagicNumber) {
+            double dealProfit = HistoryDealGetDouble(trans.deal, DEAL_PROFIT);
+            double dealCommission = HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
+            double dealSwap = HistoryDealGetDouble(trans.deal, DEAL_SWAP);
+            double netProfit = dealProfit + dealCommission + dealSwap;
+            long dealEntry = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+            if(dealEntry == DEAL_ENTRY_OUT || dealEntry == DEAL_ENTRY_OUT_BY || dealEntry == DEAL_ENTRY_INOUT) {
+               datetime dealTime = (datetime)HistoryDealGetInteger(trans.deal, DEAL_TIME);
+               ulong positionId = (ulong)HistoryDealGetInteger(trans.deal, DEAL_POSITION_ID);
+               double dealVolume = HistoryDealGetDouble(trans.deal, DEAL_VOLUME);
+               double dealPrice = HistoryDealGetDouble(trans.deal, DEAL_PRICE);
+               string dealComment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
+               long dealReason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
 
-         // Some broker-driven exits (especially SL/TP) may carry magic=0 in history.
-         // Treat known tracked positions as EA-owned even when deal magic is missing.
-         bool isEAOwnedExit = (dealMagic == (long)InpMagicNumber) || (metaIndex >= 0);
-         if(!isEAOwnedExit) {
-            return;
-         }
+               int metaIndex = FindPositionMeta(positionId);
+               if(metaIndex >= 0) {
+                  SPositionMeta meta = m_pos_meta[metaIndex];
+                  string exitReason = InferExitReason(dealPrice, meta.stop_price, meta.tp_price);
+                  string brokerExitReason = DealReasonToString(dealReason);
+                  double rValue = (meta.initial_risk > 0.0)
+                     ? ((meta.direction == 1) ? (dealPrice - meta.entry_price) / meta.initial_risk
+                                              : (meta.entry_price - dealPrice) / meta.initial_risk)
+                     : 0.0;
+                  LogTradeCsvRow(meta.entry_time_utc, dealTime, positionId, meta.direction, dealVolume,
+                                 meta.entry_price, dealPrice, meta.stop_price, meta.tp_price,
+                                 meta.initial_risk, exitReason, dealProfit, dealCommission, dealSwap,
+                                 netProfit, rValue, meta.total_score, meta.confidence_mult, meta.regime,
+                                 brokerExitReason, meta.entry_comment, meta.session_mult, meta.regime_mult,
+                                 meta.zone_price, meta.zone_time_utc, dealComment);
+               }
 
-         double dealProfit = HistoryDealGetDouble(trans.deal, DEAL_PROFIT);
-         double dealCommission = HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
-         double dealSwap = HistoryDealGetDouble(trans.deal, DEAL_SWAP);
-         double netProfit = dealProfit + dealCommission + dealSwap;
-         double dealVolume = HistoryDealGetDouble(trans.deal, DEAL_VOLUME);
-         double dealPrice = HistoryDealGetDouble(trans.deal, DEAL_PRICE);
-         string dealComment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
-         long dealReason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
-
-         if(metaIndex >= 0) {
-            SPositionMeta meta = m_pos_meta[metaIndex];
-            string exitReason = InferExitReason(dealPrice, meta.stop_price, meta.tp_price);
-            string brokerExitReason = DealReasonToString(dealReason);
-            double rValue = (meta.initial_risk > 0.0)
-               ? ((meta.direction == 1) ? (dealPrice - meta.entry_price) / meta.initial_risk
-                                        : (meta.entry_price - dealPrice) / meta.initial_risk)
-               : 0.0;
-            LogTradeCsvRow(meta.entry_time_utc, dealTime, positionId, meta.direction, dealVolume,
-                           meta.entry_price, dealPrice, meta.stop_price, meta.tp_price,
-                           meta.initial_risk, exitReason, dealProfit, dealCommission, dealSwap,
-                           netProfit, rValue, meta.total_score, meta.confidence_mult, meta.regime,
-                           brokerExitReason, meta.entry_comment, meta.session_mult, meta.regime_mult,
-                           meta.zone_price, meta.zone_time_utc, dealComment);
-         }
-
-         if(netProfit > 0) {
-            m_consecutiveLosses = 0;
-         } else {
-            m_consecutiveLosses++;
-            m_lastLossExitTime = dealTime;
-            if(m_consecutiveLosses >= InpCircuitBreakerLosses) {
-               m_circuitBreakerUntil = dealTime + InpCircuitBreakerHours * 3600;
-               Print("Circuit breaker activated! Pausing until ", m_circuitBreakerUntil);
-               m_consecutiveLosses = 0;
+               if(netProfit > 0) {
+                  m_consecutiveLosses = 0;
+               } else {
+                  m_consecutiveLosses++;
+                  m_lastLossExitTime = dealTime;
+                  if(m_consecutiveLosses >= InpCircuitBreakerLosses) {
+                     m_circuitBreakerUntil = dealTime + InpCircuitBreakerHours * 3600;
+                     Print("Circuit breaker activated! Pausing until ", m_circuitBreakerUntil);
+                     m_consecutiveLosses = 0;
+                  }
+               }
             }
          }
       }
@@ -2132,7 +2113,6 @@ int GetEffectiveUTCOffset() {
 
 datetime ToUTC(datetime serverTime) {
    int offset = GetEffectiveUTCOffset();
-   // Broker time is already UTC, so offset should be 0 and this returns serverTime unchanged
    return serverTime - (offset * 3600);
 }
 

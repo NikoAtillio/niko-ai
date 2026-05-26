@@ -24,22 +24,28 @@ STEM="${BASENAME%.mq5}"
 ROOT_SOURCE="${EXPERTS_ROOT}/${BASENAME}"
 ROOT_EX5="${EXPERTS_ROOT}/${STEM}.ex5"
 SOURCE_EX5="$(dirname "${SOURCE}")/${STEM}.ex5"
+PHANTOM_ROOT="${EXPERTS_ROOT}/phantom"
+PHANTOM_SOURCE="${PHANTOM_ROOT}/${BASENAME}"
+PHANTOM_EX5="${PHANTOM_ROOT}/${STEM}.ex5"
 
 mkdir -p "${EXPERTS_ROOT}"
 cp "${SOURCE}" "${ROOT_SOURCE}"
+mkdir -p "${PHANTOM_ROOT}"
+cp "${SOURCE}" "${PHANTOM_SOURCE}"
 
 echo "Synced source to MT5 folder:"
 echo "  ${ROOT_SOURCE}"
+echo "  ${PHANTOM_SOURCE}"
 
 if [[ "${NO_COMPILE:-0}" == "1" ]]; then
   echo "NO_COMPILE=1 set; skipping MetaEditor compile."
   exit 0
 fi
 
-"${WORKSPACE_ROOT}/.vscode/scripts/compile_mq5.sh" "${ROOT_SOURCE}"
+"${WORKSPACE_ROOT}/.vscode/scripts/compile_mq5.sh" "${PHANTOM_SOURCE}"
 
 COMPILED_EX5=""
-for candidate in "${ROOT_EX5}" "${SOURCE_EX5}"; do
+for candidate in "${PHANTOM_EX5}" "${ROOT_EX5}" "${SOURCE_EX5}"; do
   if [[ -f "${candidate}" ]]; then
     COMPILED_EX5="${candidate}"
     break
@@ -55,5 +61,10 @@ if [[ "${COMPILED_EX5}" != "${ROOT_EX5}" ]]; then
   cp "${COMPILED_EX5}" "${ROOT_EX5}"
 fi
 
+if [[ "${COMPILED_EX5}" != "${PHANTOM_EX5}" ]]; then
+  cp "${COMPILED_EX5}" "${PHANTOM_EX5}"
+fi
+
 echo "Synced compiled EX5 to:"
 echo "  ${ROOT_EX5}"
+echo "  ${PHANTOM_EX5}"
