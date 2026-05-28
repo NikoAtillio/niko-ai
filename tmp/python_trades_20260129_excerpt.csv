@@ -1,5 +1,0 @@
-entry_ts,dir,entry_signal_price,exit_reason,qty,confidence_mult,regime
-2026-01-29 16:40:00,short,25823.73,tp,3.370072929867802,1.5,bull
-2026-01-29 17:10:00,short,25592.73,stop,2.2467152865785347,1.0,bull
-2026-01-29 20:00:00,short,25683.53,stop,3.206801861587059,1.5,bull
-2026-01-29 20:30:00,short,25721.73,stop,2.137867907724706,1.0,bull

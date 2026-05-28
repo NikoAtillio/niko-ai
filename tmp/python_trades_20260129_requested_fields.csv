@@ -1,5 +1,0 @@
-entry_ts,entry_signal_price,zone_price_or_zone,dir,exit_reason,zone_source,notes
-2026-01-29 16:40:00,25823.73,25800.43000,short,tp,mt5_latest_EXECUTING_match,matched_by_entry_signal_price
-2026-01-29 17:10:00,25592.73,25597.35000,short,stop,mt5_latest_EXECUTING_match,matched_by_entry_signal_price
-2026-01-29 20:00:00,25683.53,,short,stop,not_in_mt5_1635_1805_window,no matching EXECUTING signal in requested MT5 window
-2026-01-29 20:30:00,25721.73,,short,stop,not_in_mt5_1635_1805_window,no matching EXECUTING signal in requested MT5 window
