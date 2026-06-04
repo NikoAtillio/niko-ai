@@ -1,23 +1,51 @@
 //+------------------------------------------------------------------+
-//|                                          Phantom_P2_US100_V5.mq5 |
+//|                                          Phantom_P2_US100_V8C.mq5 |
 //|                                    Multi-Timeframe Zone Strategy  |
 //|                                             US100 Scenario B      |
 //+------------------------------------------------------------------+
-//  V5 changelog (vs V4-1):
-//    - EWM ATR replaces Wilder iATR (Sprint 1a)
-//      * Seed: first bar's TR (matching Python's ewm initialisation)
-//      * Alpha: 2/(period+1) matching pandas.ewm(span=N, adjust=False)
-//      * Warm-up guard: 5× period bars minimum
-//      * Validation logging: first 10 H4 bars print EWM vs Wilder vs Python expected
-//    - m_handleH4ATR and m_handleM15ATR iATR handles removed
-//    - GetATRAtTime() removed, replaced by CalcEWM_ATR_Py()
-//    - NO parameter changes from V4-1 (InpATRStopMult, InpTPMult, etc. unchanged)
-//    - All other logic verbatim from V4-1
+//  V8C changelog (V8A base + V8B short gate):
+//    - ATR hard-seed retained
+//    - Bounce gate disabled by default for A/B comparison
+//    - All V8 logic preserved; only default inputs changed
+//
+//  V8a — Hard-Seed ATR (CalcEWM_ATR_Py):
+//    PROBLEM : Single-bar TR seed caused cold-start spike in first ~14 H4 bars,
+//              distorting stops and zone-distance filters for the first trading day.
+//    FIX     : Replace single-bar seed with SMA(period) of first `period` TR bars.
+//              ewmATR starts as the average of 14 TRs, not a single outlier bar.
+//    IMPACT  : H4 ATR values now match Python from bar 1 with no warmup spike.
+//              All downstream diagnostics (stop size, chase filter) are stable.
+//    SCOPE   : CalcEWM_ATR_Py() only. No other logic touched.
+//
+//  V8b — Zone Touch Confirmation:
+//    PROBLEM : Every zone was tradeable the moment it was time-confirmed
+//              (InpMinConfirmBars). No proof the level had shown a price reaction.
+//              Result: entries on unproven levels → wide false-positive rate.
+//    FIX     : Zones now require a prior TOUCH + BOUNCE cycle before entry is
+//              permitted. A touch is recorded when price comes within
+//              InpZoneTolerance. A bounce is confirmed when price then moves
+//              >= InpZoneBounceATRFrac * M15_ATR away from the zone and holds
+//              for >= InpZoneBounceBars consecutive M5 bars.
+//    IMPACT  : Only levels that have already demonstrated a reaction are tradeable.
+//              Eliminates first-touch entries on virgin zones. Highest win-rate
+//              impact of all pending changes.
+//    SCOPE   : SZone struct (new fields), BuildH4Zones, CheckEntryConditions
+//              (new UpdateZoneTouches pass), AddZone reset.
+//    GUARD   : InpZoneTouchRequired=false restores V7 behaviour for A/B testing.
+//
+//  All V7 patches preserved:
+//    - EWM ATR (CalcEWM_ATR_Py) base logic unchanged except seed
+//    - H4 closed-bar lookup (shift+1 in CalcEWM_ATR_Py and GetTFScoreAtTime)
+//    - UTC auto-detect / manual override
+//    - Wilder debug handle for validation (released after 10 prints)
+// V8A — Baseline for A/B tests: loose CT gate defaults, long offset retained
+// CT: TotalMin=4, H4Min=0, H1Min=1, LTFMin=1
+// Trend: LongOffset=1
 //+------------------------------------------------------------------+
 #property copyright "Phantom P2 MT5"
-#property version   "5.00"
+#property version   "8.20"
 #property description "Multi-Timeframe Zone-Based Strategy for US100"
-#property description "Scenario B - V5 EWM ATR Sprint 1a"
+#property description "Scenario B - V8C (V8A base + V8B short gate)"
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
@@ -28,78 +56,87 @@
 //| Input Parameters                                                  |
 //+------------------------------------------------------------------+
 // --- Zone Detection ---
-input int      InpPivotBars = 2;
-input int      InpZoneLookback = 50;
-input double   InpZoneTolerance = 0.002;
-input double   InpChaseFilterATR = 1.5;
+input int      InpPivotBars           = 2;
+input int      InpZoneLookback        = 50;
+input double   InpZoneTolerance       = 0.002;
+input double   InpChaseFilterATR      = 1.5;
+
+// --- V8b: Zone Touch Confirmation ---
+input bool     InpZoneTouchRequired   = false;  // Baseline: allow first-touch entries for A/B comparison
+input int      InpZoneBounceBars      = 0;       // Min M5 bars price must hold away from zone after bounce
+input double   InpZoneBounceATRFrac   = 0.1;    // Bounce distance >= this * M15 ATR to confirm
 
 // --- Session Filter ---
-input int      InpSessionStart = 13;
-input int      InpSessionEnd = 21;
-input bool     InpPeakSessionBoost = true;
+input int      InpSessionStart        = 13;
+input int      InpSessionEnd          = 21;
+input bool     InpPeakSessionBoost    = true;
 
 // --- Confirmation ---
-input int      InpMinConfirmBars = 1;
-input ENUM_TIMEFRAMES InpConfirmTF = PERIOD_H1;
+input int      InpMinConfirmBars      = 1;
+input ENUM_TIMEFRAMES InpConfirmTF    = PERIOD_H1;
 
 // --- Scoring ---
-input int      InpScoreMin = 3;
-input int      InpH4ScoreMin = 1;
-input int      InpH1ScoreMin = 1;
-input int      InpLTFScoreMin = 1;
-input int      InpLTFScoreCap = 3;
-input int      InpLongScoreOffset = 1;
+input int      InpScoreMin            = 3;
+input int      InpH4ScoreMin          = 1;
+input int      InpH1ScoreMin          = 1;
+input int      InpLTFScoreMin         = 1;
+input int      InpLTFScoreCap         = 3;
+input int      InpLongScoreOffset     = 1;
+input int      InpCTTotalScoreMin     = 4;
+input int      InpCTH4ScoreMin        = 0;
+input int      InpCTH1ScoreMin        = 1;
+input int      InpCTLTFScoreMin       = 1;
 
 // --- Risk Management ---
-input double   InpRiskPercent = 0.7;
-input double   InpRiskMultiplier = 2.0;
-input double   InpATRStopMult = 1.5;
-input double   InpTPMult = 1.3;
-input double   InpTrailATRMult = 0.8;
-input double   InpBreakevenR = 0.8;
-input int      InpMaxConcurrent = 3;
-input int      InpCooldownMin = 20;
-input bool     InpEnableDebugLogs = true;
-input int      InpLockoutMin = 60;
-input int      InpCircuitBreakerLosses = 5;
+input double   InpRiskPercent         = 0.7;
+input double   InpRiskMultiplier      = 2.0;
+input double   InpATRStopMult         = 1.5;
+input double   InpTPMult              = 1.3;
+input double   InpTrailATRMult        = 0.8;
+input double   InpBreakevenR          = 0.8;
+input int      InpMaxConcurrent       = 3;
+input int      InpCooldownMin         = 20;
+input bool     InpEnableDebugLogs     = true;
+input int      InpLockoutMin          = 60;
+input int      InpCircuitBreakerLosses= 5;
 input int      InpCircuitBreakerHours = 24;
 
 // --- FTMO Guardrails ---
-input bool     InpEnableFTMOGuardrails = false;
-input double   InpFTMOAccountSize = 70000.0;
-input double   InpFTMOProfitTargetPct = 5.0;
-input double   InpFTMOMaxLossPct = 10.0;
-input double   InpFTMOMaxDailyLossPct = 5.0;
-input int      InpFTMOTradingPeriodDays = 0;
-input int      InpFTMOMinTradingDays = 2;
-input double   InpFTMOMaxLeverage = 30.0;
+input bool     InpEnableFTMOGuardrails    = false;
+input double   InpFTMOAccountSize         = 0.0;
+input double   InpFTMOProfitTargetPct     = 5.0;
+input double   InpFTMOMaxLossPct          = 10.0;
+input double   InpFTMOMaxDailyLossPct     = 5.0;
+input int      InpFTMOTradingPeriodDays   = 0;
+input int      InpFTMOMinTradingDays      = 2;
+input double   InpFTMOMaxLeverage         = 30.0;
 
 // --- Position Sizing ---
-input double   InpConfidenceMult = 1.5;
-input double   InpSessionSoftMult = 0.5;
-input double   InpCounterTrendMult = 0.5;
+input double   InpConfidenceMult      = 1.5;
+input double   InpSessionSoftMult     = 0.5;
+input double   InpCounterTrendMult    = 0.5;
 
-// --- Execution (V4: zero defaults) ---
-input double   InpSpreadBPS = 0.0;
-input double   InpSlippageBPS = 0.0;
-input ulong    InpMagicNumber = 202406;
-input string   InpComment = "Phantom P2 US100 B";
+// --- Execution ---
+input double   InpSpreadBPS           = 0.0;
+input double   InpSlippageBPS         = 0.0;
+input ulong    InpMagicNumber         = 202406;
+input string   InpComment             = "Phantom P2 US100 B V8a";
 
-// --- Time handling (V4: auto-detect with manual override) ---
-input bool     InpAutoDetectUTC = false;
-input int      InpManualUTCOffset = -5;
+// --- Time handling ---
+input bool     InpAutoDetectUTC       = false;
+input int      InpManualUTCOffset     = -5;
 
-// --- V5: EWM ATR ---
-input int      InpEWMATRPeriod = 14;          // EWM ATR period (must match Python span=14)
-input double   InpPythonExpectedATR = 103.76; // Expected Python H4 ATR on Dec 1 for validation
+// --- V5/V8a: EWM ATR ---
+input int      InpEWMATRPeriod        = 14;           // EWM ATR period (must match Python span=14)
+input double   InpPythonExpectedATR   = 103.76;        // Expected Python H4 ATR on Dec 1 for validation
 
 // --- Development ---
-input bool     InpEnableDebugPrint = true;
-input bool     InpEnableVisuals = true;
+input bool     InpEnableDebugPrint    = true;
+input bool     InpEnableVisuals       = true;
 input bool     InpShowOnlyActiveZones = true;
-input bool     InpShowZoneOrigins = true;
+input bool     InpShowZoneOrigins     = true;
 input bool     InpShowInactiveZoneMarkers = true;
-input bool     InpShowZoneTimeframe = true;
+input bool     InpShowZoneTimeframe   = true;
 
 //+------------------------------------------------------------------+
 //| Global Variables                                                  |
@@ -110,22 +147,21 @@ CAccountInfo   m_account;
 CSymbolInfo    m_symbol;
 
 // Indicator handles
-// V5: m_handleH4ATR and m_handleM15ATR removed — replaced by CalcEWM_ATR_Py()
-// V5: m_handleH4ATR_Debug retained ONLY for validation logging in Sprint 1a
-int            m_handleH4ATR_Debug;   // Wilder ATR — used only in EWM validation log, released after 10 prints
+int            m_handleH4ATR_Debug;
 int            m_handleH4EMA20, m_handleH4EMA50, m_handleH4RSI;
 int            m_handleH1EMA20, m_handleH1EMA50, m_handleH1RSI;
 int            m_handleM5EMA20, m_handleM5EMA50, m_handleM5RSI, m_handleM5Volume;
 int            m_handleDailyEMA50, m_handleDailyEMA200;
 
-// V4: Detected UTC offset
 int            m_detectedUTCOffsetHours = 0;
 
-// V5: EWM ATR validation counter
+// V5/V8a: EWM ATR validation counter
 int            m_ewmDebugCount = 0;
 bool           m_ewmDebugDone  = false;
 
-// Zone arrays
+//+------------------------------------------------------------------+
+//| SZone struct — V8b adds touch/bounce tracking fields             |
+//+------------------------------------------------------------------+
 struct SZone {
    datetime    time;
    double      price;
@@ -134,7 +170,17 @@ struct SZone {
    datetime    origin_time_utc;
    bool        confirmed;
    datetime    confirmed_at;
+
+   // --- V8b fields ---
+   bool        touch_logged;        // price has entered InpZoneTolerance band at least once
+   datetime    last_touch_time;     // most recent touch bar time (UTC)
+   int         touch_count;         // distinct touch events recorded
+   bool        bounce_confirmed;    // bounce >= InpZoneBounceATRFrac * M15ATR confirmed
+   datetime    bounce_confirmed_at; // when bounce was confirmed
+   int         bars_away;           // consecutive M5 bars price has held away since bounce start
+   int         last_entry_day_key;   // UTC day key of the last filled entry from this zone
 };
+
 SZone         m_zones[];
 int           m_zoneCount;
 
@@ -169,7 +215,7 @@ datetime      m_lastEntryTime;
 datetime      m_lastLossExitTime;
 datetime      m_circuitBreakerUntil;
 int           m_tradeCsvHandle = INVALID_HANDLE;
-string        m_tradeCsvFileName = "phantom_mql5_trade_log_v5.csv";
+string        m_tradeCsvFileName = "phantom_mql5_trade_log_v8.csv";
 
 double        m_ftmoInitialEquity;
 double        m_ftmoDayStartEquity;
@@ -183,7 +229,7 @@ color         m_demandColor = clrDodgerBlue;
 color         m_supplyColor = clrTomato;
 
 //+------------------------------------------------------------------+
-//| V4: SafeBarShift                                                  |
+//| SafeBarShift                                                      |
 //+------------------------------------------------------------------+
 int SafeBarShift(string symbol, ENUM_TIMEFRAMES tf, datetime time)
 {
@@ -196,17 +242,15 @@ int SafeBarShift(string symbol, ENUM_TIMEFRAMES tf, datetime time)
 }
 
 //+------------------------------------------------------------------+
-//| V4: UTC helpers                                                   |
+//| UTC helpers                                                       |
 //+------------------------------------------------------------------+
-int GetEffectiveUTCOffset() { return m_detectedUTCOffsetHours; }
-
-datetime ToUTC(datetime serverTime)   { return serverTime - (m_detectedUTCOffsetHours * 3600); }
-datetime FromUTC(datetime utcTime)    { return utcTime    + (m_detectedUTCOffsetHours * 3600); }
-
-void GetUTCTime(MqlDateTime &utc)     { TimeToStruct(ToUTC(TimeCurrent()), utc); }
+int      GetEffectiveUTCOffset()       { return m_detectedUTCOffsetHours; }
+datetime ToUTC(datetime serverTime)    { return serverTime - (m_detectedUTCOffsetHours * 3600); }
+datetime FromUTC(datetime utcTime)     { return utcTime    + (m_detectedUTCOffsetHours * 3600); }
+void     GetUTCTime(MqlDateTime &utc)  { TimeToStruct(ToUTC(TimeCurrent()), utc); }
 
 //+------------------------------------------------------------------+
-//| V4: DST-safe 4H window                                           |
+//| DST-safe 4H window                                               |
 //+------------------------------------------------------------------+
 datetime Get4HWindowStart(datetime timeUtc)
 {
@@ -214,27 +258,42 @@ datetime Get4HWindowStart(datetime timeUtc)
 }
 
 //+------------------------------------------------------------------+
-//| V5: CalcEWM_ATR_Py                                               |
-//|   Exact match for pandas ewm(span=N, adjust=False)               |
-//|   Seed  : first bar's TR (not SMA seed)                          |
-//|   Alpha : 2/(period+1)                                           |
-//|   Guard : returns 0.0 if < 5*period bars available               |
-//|   Debug : first 10 H4 calls print EWM vs Wilder vs Python target |
+//| V8a: CalcEWM_ATR_Py — Hard-Seed ATR                             |
+//|                                                                  |
+//| CHANGE vs V6/V7:                                                 |
+//|   OLD seed: ewmATR = TR of single oldest bar                     |
+//|   NEW seed: ewmATR = SMA(period) of oldest `period` TR bars      |
+//|                                                                  |
+//| Why: a single-bar seed is a random outlier. Any unusually large  |
+//| or small bar at position [lookback] contaminates the entire EWM  |
+//| series for the first ~period bars. The SMA seed converges to the |
+//| same long-run value but reaches it without the cold-start spike. |
+//|                                                                  |
+//| All other V6 logic preserved:                                    |
+//|   - H4 always reads last CLOSED bar (targetShift+1)             |
+//|   - alpha = 2/(period+1)                                         |
+//|   - Guard: returns 0.0 if < 5*period bars available             |
+//|   - Validation logging: first 10 H4 calls                       |
 //+------------------------------------------------------------------+
 double CalcEWM_ATR_Py(string symbol, ENUM_TIMEFRAMES tf, int period,
                        datetime barTime, bool logComparison = false)
 {
-   int totalBars   = iBars(symbol, tf);
+   int totalBars  = iBars(symbol, tf);
    int targetShift = iBarShift(symbol, tf, barTime, false);
 
-   // Warm-up guard: need 5× period bars behind target bar
+   // V6: H4 always uses last CLOSED bar
+   if(tf == PERIOD_H4)
+      targetShift = targetShift + 1;
+
+   // Warmup guard: need 5× period bars behind target bar
    int minWarmup = period * 5;
    if(targetShift < 0 || (totalBars - 1 - targetShift) < minWarmup)
       return 0.0;
 
-   // Fetch from oldest bar in lookback window down to target bar
-   int lookback    = targetShift + minWarmup;   // oldest shift (furthest back)
-   int barsToFetch = lookback + 2;              // +2 for prev-close TR computation
+   // V8a: we need an extra (period-1) bars behind lookback for the SMA seed
+   int lookback    = targetShift + minWarmup;          // oldest EWM walk bar
+   int seedStart   = lookback + (period - 1);          // oldest seed bar
+   int barsToFetch = seedStart + 2;                    // +2 for prev-close TR
 
    if(barsToFetch > totalBars) return 0.0;
 
@@ -247,14 +306,23 @@ double CalcEWM_ATR_Py(string symbol, ENUM_TIMEFRAMES tf, int period,
    if(CopyLow  (symbol, tf, 0, barsToFetch, lows)   < barsToFetch) return 0.0;
    if(CopyClose(symbol, tf, 0, barsToFetch, closes)  < barsToFetch) return 0.0;
 
-   double alpha    = 2.0 / ((double)period + 1.0);
-   double oneMinA  = 1.0 - alpha;
+   double alpha   = 2.0 / ((double)period + 1.0);
+   double oneMinA = 1.0 - alpha;
 
-   // Seed: first bar's TR at oldest bar in window (matches Python ewm seed)
-   // ArraySetAsSeries=true means index 0=newest, index lookback=oldest
-   double ewmATR = highs[lookback] - lows[lookback];
+   // --- V8a: SMA seed over oldest `period` TR bars ---
+   // ArraySetAsSeries=true: index 0 = newest, index seedStart = oldest
+   double seedSum = 0.0;
+   for(int k = seedStart; k >= lookback; k--)
+   {
+      double trHL = highs[k] - lows[k];
+      double trHC = (k + 1 < barsToFetch) ? MathAbs(highs[k] - closes[k + 1]) : trHL;
+      double trLC = (k + 1 < barsToFetch) ? MathAbs(lows[k]  - closes[k + 1]) : trHL;
+      seedSum += MathMax(trHL, MathMax(trHC, trLC));
+   }
+   double ewmATR = seedSum / (double)period;
+   // --- end V8a seed ---
 
-   // Walk forward from (oldest-1) to targetShift inclusive
+   // Walk forward from (lookback-1) to targetShift inclusive
    for(int i = lookback - 1; i >= targetShift; i--)
    {
       double trHL = highs[i]  - lows[i];
@@ -264,43 +332,32 @@ double CalcEWM_ATR_Py(string symbol, ENUM_TIMEFRAMES tf, int period,
       ewmATR      = alpha * tr + oneMinA * ewmATR;
    }
 
-   // V5: Validation logging — first 10 H4 ATR calls only
-   if(logComparison && tf == PERIOD_H4 && !m_ewmDebugDone && InpEnableDebugPrint)
+   // Validation logging — first 10 H4 ATR calls only
+   static int debugCount = 0;
+   if(logComparison && tf == PERIOD_H4 && debugCount < 10 && InpEnableDebugPrint)
    {
       double wilderVal = 0.0;
-      if(m_handleH4ATR_Debug != INVALID_HANDLE)
+      int wilderHandle = iATR(symbol, tf, period);
+      if(wilderHandle != INVALID_HANDLE)
       {
          double buf[1];
-         if(CopyBuffer(m_handleH4ATR_Debug, 0, targetShift, 1, buf) > 0)
+         if(CopyBuffer(wilderHandle, 0, targetShift, 1, buf) > 0)
             wilderVal = buf[0];
+         IndicatorRelease(wilderHandle);
       }
-
       PrintFormat(
-         "V5_EWM_ATR[%02d]: bar_shift=%d | EWM=%.4f | Wilder=%.4f | Py_Expected=%.4f | EWM_vs_Py=%+.4f | Wilder_vs_Py=%+.4f",
-         m_ewmDebugCount, targetShift,
-         ewmATR, wilderVal, InpPythonExpectedATR,
-         ewmATR   - InpPythonExpectedATR,
-         wilderVal - InpPythonExpectedATR);
-
-      m_ewmDebugCount++;
-      if(m_ewmDebugCount >= 10)
-      {
-         m_ewmDebugDone = true;
-         // Release Wilder debug handle — no longer needed
-         if(m_handleH4ATR_Debug != INVALID_HANDLE)
-         {
-            IndicatorRelease(m_handleH4ATR_Debug);
-            m_handleH4ATR_Debug = INVALID_HANDLE;
-            Print("V5: Wilder debug handle released after 10 validation prints");
-         }
-      }
+         "V8a_EWM_ATR[%02d]: shift=%d | SMA-Seeded=%.4f | Wilder=%.4f | Py_Expected=%.4f",
+         debugCount, targetShift, ewmATR, wilderVal, InpPythonExpectedATR);
+      debugCount++;
+      if(debugCount >= 10)
+         Print("V8a: EWM ATR validation logging complete (10 prints)");
    }
 
    return ewmATR;
 }
 
 //+------------------------------------------------------------------+
-//| CSV logging (unchanged from V4)                                  |
+//| CSV logging                                                       |
 //+------------------------------------------------------------------+
 bool OpenTradeCsv() {
    if(m_tradeCsvHandle != INVALID_HANDLE) { FileClose(m_tradeCsvHandle); m_tradeCsvHandle = INVALID_HANDLE; }
@@ -375,10 +432,10 @@ void LogTradeCsvRow(datetime entryUtc, datetime exitUtc, ulong ticket, int direc
 }
 
 //+------------------------------------------------------------------+
-//| Export functions (unchanged from V4)                             |
+//| Export functions                                                  |
 //+------------------------------------------------------------------+
 void ExportTesterTrades() {
-   string fileName = "phantom_mt5_tester_export_v5.csv";
+   string fileName = "phantom_mt5_tester_export_v8.csv";
    int handle = FileOpen(fileName, FILE_WRITE | FILE_CSV | FILE_ANSI | FILE_COMMON, ';');
    if(handle == INVALID_HANDLE) return;
 
@@ -390,7 +447,7 @@ void ExportTesterTrades() {
              "session_mult","regime_mult","zone_price","zone_time_utc","exit_comment","holding_minutes");
 
    if(!HistorySelect(0, TimeCurrent() + 86400)) { FileClose(handle); return; }
-   int dealsTotal = HistoryDealsTotal();
+   long dealsTotal = HistoryDealsTotal();
    int rowsWritten = 0;
 
    for(int i = 0; i < dealsTotal; i++) {
@@ -470,7 +527,7 @@ void ExportTesterTrades() {
 }
 
 void ExportAllDealsToCSV() {
-   int fileHandle = FileOpen("phantom_mt5_export_v5.csv", FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON, ';');
+   int fileHandle = FileOpen("phantom_mt5_export_v8.csv", FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON, ';');
    if(fileHandle == INVALID_HANDLE) return;
    if(!HistorySelect(0, TimeCurrent() + 86400)) { FileClose(fileHandle); return; }
 
@@ -478,7 +535,7 @@ void ExportAllDealsToCSV() {
              "entry_price","exit_price","stop_loss","take_profit","gross_profit",
              "commission","swap","net_profit","profit_percent","exit_type");
 
-   int dealsTotal = HistoryDealsTotal();
+   long dealsTotal = HistoryDealsTotal();
    for(int i = 0; i < dealsTotal; i++) {
       ulong deal = HistoryDealGetTicket(i);
       if(deal == 0) continue;
@@ -534,11 +591,9 @@ int OnInit() {
    m_symbol.Name(Symbol());
    m_symbol.Refresh();
 
-   // V5: No H4ATR or M15ATR handles — replaced by CalcEWM_ATR_Py()
-   // Wilder debug handle: used only for Sprint 1a validation logging
    m_handleH4ATR_Debug = iATR(Symbol(), PERIOD_H4, InpEWMATRPeriod);
    if(m_handleH4ATR_Debug == INVALID_HANDLE)
-      Print("V5 WARNING: Could not create Wilder debug handle — comparison logging disabled");
+      Print("V8 WARNING: Could not create Wilder debug handle — comparison logging disabled");
 
    m_handleH4EMA20    = iMA(Symbol(), PERIOD_H4, 20,  0, MODE_EMA, PRICE_CLOSE);
    m_handleH4EMA50    = iMA(Symbol(), PERIOD_H4, 50,  0, MODE_EMA, PRICE_CLOSE);
@@ -553,26 +608,24 @@ int OnInit() {
    m_handleDailyEMA50 = iMA(Symbol(), PERIOD_D1, 50,  0, MODE_EMA, PRICE_CLOSE);
    m_handleDailyEMA200= iMA(Symbol(), PERIOD_D1, 200, 0, MODE_EMA, PRICE_CLOSE);
 
-   // V4: Auto-detect UTC offset
+   // UTC offset
    if(InpAutoDetectUTC) {
       m_detectedUTCOffsetHours = (int)MathRound((double)(TimeCurrent() - TimeGMT()) / 3600.0);
-      PrintFormat("V5 UTC: Auto-detected offset = %+d hours (Server: %s, GMT: %s)",
+      PrintFormat("V8 UTC: Auto-detected offset = %+d hours (Server: %s, GMT: %s)",
                   m_detectedUTCOffsetHours,
                   TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES),
                   TimeToString(TimeGMT(),     TIME_DATE|TIME_MINUTES));
    } else {
       m_detectedUTCOffsetHours = InpManualUTCOffset;
-      PrintFormat("V5 UTC: Manual offset = %+d hours", m_detectedUTCOffsetHours);
+      PrintFormat("V8 UTC: Manual offset = %+d hours", m_detectedUTCOffsetHours);
    }
 
-   // V4: Session diagnostic
    MqlDateTime utcNow;
    TimeToStruct(ToUTC(TimeCurrent()), utcNow);
-   PrintFormat("V5 Session: Current UTC hour=%d | Session window=%d:00-%d:00 | InSession=%s",
+   PrintFormat("V8 Session: Current UTC hour=%d | Session window=%d:00-%d:00 | InSession=%s",
                utcNow.hour, InpSessionStart, InpSessionEnd,
                (utcNow.hour >= InpSessionStart && utcNow.hour < InpSessionEnd) ? "YES" : "NO");
 
-   // Symbol debug
    if(InpEnableDebugPrint) {
       PrintFormat("SymbolDebug: symbol=%s tickSize=%.8f tickValue=%.8f contractSize=%.2f lotStep=%.2f minLot=%.2f maxLot=%.2f",
                   Symbol(),
@@ -582,11 +635,16 @@ int OnInit() {
                   SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_STEP),
                   SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN),
                   SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX));
-      PrintFormat("V5 EWM ATR: period=%d alpha=%.6f warmup=%d bars | Py expected ATR=%.4f",
+      PrintFormat("V8a EWM ATR: period=%d | SMA-seed bars=%d | alpha=%.6f | warmup=%d bars | Py expected=%.4f",
+                  InpEWMATRPeriod,
                   InpEWMATRPeriod,
                   2.0 / ((double)InpEWMATRPeriod + 1.0),
                   InpEWMATRPeriod * 5,
                   InpPythonExpectedATR);
+      PrintFormat("V8b ZoneTouch: required=%s | bounceBars=%d | bounceATRFrac=%.2f",
+                  InpZoneTouchRequired ? "YES" : "NO",
+                  InpZoneBounceBars,
+                  InpZoneBounceATRFrac);
    }
 
    // State init
@@ -612,7 +670,7 @@ int OnInit() {
    BuildH4Zones();
    EventSetTimer(300);
 
-   Print("Phantom P2 US100 Scenario B V5 initialized — EWM ATR Sprint 1a");
+   Print("Phantom P2 US100 Scenario B V8 initialized — Hard-Seed ATR + Zone Touch Confirmation");
    return INIT_SUCCEEDED;
 }
 
@@ -620,7 +678,6 @@ int OnInit() {
 //| OnDeinit                                                          |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
-   // V5: Release debug handle if still open
    if(m_handleH4ATR_Debug != INVALID_HANDLE) { IndicatorRelease(m_handleH4ATR_Debug); m_handleH4ATR_Debug = INVALID_HANDLE; }
 
    IndicatorRelease(m_handleH4EMA20);  IndicatorRelease(m_handleH4EMA50);  IndicatorRelease(m_handleH4RSI);
@@ -662,9 +719,43 @@ void OnTimer() {
 }
 
 //+------------------------------------------------------------------+
-//| Zone building (unchanged from V4)                                |
+//| Copy touch/bounce state from old zone array to rebuilt zones     |
+//+------------------------------------------------------------------+
+void PreserveTouchState(SZone &oldZones[], int oldCount)
+{
+   double tol = InpZoneTolerance;
+   for(int i = 0; i < m_zoneCount; i++)
+   {
+      for(int j = 0; j < oldCount; j++)
+      {
+         if(m_zones[i].direction == oldZones[j].direction &&
+            MathAbs(m_zones[i].price - oldZones[j].price) / MathMax(m_zones[i].price, 1.0) <= tol)
+         {
+            m_zones[i].touch_logged        = oldZones[j].touch_logged;
+            m_zones[i].last_touch_time     = oldZones[j].last_touch_time;
+            m_zones[i].touch_count         = oldZones[j].touch_count;
+            m_zones[i].bounce_confirmed    = oldZones[j].bounce_confirmed;
+            m_zones[i].bounce_confirmed_at = oldZones[j].bounce_confirmed_at;
+            m_zones[i].bars_away           = oldZones[j].bars_away;
+            m_zones[i].last_entry_day_key  = oldZones[j].last_entry_day_key;
+            break;
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Zone building                                                     |
+//| V8b: AddZone now initialises all touch/bounce fields to default. |
 //+------------------------------------------------------------------+
 void BuildH4Zones() {
+   // --- snapshot existing state before wipe ---
+   SZone oldZones[];
+   int   oldCount = m_zoneCount;
+   ArrayResize(oldZones, oldCount);
+   for(int k = 0; k < oldCount; k++) oldZones[k] = m_zones[k];
+   // --- end snapshot ---
+
    ArrayResize(m_zones, 0);
    m_zoneCount = 0;
    int bars = iBars(Symbol(), PERIOD_H4);
@@ -680,6 +771,10 @@ void BuildH4Zones() {
       if(IsPivotHigh(highs, i, InpPivotBars)) AddZone(confirmedAt, highs[i], -1);
       if(IsPivotLow (lows,  i, InpPivotBars)) AddZone(confirmedAt, lows[i],   1);
    }
+
+   // --- restore touch/bounce state for all matching zones ---
+   if(oldCount > 0) PreserveTouchState(oldZones, oldCount);
+   // --- end restore ---
 }
 
 bool IsPivotHigh(double &highs[], int index, int bars) {
@@ -698,19 +793,144 @@ void AddZone(datetime confirmedAt, double price, int direction) {
    int size = ArraySize(m_zones);
    ArrayResize(m_zones, size + 1);
    datetime confirmedUtc = ToUTC(confirmedAt);
-   m_zones[size].time           = confirmedUtc;
-   m_zones[size].price          = price;
-   m_zones[size].direction      = direction;
-   m_zones[size].source_tf      = PERIOD_H4;
-   m_zones[size].origin_time_utc= confirmedUtc;
+
+   m_zones[size].time              = confirmedUtc;
+   m_zones[size].price             = price;
+   m_zones[size].direction         = direction;
+   m_zones[size].source_tf         = PERIOD_H4;
+   m_zones[size].origin_time_utc   = confirmedUtc;
    int confirmMinutes = InpMinConfirmBars * PeriodSeconds(InpConfirmTF) / 60;
-   m_zones[size].confirmed_at   = confirmedUtc + confirmMinutes * 60;
-   m_zones[size].confirmed      = (ToUTC(TimeCurrent()) >= m_zones[size].confirmed_at);
+   m_zones[size].confirmed_at      = confirmedUtc + confirmMinutes * 60;
+   m_zones[size].confirmed         = (ToUTC(TimeCurrent()) >= m_zones[size].confirmed_at);
+
+   // V8b: initialise touch/bounce fields
+   m_zones[size].touch_logged      = false;
+   m_zones[size].last_touch_time   = 0;
+   m_zones[size].touch_count       = 0;
+   m_zones[size].bounce_confirmed  = false;
+   m_zones[size].bounce_confirmed_at = 0;
+   m_zones[size].bars_away         = 0;
+   m_zones[size].last_entry_day_key = 0;
+
    m_zoneCount++;
 }
 
 //+------------------------------------------------------------------+
-//| Position management (unchanged from V4)                          |
+//| V8b: UpdateZoneTouches                                           |
+//|                                                                  |
+//| Called once per M5 bar BEFORE the entry scan in                 |
+//| CheckEntryConditions. Updates touch/bounce state for all zones. |
+//|                                                                  |
+//| Touch rule  : price (M5 close[1]) is within InpZoneTolerance   |
+//|               of zone.price AND zone is time-confirmed.         |
+//|               A new touch event requires >= 4 bars gap from the |
+//|               previous touch to avoid re-logging the same test. |
+//|                                                                  |
+//| Bounce rule : after a touch is logged, price must then move     |
+//|               >= InpZoneBounceATRFrac * m15ATR away from the    |
+//|               zone and hold for >= InpZoneBounceBars M5 bars.   |
+//|               When met, bounce_confirmed = true.                |
+//|               bounce_confirmed resets to false if price re-     |
+//|               enters the tolerance band (new touch cycle).      |
+//+------------------------------------------------------------------+
+void UpdateZoneTouches(datetime barTimeUtc, double barClose, double m15ATR)
+{
+   double bounceThresh = InpZoneBounceATRFrac * m15ATR;
+
+   for(int i = 0; i < m_zoneCount; i++)
+   {
+      // Zone must be time-confirmed before we care about touches
+      if(!m_zones[i].confirmed && barTimeUtc < m_zones[i].confirmed_at) continue;
+
+      double dist = MathAbs(barClose - m_zones[i].price);
+      bool inBand = (dist / MathMax(m_zones[i].price, 1.0)) <= InpZoneTolerance;
+
+      if(m_zones[i].bounce_confirmed)
+      {
+         bool invalidated = (m_zones[i].direction == 1 && barClose < m_zones[i].price * (1 - InpZoneTolerance)) ||
+                            (m_zones[i].direction == -1 && barClose > m_zones[i].price * (1 + InpZoneTolerance));
+         if(invalidated)
+         {
+            m_zones[i].bounce_confirmed    = false;
+            m_zones[i].bounce_confirmed_at = 0;
+            m_zones[i].bars_away           = 0;
+            m_zones[i].touch_logged        = false;
+
+            if(InpEnableDebugPrint)
+               PrintFormat("V8b BounceInvalidated[%d]: zone=%.4f dir=%s close=%.4f time=%s",
+                           i, m_zones[i].price,
+                           (m_zones[i].direction == 1) ? "demand" : "supply",
+                           barClose,
+                           TimeToString(barTimeUtc, TIME_DATE|TIME_MINUTES));
+         }
+      }
+
+      if(inBand)
+      {
+         // Price is inside the tolerance band → record a touch
+         bool isNewTouch = (m_zones[i].touch_count == 0) ||
+                           ((barTimeUtc - m_zones[i].last_touch_time) > 4 * PeriodSeconds(PERIOD_M5));
+         if(isNewTouch)
+         {
+            m_zones[i].touch_logged    = true;
+            m_zones[i].last_touch_time = barTimeUtc;
+            m_zones[i].touch_count++;
+            if(!m_zones[i].bounce_confirmed)
+            {
+               m_zones[i].bars_away = 0;
+            }
+            else if(InpEnableDebugPrint)
+            {
+               PrintFormat("V8b Retest[%d]: zone=%.4f dir=%s (already confirmed, keeping active)",
+                           i, m_zones[i].price,
+                           (m_zones[i].direction == 1) ? "demand" : "supply");
+            }
+
+            if(InpEnableDebugPrint)
+               PrintFormat("V8b Touch[%d]: zone=%.4f dir=%s touch#=%d time=%s",
+                           i, m_zones[i].price,
+                           (m_zones[i].direction == 1) ? "demand" : "supply",
+                           m_zones[i].touch_count,
+                           TimeToString(barTimeUtc, TIME_DATE|TIME_MINUTES));
+         }
+         else
+         {
+            // Still inside band from same touch event — reset bars_away counter
+            if(!m_zones[i].bounce_confirmed)
+               m_zones[i].bars_away = 0;
+         }
+      }
+      else if(m_zones[i].touch_logged && !m_zones[i].bounce_confirmed)
+      {
+         // Price has moved outside the band — check bounce distance & bar count
+         if(dist >= bounceThresh)
+         {
+            m_zones[i].bars_away++;
+            if(m_zones[i].bars_away >= InpZoneBounceBars)
+            {
+               m_zones[i].bounce_confirmed    = true;
+               m_zones[i].bounce_confirmed_at = barTimeUtc;
+
+               if(InpEnableDebugPrint)
+                  PrintFormat("V8b BounceConfirmed[%d]: zone=%.4f dir=%s dist=%.4f bars_away=%d time=%s",
+                              i, m_zones[i].price,
+                              (m_zones[i].direction == 1) ? "demand" : "supply",
+                              dist, m_zones[i].bars_away,
+                              TimeToString(barTimeUtc, TIME_DATE|TIME_MINUTES));
+            }
+         }
+         else
+         {
+            // Moved outside band but not far enough — reset bars_away
+            m_zones[i].bars_away = 0;
+         }
+      }
+      // If bounce_confirmed and price returns to band → keep it sticky until invalidation.
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Position management (unchanged from V7)                          |
 //+------------------------------------------------------------------+
 void ManageOpenPositions() {
    double bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
@@ -798,7 +1018,7 @@ void ManageOpenPositions() {
 }
 
 void LogClosedTradesFromHistory() {
-   int dealsTotal = HistoryDealsTotal();
+   long dealsTotal = HistoryDealsTotal();
    for(int i = 0; i < dealsTotal; i++) {
       ulong deal = HistoryDealGetTicket(i);
       if(deal == 0) continue;
@@ -842,8 +1062,9 @@ void LogClosedTradesFromHistory() {
 }
 
 //+------------------------------------------------------------------+
-//| Entry conditions                                                  |
-//| V5 change: GetATRAtTime() replaced by CalcEWM_ATR_Py()          |
+//| CheckEntryConditions                                             |
+//| V8b: UpdateZoneTouches() pass BEFORE entry scan.                |
+//|      Entry gate adds bounce_confirmed check.                    |
 //+------------------------------------------------------------------+
 void CheckEntryConditions() {
    datetime barTime = iTime(Symbol(), PERIOD_M5, 1);
@@ -851,68 +1072,17 @@ void CheckEntryConditions() {
    datetime barTimeUtc  = ToUTC(barTime);
    double   signalPrice = iClose(Symbol(), PERIOD_M5, 1);
 
-   // V5: EWM ATR — logComparison=true for H4 (validation prints), false for M15
+   // V8a: EWM ATR with hard-seed (logComparison=true for H4 validation prints)
    double h4ATR  = CalcEWM_ATR_Py(Symbol(), PERIOD_H4,  InpEWMATRPeriod, barTime, true);
    double m15ATR = CalcEWM_ATR_Py(Symbol(), PERIOD_M15, InpEWMATRPeriod, barTime, false);
    if(h4ATR <= 0) return;
 
-   // ═══════════════════════════════════════════════════════════════════
-   // V5-DIAG: Indicator diagnostic — Dec 1-5, 2025 (UTC session hours)
-   // Prints one DIAG| line per M5 bar during session to match Python output
-   // ═══════════════════════════════════════════════════════════════════
-   static datetime diagStart   = D'2025.12.01 00:00';
-   static datetime diagEnd     = D'2025.12.06 00:00';
-   static bool     diagDone    = false;
-   static datetime diagLastBar = 0;
-
-   if(!diagDone && barTime >= diagStart && barTime < diagEnd && barTime != diagLastBar)
-   {
-      MqlDateTime dtUtc;
-      TimeToStruct(barTimeUtc, dtUtc);
-
-      if(dtUtc.hour >= InpSessionStart && dtUtc.hour < InpSessionEnd)
-      {
-         // M5 indicators
-         double m5ema20[1], m5ema50[1], m5rsi[1];
-         int m5shift = iBarShift(Symbol(), PERIOD_M5, barTime, false);
-         bool m5ok = (CopyBuffer(m_handleM5EMA20, 0, m5shift, 1, m5ema20) > 0 &&
-                      CopyBuffer(m_handleM5EMA50, 0, m5shift, 1, m5ema50) > 0 &&
-                      CopyBuffer(m_handleM5RSI,   0, m5shift, 1, m5rsi)   > 0);
-
-         // H4 indicators
-         double h4ema20[1], h4ema50[1], h4rsi[1];
-         int h4shift = iBarShift(Symbol(), PERIOD_H4, barTime, false);
-         bool h4ok = (CopyBuffer(m_handleH4EMA20, 0, h4shift, 1, h4ema20) > 0 &&
-                      CopyBuffer(m_handleH4EMA50, 0, h4shift, 1, h4ema50) > 0 &&
-                      CopyBuffer(m_handleH4RSI,   0, h4shift, 1, h4rsi)   > 0);
-
-         // Active zone count in lookback window
-         int activeZones = 0;
-         datetime windowStart = barTimeUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4));
-         for(int z = 0; z < m_zoneCount; z++)
-            if(m_zones[z].time >= windowStart && m_zones[z].time < barTimeUtc)
-               activeZones++;
-
-         if(m5ok && h4ok)
-            PrintFormat("DIAG|%s|M5|C=%.2f|E20=%.2f|E50=%.2f|RSI=%.2f|H4|E20=%.2f|E50=%.2f|RSI=%.2f|ATR=%.4f|M15ATR=%.4f|Zones=%d",
-                        TimeToString(barTime, TIME_DATE|TIME_MINUTES),
-                        signalPrice,
-                        m5ema20[0], m5ema50[0], m5rsi[0],
-                        h4ema20[0], h4ema50[0], h4rsi[0],
-                        h4ATR, m15ATR, activeZones);
-      }
-
-      diagLastBar = barTime;
-      if(barTime >= diagEnd)
-      {
-         diagDone = true;
-         Print("DIAG: Indicator diagnostic complete for Dec 1-5 2025");
-      }
-   }
-   // ═══════════════════════════════════════════════════════════════════
+   // V8b: always update touch/bounce telemetry (gate is on entry, not on state tracking)
+   UpdateZoneTouches(barTimeUtc, signalPrice, m15ATR);
 
    double   sessionMultForBar = GetSessionMultiplier(barTimeUtc);
    datetime windowStartUtc    = barTimeUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4));
+   int      entryDayKey       = GetUTCDateKey(barTimeUtc);
 
    for(int i = 0; i < m_zoneCount; i++) {
       if(m_zones[i].time < windowStartUtc || m_zones[i].time >= barTimeUtc) continue;
@@ -922,16 +1092,47 @@ void CheckEntryConditions() {
       if(m_zones[i].direction ==  1 && signalPrice < m_zones[i].price * (1 - InpZoneTolerance)) continue;
       if(m_zones[i].direction == -1 && signalPrice > m_zones[i].price * (1 + InpZoneTolerance)) continue;
       if(sessionMultForBar <= 0 || !CheckClusterCap(barTimeUtc)) continue;
+      if(m_zones[i].last_entry_day_key == entryDayKey)
+      {
+         if(InpEnableDebugPrint)
+            PrintFormat("V8 ZoneLocked[%d]: zone=%.4f dir=%s already traded today", i, m_zones[i].price,
+                        (m_zones[i].direction == 1) ? "demand" : "supply");
+         continue;
+      }
+
+      // V8b: require bounce_confirmed before entry (guard-able via input)
+      if(InpZoneTouchRequired && !m_zones[i].bounce_confirmed) continue;
 
       string regime     = GetDailyRegime(barTime);
       double regimeMult = GetRegimeMultiplier(regime, m_zones[i].direction);
       int    h4Score    = GetTFScoreAtTime(PERIOD_H4, m_zones[i].direction, barTime);
       int    h1Score    = GetTFScoreAtTime(PERIOD_H1, m_zones[i].direction, barTime);
-      int    ltfScore   = GetTFScoreAtTime(PERIOD_M5, m_zones[i].direction, barTime);
-      if(h4Score < InpH4ScoreMin || h1Score < InpH1ScoreMin || ltfScore < InpLTFScoreMin) continue;
-      int totalScore        = h4Score + h1Score + ltfScore;
-      int effectiveScoreMin = InpScoreMin + ((m_zones[i].direction == 1) ? InpLongScoreOffset : 0);
-      if(totalScore < effectiveScoreMin || ltfScore > InpLTFScoreCap) continue;
+      int    m5Score    = GetTFScoreAtTime(PERIOD_M5, m_zones[i].direction, barTime);
+      int    totalScore = h4Score + h1Score + m5Score;
+      int    ltfAgg     = h1Score + m5Score; // aggregated low-timeframe score (H1 + M5)
+      int    effectiveScoreMin = InpScoreMin + ((m_zones[i].direction == 1) ? InpLongScoreOffset : 0);
+
+      bool counterTrend = ((regime == "bull" && m_zones[i].direction == -1) ||
+                           (regime == "bear" && m_zones[i].direction ==  1));
+      if(m_zones[i].direction == -1)
+      {
+         // SHORT: simple threshold only — V8B style (no CT override)
+         if(h4Score < InpH4ScoreMin || h1Score < InpH1ScoreMin || m5Score < InpLTFScoreMin) continue;
+         if(totalScore < effectiveScoreMin) continue;
+      }
+      else if(counterTrend)
+      {
+         if(totalScore    < InpCTTotalScoreMin) continue;
+         if(h4Score       < InpCTH4ScoreMin)   continue;
+         if(h1Score       < InpCTH1ScoreMin)   continue;
+         if(ltfAgg        < InpCTLTFScoreMin)  continue;
+      }
+      else
+      {
+         if(h4Score < InpH4ScoreMin || h1Score < InpH1ScoreMin || m5Score < InpLTFScoreMin) continue;
+         if(totalScore < effectiveScoreMin) continue;
+      }
+      if(m5Score > InpLTFScoreCap) continue;
       double confMult = CalculateConfidenceMultiplier(barTimeUtc);
 
       ExecuteEntry(m_zones[i], h4ATR, sessionMultForBar, regimeMult, confMult, totalScore, barTime, barTimeUtc, signalPrice);
@@ -987,14 +1188,33 @@ double GetRegimeMultiplier(string regime, int direction) {
 
 int GetTFScoreAtTime(ENUM_TIMEFRAMES tf, int direction, datetime barTime) {
    int handleEMA20, handleEMA50, handleRSI;
+   int shift;
+
    switch(tf) {
-      case PERIOD_H4: handleEMA20 = m_handleH4EMA20; handleEMA50 = m_handleH4EMA50; handleRSI = m_handleH4RSI; break;
-      case PERIOD_H1: handleEMA20 = m_handleH1EMA20; handleEMA50 = m_handleH1EMA50; handleRSI = m_handleH1RSI; break;
-      default:        handleEMA20 = m_handleM5EMA20; handleEMA50 = m_handleM5EMA50; handleRSI = m_handleM5RSI; break;
+      case PERIOD_H4:
+         handleEMA20 = m_handleH4EMA20;
+         handleEMA50 = m_handleH4EMA50;
+         handleRSI   = m_handleH4RSI;
+         // V6: H4 always uses last CLOSED bar
+         shift = SafeBarShift(Symbol(), PERIOD_H4, barTime) + 1;
+         break;
+      case PERIOD_H1:
+         handleEMA20 = m_handleH1EMA20;
+         handleEMA50 = m_handleH1EMA50;
+         handleRSI   = m_handleH1RSI;
+         shift = SafeBarShift(Symbol(), PERIOD_H1, barTime);
+         break;
+      default: // PERIOD_M5
+         handleEMA20 = m_handleM5EMA20;
+         handleEMA50 = m_handleM5EMA50;
+         handleRSI   = m_handleM5RSI;
+         shift = SafeBarShift(Symbol(), PERIOD_M5, barTime);
+         break;
    }
-   double close[1], ema20[1], ema50[1], rsi[1];
-   int shift = SafeBarShift(Symbol(), tf, barTime);
+
    if(shift < 0) return 0;
+
+   double close[1], ema20[1], ema50[1], rsi[1];
    if(CopyClose (Symbol(), tf, shift, 1, close) < 1) return 0;
    if(CopyBuffer(handleEMA20, 0, shift, 1, ema20) < 1) return 0;
    if(CopyBuffer(handleEMA50, 0, shift, 1, ema50) < 1) return 0;
@@ -1013,7 +1233,7 @@ double CalculateConfidenceMultiplier(datetime entryUtc) {
 }
 
 //+------------------------------------------------------------------+
-//| Execute entry (unchanged from V4)                                |
+//| Execute entry (unchanged from V7)                                |
 //+------------------------------------------------------------------+
 void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
                   double regimeMult, double confMult, int totalScore,
@@ -1047,15 +1267,16 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
    volume = MathMax(volume, SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN));
    volume = MathMin(volume, SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX));
 
-   string comment = StringFormat("P2_B|%s|S=%d|ATR=%.5f|REG=%s|CONF=%.1f",
+   string comment = StringFormat("P2_B_V8|%s|S=%d|ATR=%.5f|REG=%s|CONF=%.1f|TC=%d",
                                  (zone.direction == 1) ? "LONG" : "SHORT",
-                                 totalScore, h4ATR, GetDailyRegime(barTime), confMult);
+                                 totalScore, h4ATR, GetDailyRegime(barTime), confMult,
+                                 zone.touch_count);
 
    if(InpEnableDebugPrint)
-      PrintFormat("V5 Entry: dir=%s price=%.4f stop=%.4f tp=%.4f vol=%.2f ATR=%.4f stopDist=%.4f riskAmt=%.2f riskPerLot=%.4f",
+      PrintFormat("V8 Entry: dir=%s price=%.4f stop=%.4f tp=%.4f vol=%.2f ATR=%.4f stopDist=%.4f riskAmt=%.2f riskPerLot=%.4f touchCount=%d",
                   (zone.direction==1)?"LONG":"SHORT",
                   entryPrice, stopPrice, takeProfit, volume,
-                  h4ATR, stopDistance, riskAmount, riskPerLot);
+                  h4ATR, stopDistance, riskAmount, riskPerLot, zone.touch_count);
 
    m_trade.PositionOpen(Symbol(), orderType, volume, entryPrice, stopPrice, takeProfit, comment);
 
@@ -1087,13 +1308,14 @@ void ExecuteEntry(SZone &zone, double h4ATR, double sessionMult,
       m_pos_meta[metaIndex].zone_time_utc   = zone.time;
       m_pos_meta[metaIndex].zone_price      = zone.price;
       m_pos_meta[metaIndex].logged          = false;
+      zone.last_entry_day_key               = GetUTCDateKey(barTimeUtc);
       RegisterEntryTime(barTimeUtc);
       m_lastEntryTime = barTime;
    }
 }
 
 //+------------------------------------------------------------------+
-//| Helpers (unchanged from V4 — GetATRAtTime removed)              |
+//| Helpers                                                           |
 //+------------------------------------------------------------------+
 string TfToShortString(ENUM_TIMEFRAMES tf) {
    switch(tf) {
@@ -1150,7 +1372,14 @@ void DrawZones() {
    for(int i = 0; i < m_zoneCount; i++) {
       if(m_zones[i].time < nowUtc - (InpZoneLookback * PeriodSeconds(PERIOD_H4))) continue;
       string n   = StringFormat("Zone_%d", i);
-      color  clr = (m_zones[i].direction == 1) ? m_demandColor : m_supplyColor;
+      // V8b: colour confirmed bounces differently from untouched zones
+      color clr;
+      if(!m_zones[i].touch_logged)
+         clr = (m_zones[i].direction == 1) ? clrSteelBlue : clrLightCoral;      // virgin — muted
+      else if(m_zones[i].bounce_confirmed)
+         clr = (m_zones[i].direction == 1) ? m_demandColor : m_supplyColor;     // confirmed — bright
+      else
+         clr = (m_zones[i].direction == 1) ? clrCornflowerBlue : clrSalmon;     // touched, no bounce yet
       ObjectCreate(0, n + "_line", OBJ_TREND, 0,
                    FromUTC(m_zones[i].origin_time_utc), m_zones[i].price,
                    TimeCurrent(), m_zones[i].price);

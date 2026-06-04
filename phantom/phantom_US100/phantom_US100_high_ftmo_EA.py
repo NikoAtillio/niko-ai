@@ -33,9 +33,68 @@ try:
     import pytz
 except ImportError:
     pytz = None
+
+import json
+import glob
+from datetime import datetime
+
 warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2_ftmo'
+
+# Signal emission to MT5: write newline-delimited JSON into a file
+# placed in a local `signals/` folder and -- when available -- into the
+# MetaTrader `Common/Files` directory found under the Wine prefix.
+EMIT_SIGNALS = True
+SIGNAL_FILENAME = 'phantom_signals.jsonl'
+
+def _find_mt5_common_files():
+    """Return candidate MT5 Common/Files paths under the Wine prefix."""
+    wp = os.environ.get('WINEPREFIX') or '/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5'
+    patterns = [
+        os.path.join(wp, 'drive_c', 'users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
+        os.path.join(wp, 'drive_c', 'Users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
+        os.path.join(wp, '**', 'Common', 'Files'),
+    ]
+    matches = []
+    for pattern in patterns:
+        matches.extend(glob.glob(pattern, recursive=True))
+    # De-duplicate while preserving order.
+    seen = set()
+    unique_matches = []
+    for path in matches:
+        if path not in seen and os.path.isdir(path):
+            seen.add(path)
+            unique_matches.append(path)
+    return unique_matches
+
+def write_signal(signal: dict):
+    """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
+    # prepare directories
+    local_dir = os.path.join(os.getcwd(), 'signals')
+    os.makedirs(local_dir, exist_ok=True)
+    local_path = os.path.join(local_dir, SIGNAL_FILENAME)
+
+    # serialize timestamp if present
+    s = signal.copy()
+    for k, v in s.items():
+        if hasattr(v, 'isoformat'):
+            s[k] = v.isoformat()
+
+    line = json.dumps(s, default=str, ensure_ascii=False)
+    with open(local_path, 'a', encoding='utf-8') as f:
+        f.write(line + '\n')
+
+    # attempt to also write into MT5 Common/Files for EA consumption
+    mt5_dirs = _find_mt5_common_files()
+    for mt5_dir in mt5_dirs:
+        try:
+            mt5_path = os.path.join(mt5_dir, SIGNAL_FILENAME)
+            with open(mt5_path, 'a', encoding='utf-8') as f:
+                f.write(line + '\n')
+        except Exception:
+            # best-effort only; do not raise
+            pass
 
 # Aligned profile: match MT5 high-risk sizing and peak-hour boost.
 HIGH_RISK_PCT_MULT = 2.0
@@ -601,6 +660,7 @@ def run_scenario(
         for p in positions:
             exit_reason = None
             exit_signal_px = None
+            stop_changed = False
 
             # Trailing stop update (CRITICAL: must come before breakeven check)
             atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
@@ -608,10 +668,14 @@ def run_scenario(
                 trail_dist = atr_trail * p['atr_e']
                 if p['dir'] == 'long':
                     new_trail = price - trail_dist
-                    p['stop'] = max(p['stop'], new_trail)
+                    updated_stop = max(p['stop'], new_trail)
                 else:
                     new_trail = price + trail_dist
-                    p['stop'] = min(p['stop'], new_trail)
+                    updated_stop = min(p['stop'], new_trail)
+
+                if abs(updated_stop - p['stop']) > 1e-9:
+                    p['stop'] = updated_stop
+                    stop_changed = True
 
             # Breakeven: move stop to entry once +0.8R is reached
             if not p.get('be_triggered', False):
@@ -623,6 +687,26 @@ def run_scenario(
                 if current_r >= breakeven_r:
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
+                    stop_changed = True
+
+            if EMIT_SIGNALS and stop_changed and abs(p['stop'] - p.get('last_emitted_stop', p['stop'])) > 1e-9:
+                try:
+                    write_signal({
+                        'action': 'modify',
+                        'signal_id': p['signal_id'],
+                        'entry_ts': p['entry_ts'],
+                        'dir': p['dir'],
+                        'entry': float(p['entry']),
+                        'stop': float(p['stop']),
+                        'tp': float(p['tp']),
+                        'qty': float(p['qty']),
+                        'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                        'regime': p.get('regime', 'unknown'),
+                        'be_triggered': bool(p.get('be_triggered', False)),
+                    })
+                    p['last_emitted_stop'] = p['stop']
+                except Exception:
+                    pass
 
             # Minimum-hold stop filter (instrument-specific, timeframe-aware).
             hold_bars = bar_i - p['entry_bar']
@@ -668,6 +752,25 @@ def run_scenario(
                 exit_px = apply_execution_adjustment(
                     exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
                 )
+                if EMIT_SIGNALS:
+                    try:
+                        write_signal({
+                            'action': 'close',
+                            'signal_id': p['signal_id'],
+                            'entry_ts': p['entry_ts'],
+                            'exit_ts': ts_pd,
+                            'dir': p['dir'],
+                            'entry': float(p['entry']),
+                            'exit': float(exit_px),
+                            'stop': float(p['stop']),
+                            'tp': float(p['tp']),
+                            'qty': float(p['qty']),
+                            'exit_reason': exit_reason,
+                            'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                            'regime': p.get('regime', 'unknown'),
+                        })
+                    except Exception:
+                        pass
                 gross_pnl = (
                     (exit_px - p['entry']) * p['qty']
                     if p['dir'] == 'long'
@@ -1136,7 +1239,10 @@ def run_scenario(
             last_entry = ts_pd
             traded_days.add(ts_pd.normalize())
 
+            signal_id = f"{ts_pd.isoformat()}|{bar_i}|{len(positions)}"
+
             positions.append({
+                'signal_id'         : signal_id,
                 'entry_ts'          : ts_pd,
                 'entry_bar'         : bar_i,
                 'dir'               : z_dir,
@@ -1151,8 +1257,28 @@ def run_scenario(
                 'confidence_mult'   : conf_mult,
                 'regime'            : regime,
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
+                'last_emitted_stop' : stop_px,
             })
-            
+
+            # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
+            if EMIT_SIGNALS:
+                try:
+                    sig = {
+                        'action': 'open',
+                        'signal_id': signal_id,
+                        'entry_ts': ts_pd,
+                        'dir': z_dir,
+                        'entry': float(entry_exec),
+                        'stop': float(stop_px) if stop_px is not None else None,
+                        'tp': float(tp_px) if tp_px is not None else None,
+                        'qty': float(qty),
+                        'confidence_mult': float(conf_mult) if conf_mult is not None else None,
+                        'regime': regime,
+                    }
+                    write_signal(sig)
+                except Exception:
+                    pass
+
             if debug_rows is not None:
                 debug_rows.append({
                     'ts': ts_pd,
