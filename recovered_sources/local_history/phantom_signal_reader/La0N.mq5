@@ -34,6 +34,9 @@ input double   InpTrailATRMult        = 0.8;     // Trailing stop = price - (ATR
 input double   InpBreakevenR          = 0.8;     // R-level to move stop to entry
 input int      InpMinHoldHours        = 2;       // Minimum hours before tight stops apply
 
+//--- Local risk manager toggle (when false, trailing/breakeven are disabled)
+input bool   InpEnableLocalRiskManager = false;
+
 #include <Trade\Trade.mqh>
 CTrade trade;
 
@@ -784,6 +787,10 @@ int OnInit() {
         PrintFormat("Loaded %d signals for replay", ArraySize(g_signals));
     }
     
+    if(InpVerboseLog) {
+        PrintFormat("Local risk manager enabled: %s", InpEnableLocalRiskManager ? "true" : "false");
+    }
+
     EventSetTimer(1);
     return INIT_SUCCEEDED;
 }
@@ -795,14 +802,16 @@ void OnTick() {
         ProcessSignalsLive();
     }
 
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    // Only run the local risk manager when explicitly enabled and in live mode
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE) {
         ManageTrailingStops();
+    }
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE) {
         ManageTrailingStops();
+    }
 }
 
 void OnDeinit(const int reason) {

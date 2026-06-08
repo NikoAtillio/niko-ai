@@ -660,6 +660,7 @@ def run_scenario(
         for p in positions:
             exit_reason = None
             exit_signal_px = None
+            stop_changed = False
 
             # Trailing stop update (CRITICAL: must come before breakeven check)
             atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
@@ -667,10 +668,14 @@ def run_scenario(
                 trail_dist = atr_trail * p['atr_e']
                 if p['dir'] == 'long':
                     new_trail = price - trail_dist
-                    p['stop'] = max(p['stop'], new_trail)
+                    updated_stop = max(p['stop'], new_trail)
                 else:
                     new_trail = price + trail_dist
-                    p['stop'] = min(p['stop'], new_trail)
+                    updated_stop = min(p['stop'], new_trail)
+
+                if abs(updated_stop - p['stop']) > 1e-9:
+                    p['stop'] = updated_stop
+                    stop_changed = True
 
             # Breakeven: move stop to entry once +0.8R is reached
             if not p.get('be_triggered', False):
@@ -682,6 +687,26 @@ def run_scenario(
                 if current_r >= breakeven_r:
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
+                    stop_changed = True
+
+            if EMIT_SIGNALS and stop_changed and abs(p['stop'] - p.get('last_emitted_stop', p['stop'])) > 1e-9:
+                try:
+                    write_signal({
+                        'action': 'modify',
+                        'signal_id': p['signal_id'],
+                        'entry_ts': p['entry_ts'],
+                        'dir': p['dir'],
+                        'entry': float(p['entry']),
+                        'stop': float(p['stop']),
+                        'tp': float(p['tp']),
+                        'qty': float(p['qty']),
+                        'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                        'regime': p.get('regime', 'unknown'),
+                        'be_triggered': bool(p.get('be_triggered', False)),
+                    })
+                    p['last_emitted_stop'] = p['stop']
+                except Exception:
+                    pass
 
             # Minimum-hold stop filter (instrument-specific, timeframe-aware).
             hold_bars = bar_i - p['entry_bar']
@@ -727,6 +752,25 @@ def run_scenario(
                 exit_px = apply_execution_adjustment(
                     exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
                 )
+                if EMIT_SIGNALS:
+                    try:
+                        write_signal({
+                            'action': 'close',
+                            'signal_id': p['signal_id'],
+                            'entry_ts': p['entry_ts'],
+                            'exit_ts': ts_pd,
+                            'dir': p['dir'],
+                            'entry': float(p['entry']),
+                            'exit': float(exit_px),
+                            'stop': float(p['stop']),
+                            'tp': float(p['tp']),
+                            'qty': float(p['qty']),
+                            'exit_reason': exit_reason,
+                            'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                            'regime': p.get('regime', 'unknown'),
+                        })
+                    except Exception:
+                        pass
                 gross_pnl = (
                     (exit_px - p['entry']) * p['qty']
                     if p['dir'] == 'long'
@@ -1195,7 +1239,10 @@ def run_scenario(
             last_entry = ts_pd
             traded_days.add(ts_pd.normalize())
 
+            signal_id = f"{ts_pd.isoformat()}|{bar_i}|{len(positions)}"
+
             positions.append({
+                'signal_id'         : signal_id,
                 'entry_ts'          : ts_pd,
                 'entry_bar'         : bar_i,
                 'dir'               : z_dir,
@@ -1210,12 +1257,15 @@ def run_scenario(
                 'confidence_mult'   : conf_mult,
                 'regime'            : regime,
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
+                'last_emitted_stop' : stop_px,
             })
 
             # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
             if EMIT_SIGNALS:
                 try:
                     sig = {
+                        'action': 'open',
+                        'signal_id': signal_id,
                         'entry_ts': ts_pd,
                         'dir': z_dir,
                         'entry': float(entry_exec),

@@ -28,6 +28,7 @@ enum SignalMode
 };
 
 input SignalMode InpSignalMode = SIGNAL_MODE_REPLAY;
+input bool   InpEnableLocalRiskManager = false;
 
 //--- Risk management (NEW in v1.5)
 input double   InpTrailATRMult        = 0.8;     // Trailing stop = price - (ATR * mult)
@@ -782,6 +783,24 @@ int OnInit() {
     if(InpReplayExistingSignals && InpSignalMode == SIGNAL_MODE_REPLAY) {
         LoadSignals();
         PrintFormat("Loaded %d signals for replay", ArraySize(g_signals));
+
+        int openCount = 0;
+        int modifyCount = 0;
+        int closeCount = 0;
+        for(int i = 0; i < ArraySize(g_signals); i++)
+        {
+            string action = g_signals[i].action;
+            if(action == "modify")
+                modifyCount++;
+            else if(action == "close")
+                closeCount++;
+            else
+                openCount++;
+        }
+
+        PrintFormat("Replay action mix | open=%d modify=%d close=%d", openCount, modifyCount, closeCount);
+        if(ArraySize(g_signals) > 0 && modifyCount == 0 && closeCount == 0)
+            Print("WARNING: Replay file is open-only. Risk lifecycle (Python modify/close actions) is missing.");
     }
     
     EventSetTimer(1);
@@ -795,13 +814,13 @@ void OnTick() {
         ProcessSignalsLive();
     }
 
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    // Python remains authoritative by default; local manager is opt-in only.
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE)
         ManageTrailingStops();
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE)
         ManageTrailingStops();
 }
 

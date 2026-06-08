@@ -49,24 +49,13 @@ EMIT_SIGNALS = True
 SIGNAL_FILENAME = 'phantom_signals.jsonl'
 
 def _find_mt5_common_files():
-    """Return candidate MT5 Common/Files paths under the Wine prefix."""
-    wp = os.environ.get('WINEPREFIX') or '/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5'
-    patterns = [
-        os.path.join(wp, 'drive_c', 'users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, 'drive_c', 'Users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, '**', 'Common', 'Files'),
-    ]
-    matches = []
-    for pattern in patterns:
-        matches.extend(glob.glob(pattern, recursive=True))
-    # De-duplicate while preserving order.
-    seen = set()
-    unique_matches = []
-    for path in matches:
-        if path not in seen and os.path.isdir(path):
-            seen.add(path)
-            unique_matches.append(path)
-    return unique_matches
+    """Return first candidate path to MT5 Common/Files under WINEPREFIX."""
+    wp = os.environ.get('WINEPREFIX') or os.environ.get('WINEPREFIX64') or ''
+    if not wp:
+        return None
+    pattern = os.path.join(wp, '**', 'Common', 'Files')
+    matches = glob.glob(pattern, recursive=True)
+    return matches[0] if matches else None
 
 def write_signal(signal: dict):
     """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
@@ -86,8 +75,8 @@ def write_signal(signal: dict):
         f.write(line + '\n')
 
     # attempt to also write into MT5 Common/Files for EA consumption
-    mt5_dirs = _find_mt5_common_files()
-    for mt5_dir in mt5_dirs:
+    mt5_dir = _find_mt5_common_files()
+    if mt5_dir:
         try:
             mt5_path = os.path.join(mt5_dir, SIGNAL_FILENAME)
             with open(mt5_path, 'a', encoding='utf-8') as f:
@@ -102,7 +91,7 @@ HIGH_PEAK_SESSION_BOOST = 1.2
 HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
 
 FTMO_CONFIG = {
-    'account_size': 0.0,
+    'account_size': 70_000.0,
     'profit_target_pct': 10.0,
     'max_loss_pct': 10.0,
     'max_daily_loss_pct': 5.0,
@@ -579,9 +568,7 @@ def run_scenario(
     debug_rows = [] if debug else None
     debug_tol_mult = 5.0
 
-    ftmo = dict(FTMO_CONFIG)
-    if ftmo['account_size'] <= 0.0:
-        ftmo['account_size'] = max(float(capital), 1.0)
+    ftmo = FTMO_CONFIG
     ftmo['profit_target_cash'] = ftmo['account_size'] * (ftmo['profit_target_pct'] / 100.0)
     ftmo['max_loss_cash'] = ftmo['account_size'] * (ftmo['max_loss_pct'] / 100.0)
     ftmo['max_daily_loss_cash'] = ftmo['account_size'] * (ftmo['max_daily_loss_pct'] / 100.0)
@@ -1212,23 +1199,6 @@ def run_scenario(
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
             })
 
-            # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
-            if EMIT_SIGNALS:
-                try:
-                    sig = {
-                        'entry_ts': ts_pd,
-                        'dir': z_dir,
-                        'entry': float(entry_exec),
-                        'stop': float(stop_px) if stop_px is not None else None,
-                        'tp': float(tp_px) if tp_px is not None else None,
-                        'qty': float(qty),
-                        'confidence_mult': float(conf_mult) if conf_mult is not None else None,
-                        'regime': regime,
-                    }
-                    write_signal(sig)
-                except Exception:
-                    pass
-
             if debug_rows is not None:
                 debug_rows.append({
                     'ts': ts_pd,
@@ -1401,7 +1371,7 @@ def main():
     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
-    parser.add_argument('--capital',     type=float, default=10_000)
+    parser.add_argument('--capital',     type=float, default=70_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
     parser.add_argument('--spread-bps',  type=float, default=0.0,

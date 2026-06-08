@@ -411,16 +411,14 @@ void ManageTrailingStops()
         double initialRisk  = m_positions[i].initial_risk;
         bool   isLong       = (m_positions[i].direction == 1);
         
-        double currentR = 0.0;
-        if(initialRisk > 0.0)
-        {
-            currentR = (isLong)
-                ? (currentPrice - entryPrice) / initialRisk
-                : (entryPrice - currentPrice) / initialRisk;
-        }
+        if(initialRisk <= 0) continue;
+        
+        double currentR = (isLong) 
+            ? (currentPrice - entryPrice) / initialRisk
+            : (entryPrice - currentPrice) / initialRisk;
         
         // Breakeven trigger
-        if(!m_positions[i].be_triggered && initialRisk > 0.0 && currentR >= InpBreakevenR) {
+        if(!m_positions[i].be_triggered && currentR >= InpBreakevenR) {
             m_positions[i].current_stop = entryPrice;
             m_positions[i].be_triggered = true;
             
@@ -432,47 +430,38 @@ void ManageTrailingStops()
             ModifyPositionByTicket(m_positions[i].ticket, entryPrice, m_positions[i].tp);
         }
         
-        // Trailing stop candidate
+        // Trailing stop
         double atr = m_positions[i].atr_entry;
-        double candidateStop = m_positions[i].current_stop;
-
-        if(atr > 0.0) {
-            double trailDist = InpTrailATRMult * atr;
-            double newStop;
-
-            if(isLong) {
-                newStop = currentPrice - trailDist;
-                if(newStop > candidateStop)
-                    candidateStop = newStop;
-            } else {
-                newStop = currentPrice + trailDist;
-                if(newStop < candidateStop)
-                    candidateStop = newStop;
-            }
+        if(atr <= 0) continue;
+        
+        double trailDist = InpTrailATRMult * atr;
+        double newStop;
+        
+        if(isLong) {
+            newStop = currentPrice - trailDist;
+            if(newStop > m_positions[i].current_stop)
+                m_positions[i].current_stop = newStop;
+        } else {
+            newStop = currentPrice + trailDist;
+            if(newStop < m_positions[i].current_stop)
+                m_positions[i].current_stop = newStop;
         }
         
         // Minimum-hold filter
         double ageHours = (double)(now - m_positions[i].entry_time) / 3600.0;
         bool canTighten = (ageHours >= (double)InpMinHoldHours) || (currentR >= 0.0);
-
-        if(!canTighten) {
-            if(m_positions[i].be_triggered)
-                candidateStop = entryPrice;
-            else if(m_positions[i].initial_stop > 0.0)
-                candidateStop = m_positions[i].initial_stop;
-        }
-
-        m_positions[i].current_stop = candidateStop;
-
+        
         double currentStop = PositionGetDouble(POSITION_SL);
-        double pointValue = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-        if(MathAbs(m_positions[i].current_stop - currentStop) > pointValue) {
-            if(InpVerboseLog) {
-                PrintFormat("[TRAIL] Ticket %d: SL %.5f → %.5f (Age: %.1f hrs, R: %.2f)",
-                           m_positions[i].ticket, currentStop, m_positions[i].current_stop,
-                           ageHours, currentR);
+        if(canTighten) {
+            double pointValue = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+            if(MathAbs(m_positions[i].current_stop - currentStop) > pointValue) {
+                if(InpVerboseLog) {
+                    PrintFormat("[TRAIL] Ticket %d: SL %.5f → %.5f (Age: %.1f hrs, R: %.2f)",
+                               m_positions[i].ticket, currentStop, m_positions[i].current_stop, 
+                               ageHours, currentR);
+                }
+                ModifyPositionByTicket(m_positions[i].ticket, m_positions[i].current_stop, m_positions[i].tp);
             }
-            ModifyPositionByTicket(m_positions[i].ticket, m_positions[i].current_stop, m_positions[i].tp);
         }
     }
 }
@@ -734,9 +723,10 @@ void ProcessSignalsReplay()
     if(nowTime <= 0)
         return;
 
-    if(nowTime == g_lastReplayBarTime)
-        return;
-    g_lastReplayBarTime = nowTime;
+    // Do not hard-gate replay processing by bar timestamp.
+    // Some tester modes can keep bar time unchanged while ticks still advance.
+    if(nowTime > g_lastReplayBarTime)
+        g_lastReplayBarTime = nowTime;
 
     while(g_nextSignalIndex < ArraySize(g_signals))
     {
@@ -794,15 +784,15 @@ void OnTick() {
     } else if(InpSignalMode == SIGNAL_MODE_LIVE) {
         ProcessSignalsLive();
     }
-
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    
+    ManageTrailingStops();
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    if(InpSignalMode == SIGNAL_MODE_REPLAY && InpReplayExistingSignals) {
+        ProcessSignalsReplay();
+    }
+    ManageTrailingStops();
 }
 
 void OnDeinit(const int reason) {

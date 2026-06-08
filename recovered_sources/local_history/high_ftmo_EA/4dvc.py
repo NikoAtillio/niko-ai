@@ -68,6 +68,12 @@ def _find_mt5_common_files():
             unique_matches.append(path)
     return unique_matches
 
+# Data timestamps are in EST (UTC-5 standard / UTC-4 daylight).
+# MT5 broker server time is UTC+N (e.g. FTMO = UTC+2 winter).
+# Signals must be written in UTC so that the MT5 reader can apply
+# InpBrokerUTCOffset and match the correct bar. EST winter = UTC-5.
+SIGNAL_EST_TO_UTC_HOURS = 5
+
 def write_signal(signal: dict):
     """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
     # prepare directories
@@ -75,11 +81,11 @@ def write_signal(signal: dict):
     os.makedirs(local_dir, exist_ok=True)
     local_path = os.path.join(local_dir, SIGNAL_FILENAME)
 
-    # serialize timestamp if present
+    # serialize timestamps as UTC (add EST→UTC offset) so MT5 can apply broker offset
     s = signal.copy()
     for k, v in s.items():
         if hasattr(v, 'isoformat'):
-            s[k] = v.isoformat()
+            s[k] = (v + pd.Timedelta(hours=SIGNAL_EST_TO_UTC_HOURS)).isoformat()
 
     line = json.dumps(s, default=str, ensure_ascii=False)
     with open(local_path, 'a', encoding='utf-8') as f:
@@ -99,7 +105,7 @@ def write_signal(signal: dict):
 # Aligned profile: match MT5 high-risk sizing and peak-hour boost.
 HIGH_RISK_PCT_MULT = 2.0
 HIGH_PEAK_SESSION_BOOST = 1.2
-HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
+HIGH_PEAK_HOURS_EST = {9, 10, 11, 12}
 
 FTMO_CONFIG = {
     'account_size': 0.0,
@@ -139,9 +145,9 @@ INSTRUMENT_CONFIG = {
         soft_session_size  = 0.5,
     ),
     'US100': dict(
-        # Session: Pre-market through NY close (13:00–21:00 UTC), weekdays only
-        session_start   = 13,
-        session_end     = 21,
+        # Session: Pre-market through NY close (08:00–16:00 EST), weekdays only
+        session_start   = 8,
+        session_end     = 16,
         allow_weekend   = False,
         weekend_size    = 0.0,
         # TP at 1.3R — daily range ~1.93%, 1.3R is well within reach
@@ -230,17 +236,9 @@ def load_csv(path: str) -> pd.DataFrame:
         date_str = df['date'].astype(str).str.strip()
         time_str = df['time'].astype(str).str.strip()
         df['datetime'] = pd.to_datetime(date_str + ' ' + time_str, errors='coerce')
-        # CSV times are in NYSE local time (EST/EDT), convert to UTC for session consistency
-        if pytz is not None:
-            # Use pytz for proper DST handling (EST = UTC-5 in winter, EDT = UTC-4 in summer)
-            nyc_tz = pytz.timezone('America/New_York')
-            df['datetime'] = (df['datetime']
-                              .dt.tz_localize(None)
-                              .dt.tz_localize(nyc_tz, ambiguous='NaT', nonexistent='NaT')
-                              .dt.tz_convert('UTC'))
-        else:
-            # Fallback: assume fixed EST (UTC-5) for January testing
-            df['datetime'] = df['datetime'] - pd.Timedelta(hours=5)
+        # CSV times are already in broker time (EST) — no conversion needed.
+        # Keeping naive EST timestamps to match MQL5's native bar alignment.
+        pass
     elif 'date' in df.columns:
         # Daily exports often omit a separate time column.
         date_str = df['date'].astype(str).str.strip()
@@ -660,6 +658,7 @@ def run_scenario(
         for p in positions:
             exit_reason = None
             exit_signal_px = None
+            stop_changed = False
 
             # Trailing stop update (CRITICAL: must come before breakeven check)
             atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
@@ -667,10 +666,14 @@ def run_scenario(
                 trail_dist = atr_trail * p['atr_e']
                 if p['dir'] == 'long':
                     new_trail = price - trail_dist
-                    p['stop'] = max(p['stop'], new_trail)
+                    updated_stop = max(p['stop'], new_trail)
                 else:
                     new_trail = price + trail_dist
-                    p['stop'] = min(p['stop'], new_trail)
+                    updated_stop = min(p['stop'], new_trail)
+
+                if abs(updated_stop - p['stop']) > 1e-9:
+                    p['stop'] = updated_stop
+                    stop_changed = True
 
             # Breakeven: move stop to entry once +0.8R is reached
             if not p.get('be_triggered', False):
@@ -682,6 +685,26 @@ def run_scenario(
                 if current_r >= breakeven_r:
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
+                    stop_changed = True
+
+            if EMIT_SIGNALS and stop_changed and abs(p['stop'] - p.get('last_emitted_stop', p['stop'])) > 1e-9:
+                try:
+                    write_signal({
+                        'action': 'modify',
+                        'signal_id': p['signal_id'],
+                        'entry_ts': p['entry_ts'],
+                        'dir': p['dir'],
+                        'entry': float(p['entry']),
+                        'stop': float(p['stop']),
+                        'tp': float(p['tp']),
+                        'qty': float(p['qty']),
+                        'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                        'regime': p.get('regime', 'unknown'),
+                        'be_triggered': bool(p.get('be_triggered', False)),
+                    })
+                    p['last_emitted_stop'] = p['stop']
+                except Exception:
+                    pass
 
             # Minimum-hold stop filter (instrument-specific, timeframe-aware).
             hold_bars = bar_i - p['entry_bar']
@@ -727,6 +750,25 @@ def run_scenario(
                 exit_px = apply_execution_adjustment(
                     exit_signal_px, p['dir'], 'exit', spread_bps, slippage_bps
                 )
+                if EMIT_SIGNALS:
+                    try:
+                        write_signal({
+                            'action': 'close',
+                            'signal_id': p['signal_id'],
+                            'entry_ts': p['entry_ts'],
+                            'exit_ts': ts_pd,
+                            'dir': p['dir'],
+                            'entry': float(p['entry']),
+                            'exit': float(exit_px),
+                            'stop': float(p['stop']),
+                            'tp': float(p['tp']),
+                            'qty': float(p['qty']),
+                            'exit_reason': exit_reason,
+                            'confidence_mult': float(p.get('confidence_mult', 1.0)),
+                            'regime': p.get('regime', 'unknown'),
+                        })
+                    except Exception:
+                        pass
                 gross_pnl = (
                     (exit_px - p['entry']) * p['qty']
                     if p['dir'] == 'long'
@@ -932,7 +974,7 @@ def run_scenario(
 
             # ── p2 FILTER 1: Session gate ─────────────────────────────────
             session_mult = get_session_size_mult(ts_pd, inst_cfg)
-            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_UTC:
+            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_EST:
                 session_mult *= HIGH_PEAK_SESSION_BOOST
             if session_mult == 0.0:
                 skipped['session'] += 1
@@ -1123,11 +1165,22 @@ def run_scenario(
             confidence_mode = DEFAULTS.get('confidence_mode', 'flat')
             confidence_score_min = int(DEFAULTS.get('confidence_score_min', 7))
 
+            # Peak hours check (9-12 EST) for highest confidence tier
+            is_peak_hours = (ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_EST)
+
             if confidence_mode == 'flat':
                 conf_mult = 1.0
             elif confidence_mode == 'inverted':
-                # True inverted confidence: first cluster touch gets the size premium.
-                conf_mult = DEFAULTS['confidence_mult'] if cluster_count == 0 else 1.0
+                # 3-tier confidence: peak-hours first touch = 2.0×, off-peak first touch = 1.5×, repeat = 1.0×
+                if cluster_count == 0:
+                    conf_mult = 2.0 if is_peak_hours else DEFAULTS['confidence_mult']  # 2.0 or 1.5
+                else:
+                    conf_mult = 1.0
+                # Tiered position sizing boost: 1.5× tier → +25% (1.875), 2.0× tier → +50% (3.0)
+                if conf_mult >= 2.0:
+                    conf_mult *= 1.5   # 50% more = 3.0 effective
+                elif conf_mult >= 1.5:
+                    conf_mult *= 1.25  # 25% more = 1.875 effective
             elif confidence_mode == 'score':
                 conf_mult = (
                     DEFAULTS['confidence_mult']
@@ -1195,7 +1248,10 @@ def run_scenario(
             last_entry = ts_pd
             traded_days.add(ts_pd.normalize())
 
+            signal_id = f"{ts_pd.isoformat()}|{bar_i}|{len(positions)}"
+
             positions.append({
+                'signal_id'         : signal_id,
                 'entry_ts'          : ts_pd,
                 'entry_bar'         : bar_i,
                 'dir'               : z_dir,
@@ -1210,14 +1266,18 @@ def run_scenario(
                 'confidence_mult'   : conf_mult,
                 'regime'            : regime,
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
+                'last_emitted_stop' : stop_px,
             })
 
             # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
             if EMIT_SIGNALS:
                 try:
                     sig = {
+                        'action': 'open',
+                        'signal_id': signal_id,
                         'entry_ts': ts_pd,
                         'dir': z_dir,
+                        'account_size': float(capital),
                         'entry': float(entry_exec),
                         'stop': float(stop_px) if stop_px is not None else None,
                         'tp': float(tp_px) if tp_px is not None else None,

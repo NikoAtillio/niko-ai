@@ -33,68 +33,9 @@ try:
     import pytz
 except ImportError:
     pytz = None
-
-import json
-import glob
-from datetime import datetime
-
 warnings.filterwarnings('ignore')
 
 ENGINE_VERSION = 'p2_ftmo'
-
-# Signal emission to MT5: write newline-delimited JSON into a file
-# placed in a local `signals/` folder and -- when available -- into the
-# MetaTrader `Common/Files` directory found under the Wine prefix.
-EMIT_SIGNALS = True
-SIGNAL_FILENAME = 'phantom_signals.jsonl'
-
-def _find_mt5_common_files():
-    """Return candidate MT5 Common/Files paths under the Wine prefix."""
-    wp = os.environ.get('WINEPREFIX') or '/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5'
-    patterns = [
-        os.path.join(wp, 'drive_c', 'users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, 'drive_c', 'Users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, '**', 'Common', 'Files'),
-    ]
-    matches = []
-    for pattern in patterns:
-        matches.extend(glob.glob(pattern, recursive=True))
-    # De-duplicate while preserving order.
-    seen = set()
-    unique_matches = []
-    for path in matches:
-        if path not in seen and os.path.isdir(path):
-            seen.add(path)
-            unique_matches.append(path)
-    return unique_matches
-
-def write_signal(signal: dict):
-    """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
-    # prepare directories
-    local_dir = os.path.join(os.getcwd(), 'signals')
-    os.makedirs(local_dir, exist_ok=True)
-    local_path = os.path.join(local_dir, SIGNAL_FILENAME)
-
-    # serialize timestamp if present
-    s = signal.copy()
-    for k, v in s.items():
-        if hasattr(v, 'isoformat'):
-            s[k] = v.isoformat()
-
-    line = json.dumps(s, default=str, ensure_ascii=False)
-    with open(local_path, 'a', encoding='utf-8') as f:
-        f.write(line + '\n')
-
-    # attempt to also write into MT5 Common/Files for EA consumption
-    mt5_dirs = _find_mt5_common_files()
-    for mt5_dir in mt5_dirs:
-        try:
-            mt5_path = os.path.join(mt5_dir, SIGNAL_FILENAME)
-            with open(mt5_path, 'a', encoding='utf-8') as f:
-                f.write(line + '\n')
-        except Exception:
-            # best-effort only; do not raise
-            pass
 
 # Aligned profile: match MT5 high-risk sizing and peak-hour boost.
 HIGH_RISK_PCT_MULT = 2.0
@@ -1211,24 +1152,7 @@ def run_scenario(
                 'regime'            : regime,
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
             })
-
-            # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
-            if EMIT_SIGNALS:
-                try:
-                    sig = {
-                        'entry_ts': ts_pd,
-                        'dir': z_dir,
-                        'entry': float(entry_exec),
-                        'stop': float(stop_px) if stop_px is not None else None,
-                        'tp': float(tp_px) if tp_px is not None else None,
-                        'qty': float(qty),
-                        'confidence_mult': float(conf_mult) if conf_mult is not None else None,
-                        'regime': regime,
-                    }
-                    write_signal(sig)
-                except Exception:
-                    pass
-
+            
             if debug_rows is not None:
                 debug_rows.append({
                     'ts': ts_pd,

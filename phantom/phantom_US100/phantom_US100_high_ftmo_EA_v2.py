@@ -37,24 +37,33 @@ except ImportError:
 import json
 import glob
 from datetime import datetime
+from collections import Counter
 
 warnings.filterwarnings('ignore')
 
-ENGINE_VERSION = 'p2_ftmo'
+ENGINE_VERSION = 'p2_ftmo_v2'
 
 # Signal emission to MT5: write newline-delimited JSON into a file
 # placed in a local `signals/` folder and -- when available -- into the
 # MetaTrader `Common/Files` directory found under the Wine prefix.
 EMIT_SIGNALS = True
+EMIT_HEARTBEATS = False
 SIGNAL_FILENAME = 'phantom_signals.jsonl'
+SIGNAL_SCHEMA_VERSION = 1
+_SIGNAL_SEQ = {'n': 0}
+_EVENT_BUFFER = []
+_MT5_COMMON_FILES_CACHE = None
 
 def _find_mt5_common_files():
     """Return candidate MT5 Common/Files paths under the Wine prefix."""
+    global _MT5_COMMON_FILES_CACHE
+    if _MT5_COMMON_FILES_CACHE is not None:
+        return _MT5_COMMON_FILES_CACHE
+
     wp = os.environ.get('WINEPREFIX') or '/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5'
     patterns = [
         os.path.join(wp, 'drive_c', 'users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
         os.path.join(wp, 'drive_c', 'Users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, '**', 'Common', 'Files'),
     ]
     matches = []
     for pattern in patterns:
@@ -66,35 +75,63 @@ def _find_mt5_common_files():
         if path not in seen and os.path.isdir(path):
             seen.add(path)
             unique_matches.append(path)
-    return unique_matches
+    _MT5_COMMON_FILES_CACHE = unique_matches
+    return _MT5_COMMON_FILES_CACHE
 
-def write_signal(signal: dict):
-    """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
-    # prepare directories
-    local_dir = os.path.join(os.getcwd(), 'signals')
-    os.makedirs(local_dir, exist_ok=True)
-    local_path = os.path.join(local_dir, SIGNAL_FILENAME)
+def reset_signal_file():
+    """Clear the in-memory buffer at run start."""
+    if not EMIT_SIGNALS:
+        return
+    _EVENT_BUFFER.clear()
 
-    # serialize timestamp if present
-    s = signal.copy()
+def _next_signal_id(entry_ts) -> str:
+    _SIGNAL_SEQ['n'] += 1
+    ts = entry_ts.isoformat() if hasattr(entry_ts, 'isoformat') else str(entry_ts)
+    return f"{ts}#{_SIGNAL_SEQ['n']}"
+
+def emit_event(event: dict):
+    """Buffer a versioned event line in memory (flushed once at run end)."""
+    if not EMIT_SIGNALS:
+        return
+    payload = {'v': SIGNAL_SCHEMA_VERSION}
+    payload.update(event)
+    s = payload.copy()
     for k, v in s.items():
         if hasattr(v, 'isoformat'):
             s[k] = v.isoformat()
+    _EVENT_BUFFER.append(json.dumps(s, default=str, ensure_ascii=False))
 
-    line = json.dumps(s, default=str, ensure_ascii=False)
-    with open(local_path, 'a', encoding='utf-8') as f:
-        f.write(line + '\n')
-
-    # attempt to also write into MT5 Common/Files for EA consumption
-    mt5_dirs = _find_mt5_common_files()
-    for mt5_dir in mt5_dirs:
+def flush_signals():
+    """Write the entire buffered event stream once, to local + MT5 paths."""
+    if not EMIT_SIGNALS:
+        return 0
+    local_dir = os.path.join(os.getcwd(), 'signals')
+    os.makedirs(local_dir, exist_ok=True)
+    blob = '\n'.join(_EVENT_BUFFER) + ('\n' if _EVENT_BUFFER else '')
+    targets = [os.path.join(local_dir, SIGNAL_FILENAME)]
+    for mt5_dir in _find_mt5_common_files():
+        targets.append(os.path.join(mt5_dir, SIGNAL_FILENAME))
+    written = 0
+    for target in targets:
         try:
-            mt5_path = os.path.join(mt5_dir, SIGNAL_FILENAME)
-            with open(mt5_path, 'a', encoding='utf-8') as f:
-                f.write(line + '\n')
+            with open(target, 'w', encoding='utf-8') as f:
+                f.write(blob)
+            written += 1
         except Exception:
-            # best-effort only; do not raise
             pass
+    return written
+
+def emit_run_meta(capital, ftmo_enabled, instrument):
+    """Emit the run header so the EA can detect the active account context."""
+    emit_event({
+        'action': 'meta',
+        'engine': ENGINE_VERSION,
+        'instrument': instrument,
+        'signal_account_size': float(capital),
+        'ftmo': bool(ftmo_enabled),
+        'ftmo_daily_dd_pct': float(FTMO_CONFIG['max_daily_loss_pct']),
+        'atr_trail_mult': float(ACTIVE_SCENARIO_CFG.get('atr_trail', 0.8)),
+    })
 
 # Aligned profile: match MT5 high-risk sizing and peak-hour boost.
 HIGH_RISK_PCT_MULT = 2.0
@@ -623,6 +660,7 @@ def run_scenario(
             pnl = gross_pnl - fees
             capital += pnl
             risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
+            emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': 'ftmo_guardrail'})
             closed.append({
                 'entry_ts': p['entry_ts'],
                 'exit_ts': ts_pd,
@@ -654,6 +692,8 @@ def run_scenario(
         price = c_c[bar_i]
         high  = c_h[bar_i]
         low   = c_l[bar_i]
+        if EMIT_HEARTBEATS:
+            emit_event({'action': 'heartbeat', 'ts': ts_pd})
 
         # ── manage open positions ─────────────────────────────────────────
         still_open = []
@@ -682,6 +722,15 @@ def run_scenario(
                 if current_r >= breakeven_r:
                     p['stop'] = p['entry']
                     p['be_triggered'] = True
+
+            if abs(p['stop'] - p['last_emitted_stop']) > 1e-9:
+                emit_event({
+                    'action': 'modify',
+                    'id': p['id'],
+                    'new_stop': float(p['stop']),
+                    'reason': 'breakeven' if p.get('be_triggered') else 'trail',
+                })
+                p['last_emitted_stop'] = p['stop']
 
             # Minimum-hold stop filter (instrument-specific, timeframe-aware).
             hold_bars = bar_i - p['entry_bar']
@@ -768,6 +817,7 @@ def run_scenario(
                     'confidence_mult'    : p.get('confidence_mult', 1.0),
                     'regime'             : p.get('regime', 'unknown'),
                 })
+                emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': exit_reason})
             else:
                 still_open.append(p)
 
@@ -1196,6 +1246,8 @@ def run_scenario(
             traded_days.add(ts_pd.normalize())
 
             positions.append({
+                'id'                : _next_signal_id(ts_pd),
+                'last_emitted_stop' : stop_px,
                 'entry_ts'          : ts_pd,
                 'entry_bar'         : bar_i,
                 'dir'               : z_dir,
@@ -1213,21 +1265,20 @@ def run_scenario(
             })
 
             # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
-            if EMIT_SIGNALS:
-                try:
-                    sig = {
-                        'entry_ts': ts_pd,
-                        'dir': z_dir,
-                        'entry': float(entry_exec),
-                        'stop': float(stop_px) if stop_px is not None else None,
-                        'tp': float(tp_px) if tp_px is not None else None,
-                        'qty': float(qty),
-                        'confidence_mult': float(conf_mult) if conf_mult is not None else None,
-                        'regime': regime,
-                    }
-                    write_signal(sig)
-                except Exception:
-                    pass
+            emit_event({
+                'action': 'open',
+                'id': positions[-1]['id'],
+                'entry_ts': ts_pd,
+                'dir': z_dir,
+                'entry': float(entry_exec),
+                'stop': float(stop_px),
+                'tp': float(tp_px),
+                'qty': float(qty),
+                'regime': regime,
+                'conf': float(conf_mult),
+                'atr_entry': float(atr_h4_v),
+                'signal_account_size': float(capital),
+            })
 
             if debug_rows is not None:
                 debug_rows.append({
@@ -1295,6 +1346,7 @@ def run_scenario(
             'confidence_mult'    : p.get('confidence_mult', 1.0),
             'regime'             : p.get('regime', 'unknown'),
         })
+        emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': 'eod'})
 
     df_r = pd.DataFrame(results)
     _print_summary(
@@ -1311,6 +1363,74 @@ def run_scenario(
         debug_df = pd.DataFrame(debug_rows)
         debug_df.to_csv(debug_path, index=False)
     return df_r
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SIGNAL VALIDATION
+# ══════════════════════════════════════════════════════════════════════════════
+def replay_and_validate(df_internal, start_capital):
+    """Replay the emitted JSONL stream and compare it with the internal backtest."""
+    local_path = os.path.join(os.getcwd(), 'signals', SIGNAL_FILENAME)
+    if not os.path.exists(local_path):
+        print('  [validator] no signal file found')
+        return False
+
+    event_counts = Counter()
+    open_pos = {}
+    closed = []
+
+    with open(local_path, 'r', encoding='utf-8') as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            event = json.loads(line)
+            action = event.get('action', 'unknown')
+            event_counts[action] += 1
+
+            if action == 'open':
+                open_pos[event['id']] = {
+                    'entry': float(event['entry']),
+                    'qty': float(event['qty']),
+                    'dir': event['dir'],
+                }
+            elif action == 'modify':
+                if event['id'] in open_pos:
+                    open_pos[event['id']]['stop'] = float(event['new_stop'])
+            elif action == 'close':
+                position = open_pos.pop(event['id'], None)
+                if position is None:
+                    print(f"  [validator] close for unknown id {event['id']}")
+                    return False
+                direction = 1 if position['dir'] == 'long' else -1
+                closed.append((float(event['exit']) - position['entry']) * position['qty'] * direction)
+
+    if open_pos:
+        print(f"  [validator] {len(open_pos)} positions never closed: {list(open_pos)[:3]}")
+        return False
+
+    n_replay = len(closed)
+    n_internal = len(df_internal)
+    net_replay = float(sum(closed))
+    if n_internal == 0:
+        net_internal_gross = 0.0
+    else:
+        net_internal_gross = float((df_internal['pnl'] + df_internal['fees']).sum())
+    delta = abs(net_replay - net_internal_gross)
+
+    print(
+        '  [validator] '
+        f"meta={event_counts['meta']} heartbeat={event_counts['heartbeat']} "
+        f"open={event_counts['open']} modify={event_counts['modify']} close={event_counts['close']} | "
+        f"trades replay={n_replay} internal={n_internal} | "
+        f"gross replay=${net_replay:,.2f} internal=${net_internal_gross:,.2f} delta=${delta:,.4f}"
+    )
+
+    return (
+        event_counts['open'] == n_internal
+        and event_counts['close'] == n_internal
+        and n_replay == n_internal
+        and delta <= 0.01
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # REPORTING
@@ -1433,6 +1553,8 @@ def main():
         FTMO_CONFIG['max_loss_pct'] = 999999.0
         FTMO_CONFIG['max_daily_loss_pct'] = 999999.0
         FTMO_CONFIG['min_trading_days'] = 0
+    reset_signal_file()
+    emit_run_meta(args.capital, not getattr(args, 'disable_ftmo', False), args.instrument)
     print(f"\nPhantom {ENGINE_VERSION.upper()} | Instrument: {args.instrument}")
     print(
         f"  Session: {inst_cfg['session_start']:02d}:00–{inst_cfg['session_end']:02d}:00 UTC"
@@ -1522,6 +1644,10 @@ def main():
         debug_path=debug_path,
         **arrays,
     )
+    flush_signals()
+    if EMIT_SIGNALS and df_r is not None:
+        ok = replay_and_validate(df_r, args.capital)
+        print('✅ REPLAY MATCHES INTERNAL BACKTEST' if ok else '❌ REPLAY MISMATCH - DO NOT PROCEED TO MQL5')
     if df_r is not None and len(df_r):
         out = os.path.join(output_dir, f'phantom_{ENGINE_VERSION}_trades_{args.instrument}_{sc_id}.csv')
         df_r.to_csv(out, index=False)

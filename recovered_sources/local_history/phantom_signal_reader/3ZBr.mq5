@@ -795,14 +795,11 @@ void OnTick() {
         ProcessSignalsLive();
     }
 
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    ManageTrailingStops();
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    ManageTrailingStops();
 }
 
 void OnDeinit(const int reason) {

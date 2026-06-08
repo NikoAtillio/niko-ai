@@ -196,17 +196,6 @@ double MinValidVolume()
     return(vol_min);
 }
 
-double EffectiveAtrEntry(const double entryPrice, const double stopPrice, const double atrEntry)
-{
-    if(atrEntry > 0.0)
-        return atrEntry;
-
-    if(entryPrice > 0.0 && stopPrice > 0.0)
-        return MathAbs(entryPrice - stopPrice);
-
-    return 0.0;
-}
-
 datetime CurrentReplayTime()
 {
     datetime barTime = iTime(_Symbol, PERIOD_CURRENT, 0);
@@ -411,16 +400,14 @@ void ManageTrailingStops()
         double initialRisk  = m_positions[i].initial_risk;
         bool   isLong       = (m_positions[i].direction == 1);
         
-        double currentR = 0.0;
-        if(initialRisk > 0.0)
-        {
-            currentR = (isLong)
-                ? (currentPrice - entryPrice) / initialRisk
-                : (entryPrice - currentPrice) / initialRisk;
-        }
+        if(initialRisk <= 0) continue;
+        
+        double currentR = (isLong) 
+            ? (currentPrice - entryPrice) / initialRisk
+            : (entryPrice - currentPrice) / initialRisk;
         
         // Breakeven trigger
-        if(!m_positions[i].be_triggered && initialRisk > 0.0 && currentR >= InpBreakevenR) {
+        if(!m_positions[i].be_triggered && currentR >= InpBreakevenR) {
             m_positions[i].current_stop = entryPrice;
             m_positions[i].be_triggered = true;
             
@@ -432,47 +419,38 @@ void ManageTrailingStops()
             ModifyPositionByTicket(m_positions[i].ticket, entryPrice, m_positions[i].tp);
         }
         
-        // Trailing stop candidate
+        // Trailing stop
         double atr = m_positions[i].atr_entry;
-        double candidateStop = m_positions[i].current_stop;
-
-        if(atr > 0.0) {
-            double trailDist = InpTrailATRMult * atr;
-            double newStop;
-
-            if(isLong) {
-                newStop = currentPrice - trailDist;
-                if(newStop > candidateStop)
-                    candidateStop = newStop;
-            } else {
-                newStop = currentPrice + trailDist;
-                if(newStop < candidateStop)
-                    candidateStop = newStop;
-            }
+        if(atr <= 0) continue;
+        
+        double trailDist = InpTrailATRMult * atr;
+        double newStop;
+        
+        if(isLong) {
+            newStop = currentPrice - trailDist;
+            if(newStop > m_positions[i].current_stop)
+                m_positions[i].current_stop = newStop;
+        } else {
+            newStop = currentPrice + trailDist;
+            if(newStop < m_positions[i].current_stop)
+                m_positions[i].current_stop = newStop;
         }
         
         // Minimum-hold filter
         double ageHours = (double)(now - m_positions[i].entry_time) / 3600.0;
         bool canTighten = (ageHours >= (double)InpMinHoldHours) || (currentR >= 0.0);
-
-        if(!canTighten) {
-            if(m_positions[i].be_triggered)
-                candidateStop = entryPrice;
-            else if(m_positions[i].initial_stop > 0.0)
-                candidateStop = m_positions[i].initial_stop;
-        }
-
-        m_positions[i].current_stop = candidateStop;
-
+        
         double currentStop = PositionGetDouble(POSITION_SL);
-        double pointValue = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-        if(MathAbs(m_positions[i].current_stop - currentStop) > pointValue) {
-            if(InpVerboseLog) {
-                PrintFormat("[TRAIL] Ticket %d: SL %.5f → %.5f (Age: %.1f hrs, R: %.2f)",
-                           m_positions[i].ticket, currentStop, m_positions[i].current_stop,
-                           ageHours, currentR);
+        if(canTighten) {
+            double pointValue = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+            if(MathAbs(m_positions[i].current_stop - currentStop) > pointValue) {
+                if(InpVerboseLog) {
+                    PrintFormat("[TRAIL] Ticket %d: SL %.5f → %.5f (Age: %.1f hrs, R: %.2f)",
+                               m_positions[i].ticket, currentStop, m_positions[i].current_stop, 
+                               ageHours, currentR);
+                }
+                ModifyPositionByTicket(m_positions[i].ticket, m_positions[i].current_stop, m_positions[i].tp);
             }
-            ModifyPositionByTicket(m_positions[i].ticket, m_positions[i].current_stop, m_positions[i].tp);
         }
     }
 }
@@ -536,7 +514,6 @@ void LoadSignals()
         signal.stop = _get_json_number(line, "stop");
         signal.tp = _get_json_number(line, "tp");
         signal.atr_entry = _get_json_number(line, "atr_entry");  // NEW in v1.5
-        signal.atr_entry = EffectiveAtrEntry(signal.entry, signal.stop, signal.atr_entry);
         _append_signal(signal);
     }
 
@@ -578,7 +555,6 @@ void ProcessLine(const string &line)
     double stop = _get_json_number(cleaned, "stop");
     double tp = _get_json_number(cleaned, "tp");
     double atrEntry = _get_json_number(cleaned, "atr_entry");  // NEW in v1.5
-    atrEntry = EffectiveAtrEntry(entry, stop, atrEntry);
     string ts = _get_json_string(cleaned, "entry_ts");
     if(StringLen(action) == 0)
         action = "open";
@@ -744,17 +720,16 @@ void ProcessSignalsReplay()
             break;
 
         string jsonLine = StringFormat(
-            "{\"action\":\"%s\",\"signal_id\":\"%s\",\"entry_ts\":\"%s\",\"dir\":\"%s\",\"account_size\":%.10f,\"entry\":%.10f,\"qty\":%.10f,\"stop\":%.10f,\"tp\":%.10f,\"atr_entry\":%.10f}",
+            "{\"action\":\"%s\",\"signal_id\":\"%s\",\"entry_ts\":\"%s\",\"dir\":\"%s\",\"account_size\":%.10f,\"qty\":%.10f,\"stop\":%.10f,\"tp\":%.10f,\"atr_entry\":%.10f}",
             g_signals[g_nextSignalIndex].action,
             StringLen(g_signals[g_nextSignalIndex].signalId) > 0 ? g_signals[g_nextSignalIndex].signalId : g_signals[g_nextSignalIndex].entryTs,
             g_signals[g_nextSignalIndex].entryTs,
             g_signals[g_nextSignalIndex].dir,
-            (g_signals[g_nextSignalIndex].accountSize > 0.0 ? g_signals[g_nextSignalIndex].accountSize : g_referenceAccountSize),
-            g_signals[g_nextSignalIndex].entry,
+            g_signals[g_nextSignalIndex].accountSize,
             g_signals[g_nextSignalIndex].qty,
             g_signals[g_nextSignalIndex].stop,
             g_signals[g_nextSignalIndex].tp,
-            EffectiveAtrEntry(g_signals[g_nextSignalIndex].entry, g_signals[g_nextSignalIndex].stop, g_signals[g_nextSignalIndex].atr_entry)
+            g_signals[g_nextSignalIndex].atr_entry
         );
         ProcessLine(jsonLine);
         g_nextSignalIndex++;
@@ -767,11 +742,6 @@ void ProcessSignalsReplay()
 int OnInit() {
     trade.SetExpertMagicNumber(InpMagicNumber);
     trade.SetDeviationInPoints(30);
-    g_referenceAccountSize = AccountInfoDouble(ACCOUNT_BALANCE);
-    if(g_referenceAccountSize <= 0.0)
-        g_referenceAccountSize = AccountInfoDouble(ACCOUNT_EQUITY);
-    if(g_referenceAccountSize <= 0.0)
-        g_referenceAccountSize = 70000.0;
     
     if(InpVerboseLog) {
         PrintFormat("Phantom Signal Reader v1.5 initialized on %s", _Symbol);
@@ -794,15 +764,12 @@ void OnTick() {
     } else if(InpSignalMode == SIGNAL_MODE_LIVE) {
         ProcessSignalsLive();
     }
-
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    
+    ManageTrailingStops();
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+    ManageTrailingStops();
 }
 
 void OnDeinit(const int reason) {

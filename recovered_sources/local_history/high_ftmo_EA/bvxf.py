@@ -102,7 +102,7 @@ HIGH_PEAK_SESSION_BOOST = 1.2
 HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
 
 FTMO_CONFIG = {
-    'account_size': 0.0,
+    'account_size': 70_000.0,
     'profit_target_pct': 10.0,
     'max_loss_pct': 10.0,
     'max_daily_loss_pct': 5.0,
@@ -579,9 +579,7 @@ def run_scenario(
     debug_rows = [] if debug else None
     debug_tol_mult = 5.0
 
-    ftmo = dict(FTMO_CONFIG)
-    if ftmo['account_size'] <= 0.0:
-        ftmo['account_size'] = max(float(capital), 1.0)
+    ftmo = FTMO_CONFIG
     ftmo['profit_target_cash'] = ftmo['account_size'] * (ftmo['profit_target_pct'] / 100.0)
     ftmo['max_loss_cash'] = ftmo['account_size'] * (ftmo['max_loss_pct'] / 100.0)
     ftmo['max_daily_loss_cash'] = ftmo['account_size'] * (ftmo['max_daily_loss_pct'] / 100.0)
@@ -1401,7 +1399,7 @@ def main():
     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
-    parser.add_argument('--capital',     type=float, default=10_000)
+    parser.add_argument('--capital',     type=float, default=70_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
     parser.add_argument('--spread-bps',  type=float, default=0.0,

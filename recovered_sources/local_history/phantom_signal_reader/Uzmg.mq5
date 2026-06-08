@@ -1,17 +1,16 @@
 //+------------------------------------------------------------------+
 //| phantom_signal_reader.mq5                                        |
-//| Reads newline-delimited JSON signals from phantom_signals.jsonl  |
-//| and executes market orders with trailing stops & breakeven       |
+//| Minimal EA: reads newline-delimited JSON signals from             |
+//| MT5 Common/Files/phantom_signals.jsonl and executes market orders|
 //|                                                                     |
-//| Features (v1.5):                                                  |
-//| - Trailing stop scaled by H4 ATR at entry                         |
-//| - Breakeven move at +0.8R                                         |
-//| - Minimum 2-hour hold before tight stops                          |
-//| - Signal replay from JSON file                                    |
+//| File roles:                                                         |
+//| - signals/phantom_signals.jsonl    local Python backtest archive    |
+//| - MT5 Common/Files/phantom_signals.jsonl  file this EA reads        |
+//| - phantom/mql5/phantom_signal_reader.mq5  this MT5 bridge EA       |
 //+------------------------------------------------------------------+
 #property copyright ""
 #property link      ""
-#property version   "1.5"
+#property version   "1.3"
 #property strict
 
 input int    InpMagicNumber = 123456;
@@ -29,11 +28,6 @@ enum SignalMode
 
 input SignalMode InpSignalMode = SIGNAL_MODE_REPLAY;
 
-//--- Risk management (NEW in v1.5)
-input double   InpTrailATRMult        = 0.8;     // Trailing stop = price - (ATR * mult)
-input double   InpBreakevenR          = 0.8;     // R-level to move stop to entry
-input int      InpMinHoldHours        = 2;       // Minimum hours before tight stops apply
-
 #include <Trade\Trade.mqh>
 CTrade trade;
 
@@ -45,41 +39,17 @@ struct SignalRecord
     string   action;
     string   signalId;
     string   dir;
-    double   accountSize;
     double   entry;
     double   qty;
     double   stop;
     double   tp;
     string   entryTs;
-    double   atr_entry;        // NEW in v1.5 – H4 ATR at entry
 };
 
 SignalRecord g_signals[];
 int g_nextSignalIndex = 0;
 datetime g_lastReplayBarTime = 0;
-double g_referenceAccountSize = 0.0;
 
-//--- Tracking for trailing stops (NEW in v1.5)
-struct PositionMeta {
-    ulong    ticket;
-    string   signal_id;
-    datetime entry_time;
-    double   entry_price;
-    double   initial_stop;
-    double   current_stop;
-    double   tp;
-    double   atr_entry;        // H4 ATR at entry
-    bool     be_triggered;
-    double   initial_risk;     // Entry - initial stop (absolute)
-    int      direction;        // 1 = long, -1 = short
-};
-
-PositionMeta  m_positions[];
-int           m_posCount = 0;
-
-//+------------------------------------------------------------------+
-//| HELPER FUNCTIONS – Volume & Account Mapping                      |
-//+------------------------------------------------------------------+
 void GetVolumeSpec(double &volMin, double &volStep, double &volMax, int &volDigits)
 {
     volMin = 0.0;
@@ -95,10 +65,13 @@ void GetVolumeSpec(double &volMin, double &volStep, double &volMax, int &volDigi
     if(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX, value))
         volMax = value;
 
+    // Defensive defaults for brokers/symbols that report incomplete metadata.
     if(volMin <= 0.0) volMin = 1.0;
     if(volStep <= 0.0) volStep = 1.0;
     if(volMax <= 0.0) volMax = 1000.0;
 
+    // Derive decimal precision from the step size because SYMBOL_VOLUME_DIGITS
+    // is not available in all MQL5 builds.
     double stepProbe = volStep;
     volDigits = 0;
     while(volDigits < 8 && MathAbs(stepProbe - MathRound(stepProbe)) > 1e-9)
@@ -113,6 +86,7 @@ int OpenSignalFile(const string &fileName, const int mode)
     int handle = FileOpen(fileName, mode | FILE_COMMON);
     if(handle != INVALID_HANDLE)
         return handle;
+
     return FileOpen(fileName, mode);
 }
 
@@ -126,14 +100,17 @@ double AdjustVolume(double requested)
     GetVolumeSpec(vol_min, vol_step, vol_max, vol_digits);
 
     if(requested > vol_max) requested = vol_max;
+
     if(requested < vol_min)
         return(0.0);
 
+    // floor to step to avoid sending an out-of-grid lot size
     double steps = MathFloor((requested - vol_min + 1e-12) / vol_step);
     double adjusted = vol_min + steps * vol_step;
     adjusted = NormalizeDouble(adjusted, vol_digits);
 
     if(adjusted > vol_max) adjusted = vol_max;
+
     return(adjusted);
 }
 
@@ -149,29 +126,13 @@ double GetUnitsPerLot()
     return 1.0;
 }
 
-double MapPythonQtyToLots(double pythonQty, double signalAccountSize)
+double MapPythonQtyToLots(double pythonQty)
 {
     double unitsPerLot = GetUnitsPerLot();
     if(unitsPerLot <= 0.0)
         unitsPerLot = 1.0;
 
-    double liveAccountSize = g_referenceAccountSize;
-    if(liveAccountSize <= 0.0)
-        liveAccountSize = AccountInfoDouble(ACCOUNT_BALANCE);
-    if(liveAccountSize <= 0.0)
-        liveAccountSize = AccountInfoDouble(ACCOUNT_EQUITY);
-    if(liveAccountSize <= 0.0)
-        liveAccountSize = signalAccountSize > 0.0 ? signalAccountSize : 1.0;
-
-    double baseSignalAccountSize = signalAccountSize;
-    if(baseSignalAccountSize <= 0.0)
-        baseSignalAccountSize = 70000.0;
-
-    double scale = liveAccountSize / baseSignalAccountSize;
-    if(scale <= 0.0)
-        scale = 1.0;
-
-    double rawLots = (pythonQty * scale) / unitsPerLot;
+    double rawLots = pythonQty / unitsPerLot;
     double adjusted = AdjustVolume(rawLots);
 
     if(adjusted <= 0.0)
@@ -196,17 +157,6 @@ double MinValidVolume()
     return(vol_min);
 }
 
-double EffectiveAtrEntry(const double entryPrice, const double stopPrice, const double atrEntry)
-{
-    if(atrEntry > 0.0)
-        return atrEntry;
-
-    if(entryPrice > 0.0 && stopPrice > 0.0)
-        return MathAbs(entryPrice - stopPrice);
-
-    return 0.0;
-}
-
 datetime CurrentReplayTime()
 {
     datetime barTime = iTime(_Symbol, PERIOD_CURRENT, 0);
@@ -215,9 +165,23 @@ datetime CurrentReplayTime()
     return TimeCurrent();
 }
 
-//+------------------------------------------------------------------+
-//| SIGNAL PARSING HELPERS                                            |
-//+------------------------------------------------------------------+
+void SortSignalsByTime()
+{
+    int n = ArraySize(g_signals);
+    for(int i = 1; i < n; i++)
+    {
+        SignalRecord key = g_signals[i];
+        int j = i - 1;
+        while(j >= 0 && g_signals[j].signalTime > key.signalTime)
+        {
+            g_signals[j + 1] = g_signals[j];
+            j--;
+        }
+        g_signals[j + 1] = key;
+    }
+}
+
+// Simple helpers to extract JSON-like values from single-line JSON objects.
 string _trim_copy(string text)
 {
     int left = 0;
@@ -291,25 +255,6 @@ void _append_signal(const SignalRecord &signal)
     g_signals[size] = signal;
 }
 
-void SortSignalsByTime()
-{
-    int n = ArraySize(g_signals);
-    for(int i = 1; i < n; i++)
-    {
-        SignalRecord key = g_signals[i];
-        int j = i - 1;
-        while(j >= 0 && g_signals[j].signalTime > key.signalTime)
-        {
-            g_signals[j + 1] = g_signals[j];
-            j--;
-        }
-        g_signals[j + 1] = key;
-    }
-}
-
-//+------------------------------------------------------------------+
-//| POSITION MANAGEMENT HELPERS                                       |
-//+------------------------------------------------------------------+
 ulong FindPositionTicketByComment(const string &comment)
 {
     int total = PositionsTotal();
@@ -390,117 +335,6 @@ bool ClosePositionByTicket(const ulong ticket, const string &comment)
     return (result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_DONE_PARTIAL);
 }
 
-//+------------------------------------------------------------------+
-//| TRAILING STOP MANAGEMENT (v1.5 NEW)                              |
-//+------------------------------------------------------------------+
-void ManageTrailingStops()
-{
-    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-    datetime now = TimeCurrent();
-    
-    for(int i = m_posCount - 1; i >= 0; i--) {
-        if(!PositionSelectByTicket(m_positions[i].ticket)) {
-            ArrayRemove(m_positions, i, 1);
-            m_posCount--;
-            continue;
-        }
-        
-        double currentPrice = (m_positions[i].direction == 1) ? bid : ask;
-        double entryPrice   = m_positions[i].entry_price;
-        double initialRisk  = m_positions[i].initial_risk;
-        bool   isLong       = (m_positions[i].direction == 1);
-        
-        double currentR = 0.0;
-        if(initialRisk > 0.0)
-        {
-            currentR = (isLong)
-                ? (currentPrice - entryPrice) / initialRisk
-                : (entryPrice - currentPrice) / initialRisk;
-        }
-        
-        // Breakeven trigger
-        if(!m_positions[i].be_triggered && initialRisk > 0.0 && currentR >= InpBreakevenR) {
-            m_positions[i].current_stop = entryPrice;
-            m_positions[i].be_triggered = true;
-            
-            if(InpVerboseLog) {
-                PrintFormat("[BREAKEVEN] Ticket %d: moved stop to entry (%.5f)", 
-                           m_positions[i].ticket, entryPrice);
-            }
-            
-            ModifyPositionByTicket(m_positions[i].ticket, entryPrice, m_positions[i].tp);
-        }
-        
-        // Trailing stop candidate
-        double atr = m_positions[i].atr_entry;
-        double candidateStop = m_positions[i].current_stop;
-
-        if(atr > 0.0) {
-            double trailDist = InpTrailATRMult * atr;
-            double newStop;
-
-            if(isLong) {
-                newStop = currentPrice - trailDist;
-                if(newStop > candidateStop)
-                    candidateStop = newStop;
-            } else {
-                newStop = currentPrice + trailDist;
-                if(newStop < candidateStop)
-                    candidateStop = newStop;
-            }
-        }
-        
-        // Minimum-hold filter
-        double ageHours = (double)(now - m_positions[i].entry_time) / 3600.0;
-        bool canTighten = (ageHours >= (double)InpMinHoldHours) || (currentR >= 0.0);
-
-        if(!canTighten) {
-            if(m_positions[i].be_triggered)
-                candidateStop = entryPrice;
-            else if(m_positions[i].initial_stop > 0.0)
-                candidateStop = m_positions[i].initial_stop;
-        }
-
-        m_positions[i].current_stop = candidateStop;
-
-        double currentStop = PositionGetDouble(POSITION_SL);
-        double pointValue = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-        if(MathAbs(m_positions[i].current_stop - currentStop) > pointValue) {
-            if(InpVerboseLog) {
-                PrintFormat("[TRAIL] Ticket %d: SL %.5f → %.5f (Age: %.1f hrs, R: %.2f)",
-                           m_positions[i].ticket, currentStop, m_positions[i].current_stop,
-                           ageHours, currentR);
-            }
-            ModifyPositionByTicket(m_positions[i].ticket, m_positions[i].current_stop, m_positions[i].tp);
-        }
-    }
-}
-
-void RegisterOpenPosition(ulong ticket, string signalId, double entryPrice, 
-                         double initialStop, double tp, double atrEntry, int direction)
-{
-    int idx = m_posCount;
-    ArrayResize(m_positions, idx + 1);
-    
-    m_positions[idx].ticket       = ticket;
-    m_positions[idx].signal_id    = signalId;
-    m_positions[idx].entry_time   = TimeCurrent();
-    m_positions[idx].entry_price  = entryPrice;
-    m_positions[idx].initial_stop = initialStop;
-    m_positions[idx].current_stop = initialStop;
-    m_positions[idx].tp           = tp;
-    m_positions[idx].atr_entry    = atrEntry;
-    m_positions[idx].be_triggered = false;
-    m_positions[idx].initial_risk = MathAbs(entryPrice - initialStop);
-    m_positions[idx].direction    = direction;
-    
-    m_posCount++;
-}
-
-//+------------------------------------------------------------------+
-//| SIGNAL FILE LOADING & PROCESSING                                 |
-//+------------------------------------------------------------------+
 void LoadSignals()
 {
     ArrayResize(g_signals, 0);
@@ -521,22 +355,15 @@ void LoadSignals()
         SignalRecord signal;
         signal.action = _get_json_string(line, "action");
         StringToLower(signal.action);
-        if(StringLen(signal.action) == 0)
-            signal.action = "open";
-        signal.entryTs = _get_json_string(line, "entry_ts");
         signal.signalId = _get_json_string(line, "signal_id");
-        if(StringLen(signal.signalId) == 0)
-            signal.signalId = signal.entryTs;
+        signal.entryTs = _get_json_string(line, "entry_ts");
         signal.signalTime = _parse_signal_time(signal.entryTs);
         signal.dir = _get_json_string(line, "dir");
         StringToLower(signal.dir);
-        signal.accountSize = _get_json_number(line, "account_size");
         signal.entry = _get_json_number(line, "entry");
         signal.qty = _get_json_number(line, "qty");
         signal.stop = _get_json_number(line, "stop");
         signal.tp = _get_json_number(line, "tp");
-        signal.atr_entry = _get_json_number(line, "atr_entry");  // NEW in v1.5
-        signal.atr_entry = EffectiveAtrEntry(signal.entry, signal.stop, signal.atr_entry);
         _append_signal(signal);
     }
 
@@ -573,20 +400,13 @@ void ProcessLine(const string &line)
     string dir = _get_json_string(cleaned, "dir");
     StringToLower(dir);
     double entry = _get_json_number(cleaned, "entry");
-    double accountSize = _get_json_number(cleaned, "account_size");
     double qty = _get_json_number(cleaned, "qty");
     double stop = _get_json_number(cleaned, "stop");
     double tp = _get_json_number(cleaned, "tp");
-    double atrEntry = _get_json_number(cleaned, "atr_entry");  // NEW in v1.5
-    atrEntry = EffectiveAtrEntry(entry, stop, atrEntry);
     string ts = _get_json_string(cleaned, "entry_ts");
-    if(StringLen(action) == 0)
-        action = "open";
-    if(StringLen(signalId) == 0)
-        signalId = ts;
 
     if(InpVerboseLog)
-        PrintFormat("Signal -> action=%s id=%s dir=%s entry=%.5f qty=%.4f stop=%.5f tp=%.5f atr=%.5f acct=%.2f ts=%s", action, signalId, dir, entry, qty, stop, tp, atrEntry, accountSize, ts);
+        PrintFormat("Signal -> action=%s id=%s dir=%s entry=%.5f qty=%.4f stop=%.5f tp=%.5f ts=%s", action, signalId, dir, entry, qty, stop, tp, ts);
 
     if(action == "modify")
     {
@@ -618,8 +438,7 @@ void ProcessLine(const string &line)
             return;
         }
 
-        string closeComment = "Phantom|" + signalId + "|close";
-        if(ClosePositionByTicket(ticket, closeComment))
+        if(ClosePositionByTicket(ticket, "Phantom|" + signalId + "|close"))
         {
             PrintFormat("Closed position signal_id=%s", signalId);
             return;
@@ -632,7 +451,7 @@ void ProcessLine(const string &line)
     bool ok = false;
     string comment = "Phantom|" + signalId;
 
-    double useQty = MapPythonQtyToLots(qty, accountSize);
+    double useQty = MapPythonQtyToLots(qty);
     if(useQty <= 0.0)
     {
         PrintFormat("Rejected %s qty=%.8f — not within symbol volume bounds", dir, qty);
@@ -642,14 +461,7 @@ void ProcessLine(const string &line)
     if(InpVerboseLog)
     {
         double unitsPerLot = GetUnitsPerLot();
-        double liveAccountSize = g_referenceAccountSize;
-        if(liveAccountSize <= 0.0)
-            liveAccountSize = AccountInfoDouble(ACCOUNT_BALANCE);
-        if(liveAccountSize <= 0.0)
-            liveAccountSize = AccountInfoDouble(ACCOUNT_EQUITY);
-        double baseSignalAccountSize = accountSize > 0.0 ? accountSize : 70000.0;
-        double scale = (baseSignalAccountSize > 0.0) ? (liveAccountSize / baseSignalAccountSize) : 1.0;
-        PrintFormat("Qty map | python=%.8f signalAcct=%.2f liveAcct=%.2f scale=%.6f unitsPerLot=%.8f -> lots=%.8f", qty, baseSignalAccountSize, liveAccountSize, scale, unitsPerLot, useQty);
+        PrintFormat("Qty map | python=%.8f unitsPerLot=%.8f -> lots=%.8f", qty, unitsPerLot, useQty);
     }
 
     if(dir == "long" || dir == "buy")
@@ -664,13 +476,41 @@ void ProcessLine(const string &line)
 
     if(ok)
     {
-        ulong ticket = trade.ResultOrder();
-        if(ticket > 0)
+        double actualEntry = trade.ResultPrice();
+        if(actualEntry <= 0.0 && PositionSelect(_Symbol))
+            actualEntry = PositionGetDouble(POSITION_PRICE_OPEN);
+
+        if(entry > 0.0 && actualEntry > 0.0 && stop > 0.0 && tp > 0.0)
         {
-            int direction = (dir == "long" || dir == "buy") ? 1 : -1;
-            RegisterOpenPosition(ticket, signalId, entry, stop, tp, atrEntry, direction);
+            double stopDist = MathAbs(entry - stop);
+            double tpDist = MathAbs(entry - tp);
+            double adjustedStop = 0.0;
+            double adjustedTp = 0.0;
+
+            if(dir == "long" || dir == "buy")
+            {
+                adjustedStop = actualEntry - stopDist;
+                adjustedTp = actualEntry + tpDist;
+            }
+            else
+            {
+                adjustedStop = actualEntry + stopDist;
+                adjustedTp = actualEntry - tpDist;
+            }
+
+            bool modified = trade.PositionModify(_Symbol, adjustedStop, adjustedTp);
+            if(InpVerboseLog)
+            {
+                PrintFormat("Entry align | signal=%.5f actual=%.5f stopDist=%.5f tpDist=%.5f modify=%s",
+                            entry,
+                            actualEntry,
+                            stopDist,
+                            tpDist,
+                            modified ? "true" : "false");
+            }
         }
-        PrintFormat("Executed %s qty=%.4f (atr_entry=%.5f)", dir, useQty, atrEntry);
+
+        PrintFormat("Executed %s qty=%.4f", dir, useQty);
         return;
     }
 
@@ -678,8 +518,44 @@ void ProcessLine(const string &line)
     uint rc = trade.ResultRetcode();
     if(rc == TRADE_RETCODE_INVALID_VOLUME)
     {
-        PrintFormat("Rejected %s qty=%.8f due to invalid volume | err=%d | retcode=%d", dir, useQty, GetLastError(), rc);
-        return;
+        double minQty = MinValidVolume();
+        if(minQty > 0.0 && minQty != useQty)
+        {
+            ResetLastError();
+            bool retryOk = false;
+            if(dir == "long" || dir == "buy")
+                retryOk = trade.Buy(minQty, NULL, 0, stop > 0 ? stop : 0, tp > 0 ? tp : 0, comment + "|minvol");
+            else if(dir == "short" || dir == "sell")
+                retryOk = trade.Sell(minQty, NULL, 0, stop > 0 ? stop : 0, tp > 0 ? tp : 0, comment + "|minvol");
+
+            if(retryOk)
+            {
+                PrintFormat("Executed %s qty=%.4f after invalid-volume retry (orig=%.4f)", dir, minQty, useQty);
+                return;
+            }
+
+            PrintFormat("Retry failed %s qty=%.4f | err=%d | retcode=%d", dir, minQty, GetLastError(), trade.ResultRetcode());
+        }
+
+        // Some index CFDs accept whole lots only despite reported step metadata.
+        double wholeQty = MathFloor(useQty + 1e-12);
+        if(wholeQty >= 1.0 && wholeQty != useQty)
+        {
+            ResetLastError();
+            bool wholeOk = false;
+            if(dir == "long" || dir == "buy")
+                wholeOk = trade.Buy(wholeQty, NULL, 0, stop > 0 ? stop : 0, tp > 0 ? tp : 0, comment + "|wholelot");
+            else if(dir == "short" || dir == "sell")
+                wholeOk = trade.Sell(wholeQty, NULL, 0, stop > 0 ? stop : 0, tp > 0 ? tp : 0, comment + "|wholelot");
+
+            if(wholeOk)
+            {
+                PrintFormat("Executed %s qty=%.4f after whole-lot retry (orig=%.4f)", dir, wholeQty, useQty);
+                return;
+            }
+
+            PrintFormat("Whole-lot retry failed %s qty=%.4f | err=%d | retcode=%d", dir, wholeQty, GetLastError(), trade.ResultRetcode());
+        }
     }
 
     PrintFormat("Failed %s qty=%.4f | err=%d | retcode=%d", dir, useQty, err, rc);
@@ -734,6 +610,7 @@ void ProcessSignalsReplay()
     if(nowTime <= 0)
         return;
 
+    // Replay only once per new chart bar to avoid per-tick spam and heavy loops.
     if(nowTime == g_lastReplayBarTime)
         return;
     g_lastReplayBarTime = nowTime;
@@ -744,67 +621,56 @@ void ProcessSignalsReplay()
             break;
 
         string jsonLine = StringFormat(
-            "{\"action\":\"%s\",\"signal_id\":\"%s\",\"entry_ts\":\"%s\",\"dir\":\"%s\",\"account_size\":%.10f,\"entry\":%.10f,\"qty\":%.10f,\"stop\":%.10f,\"tp\":%.10f,\"atr_entry\":%.10f}",
+            "{\"action\":\"%s\",\"signal_id\":\"%s\",\"entry_ts\":\"%s\",\"dir\":\"%s\",\"qty\":%.10f,\"stop\":%.10f,\"tp\":%.10f}",
             g_signals[g_nextSignalIndex].action,
-            StringLen(g_signals[g_nextSignalIndex].signalId) > 0 ? g_signals[g_nextSignalIndex].signalId : g_signals[g_nextSignalIndex].entryTs,
+            g_signals[g_nextSignalIndex].signalId,
             g_signals[g_nextSignalIndex].entryTs,
             g_signals[g_nextSignalIndex].dir,
-            (g_signals[g_nextSignalIndex].accountSize > 0.0 ? g_signals[g_nextSignalIndex].accountSize : g_referenceAccountSize),
-            g_signals[g_nextSignalIndex].entry,
             g_signals[g_nextSignalIndex].qty,
             g_signals[g_nextSignalIndex].stop,
-            g_signals[g_nextSignalIndex].tp,
-            EffectiveAtrEntry(g_signals[g_nextSignalIndex].entry, g_signals[g_nextSignalIndex].stop, g_signals[g_nextSignalIndex].atr_entry)
+            g_signals[g_nextSignalIndex].tp
         );
         ProcessLine(jsonLine);
         g_nextSignalIndex++;
     }
 }
 
-//+------------------------------------------------------------------+
-//| EA LIFECYCLE                                                      |
-//+------------------------------------------------------------------+
-int OnInit() {
+int OnInit()
+{
     trade.SetExpertMagicNumber(InpMagicNumber);
-    trade.SetDeviationInPoints(30);
-    g_referenceAccountSize = AccountInfoDouble(ACCOUNT_BALANCE);
-    if(g_referenceAccountSize <= 0.0)
-        g_referenceAccountSize = AccountInfoDouble(ACCOUNT_EQUITY);
-    if(g_referenceAccountSize <= 0.0)
-        g_referenceAccountSize = 70000.0;
-    
-    if(InpVerboseLog) {
-        PrintFormat("Phantom Signal Reader v1.5 initialized on %s", _Symbol);
-        PrintFormat("Trail ATR Mult: %.2f, Breakeven R: %.2f, Min Hold: %d hrs",
-                   InpTrailATRMult, InpBreakevenR, InpMinHoldHours);
-    }
-    
-    if(InpReplayExistingSignals && InpSignalMode == SIGNAL_MODE_REPLAY) {
+    g_lastLineCount = (InpSignalMode == SIGNAL_MODE_REPLAY && InpReplayExistingSignals) ? 0 : CountLines(InpSignalFile);
+    if(InpSignalMode == SIGNAL_MODE_REPLAY)
         LoadSignals();
-        PrintFormat("Loaded %d signals for replay", ArraySize(g_signals));
-    }
-    
-    EventSetTimer(1);
+
+    PrintFormat("phantom_signal_reader initialized v1.3-force-minlot | magic=%d | mode=%s | replay=%s | start_line=%d | loaded=%d",
+                     InpMagicNumber,
+                     InpSignalMode == SIGNAL_MODE_REPLAY ? "replay" : "live",
+                     InpReplayExistingSignals ? "true" : "false",
+                     g_lastLineCount,
+                     ArraySize(g_signals));
+    double vol_min, vol_step, vol_max;
+    int vol_digits;
+    GetVolumeSpec(vol_min, vol_step, vol_max, vol_digits);
+    PrintFormat("volume constraints | symbol=%s | min=%.8f | step=%.8f | max=%.8f | digits=%d | units_per_lot=%.8f",
+                _Symbol,
+                vol_min,
+                vol_step,
+                vol_max,
+                vol_digits,
+                GetUnitsPerLot());
     return INIT_SUCCEEDED;
 }
 
-void OnTick() {
-    if(InpSignalMode == SIGNAL_MODE_REPLAY && InpReplayExistingSignals) {
+void OnTick()
+{
+    if(InpSignalMode == SIGNAL_MODE_REPLAY)
         ProcessSignalsReplay();
-    } else if(InpSignalMode == SIGNAL_MODE_LIVE) {
+    else
         ProcessSignalsLive();
-    }
-
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
 }
 
-void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
-        ManageTrailingStops();
+void OnDeinit(const int reason)
+{
 }
 
-void OnDeinit(const int reason) {
-    EventKillTimer();
-}
+//+------------------------------------------------------------------+

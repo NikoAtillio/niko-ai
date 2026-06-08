@@ -1,6 +1,6 @@
 """
-PHANTOM p2 - Multi-Timeframe Backtest Engine
-=============================================
+PHANTOM p2 - Multi-Timeframe Backtest Engine (V7 - Production)
+=================================================================
 Improvements over p1:
   1. Instrument config objects  — per-instrument session windows, ATR multipliers, TP targets
   2. Adaptive TP                — 1.3R (XAU/US100) or 1.5R (BTC) instead of fixed 2R
@@ -12,6 +12,12 @@ Improvements over p1:
   8. Circuit breaker            — pause 24h after 5 consecutive losses
   9. Confidence position sizing — 1.5x size when session + cluster + regime all aligned
  10. Instrument ATR multipliers — XAU: 2.0x, US100: 1.5x, BTC: 1.8x
+
+V2 CHANGES:
+  • H4 bar timestamps kept in broker time (EST) instead of converting to UTC
+  • Session windows adjusted to EST (08:00-16:00 for US100) instead of UTC (13:00-21:00)
+  • HIGH_PEAK_HOURS_EST {9,10,11,12} replaces HIGH_PEAK_HOURS_UTC {14,15,16,17}
+  • Fixes H4 bar boundary misalignment between Python and MQL5
 
 Usage
     python phantom_p2.py --instrument XAU \\
@@ -34,75 +40,29 @@ try:
 except ImportError:
     pytz = None
 
-import json
-import glob
-from datetime import datetime
-
 warnings.filterwarnings('ignore')
 
+# ── DST-aware session helper ──────────────────────────────────────────────────
+_NYC_TZ = pytz.timezone('America/New_York') if pytz else None
+
+def in_ny_session_dst(ts: pd.Timestamp, session_open: int = 8, session_close: int = 16) -> bool:
+    """DST-aware session check. ts is naive broker-EST (UTC-5 fixed). """
+    if _NYC_TZ is None:
+        return session_open <= ts.hour < session_close
+    # Broker CSV is at fixed UTC-5. Convert to UTC first, then to NY local (DST-aware).
+    ts_utc = ts + pd.Timedelta(hours=5)
+    ts_ny  = ts_utc.tz_localize('UTC').astimezone(_NYC_TZ)
+    return session_open <= ts_ny.hour < session_close and ts_ny.weekday() < 5
+
 ENGINE_VERSION = 'p2_ftmo'
-
-# Signal emission to MT5: write newline-delimited JSON into a file
-# placed in a local `signals/` folder and -- when available -- into the
-# MetaTrader `Common/Files` directory found under the Wine prefix.
-EMIT_SIGNALS = True
-SIGNAL_FILENAME = 'phantom_signals.jsonl'
-
-def _find_mt5_common_files():
-    """Return candidate MT5 Common/Files paths under the Wine prefix."""
-    wp = os.environ.get('WINEPREFIX') or '/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5'
-    patterns = [
-        os.path.join(wp, 'drive_c', 'users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, 'drive_c', 'Users', '*', 'AppData', 'Roaming', 'MetaQuotes', 'Terminal', 'Common', 'Files'),
-        os.path.join(wp, '**', 'Common', 'Files'),
-    ]
-    matches = []
-    for pattern in patterns:
-        matches.extend(glob.glob(pattern, recursive=True))
-    # De-duplicate while preserving order.
-    seen = set()
-    unique_matches = []
-    for path in matches:
-        if path not in seen and os.path.isdir(path):
-            seen.add(path)
-            unique_matches.append(path)
-    return unique_matches
-
-def write_signal(signal: dict):
-    """Append a JSON line to the local signals folder and to MT5 Common/Files if found."""
-    # prepare directories
-    local_dir = os.path.join(os.getcwd(), 'signals')
-    os.makedirs(local_dir, exist_ok=True)
-    local_path = os.path.join(local_dir, SIGNAL_FILENAME)
-
-    # serialize timestamp if present
-    s = signal.copy()
-    for k, v in s.items():
-        if hasattr(v, 'isoformat'):
-            s[k] = v.isoformat()
-
-    line = json.dumps(s, default=str, ensure_ascii=False)
-    with open(local_path, 'a', encoding='utf-8') as f:
-        f.write(line + '\n')
-
-    # attempt to also write into MT5 Common/Files for EA consumption
-    mt5_dirs = _find_mt5_common_files()
-    for mt5_dir in mt5_dirs:
-        try:
-            mt5_path = os.path.join(mt5_dir, SIGNAL_FILENAME)
-            with open(mt5_path, 'a', encoding='utf-8') as f:
-                f.write(line + '\n')
-        except Exception:
-            # best-effort only; do not raise
-            pass
 
 # Aligned profile: match MT5 high-risk sizing and peak-hour boost.
 HIGH_RISK_PCT_MULT = 2.0
 HIGH_PEAK_SESSION_BOOST = 1.2
-HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
+HIGH_PEAK_HOURS_EST = {9, 10, 11, 12}
 
 FTMO_CONFIG = {
-    'account_size': 0.0,
+    'account_size': 70_000.0,
     'profit_target_pct': 10.0,
     'max_loss_pct': 10.0,
     'max_daily_loss_pct': 5.0,
@@ -139,9 +99,9 @@ INSTRUMENT_CONFIG = {
         soft_session_size  = 0.5,
     ),
     'US100': dict(
-        # Session: Pre-market through NY close (13:00–21:00 UTC), weekdays only
-        session_start   = 13,
-        session_end     = 21,
+        # Session: Pre-market through NY close (08:00–16:00 EST), weekdays only
+        session_start   = 8,
+        session_end     = 16,
         allow_weekend   = False,
         weekend_size    = 0.0,
         # TP at 1.3R — daily range ~1.93%, 1.3R is well within reach
@@ -230,17 +190,9 @@ def load_csv(path: str) -> pd.DataFrame:
         date_str = df['date'].astype(str).str.strip()
         time_str = df['time'].astype(str).str.strip()
         df['datetime'] = pd.to_datetime(date_str + ' ' + time_str, errors='coerce')
-        # CSV times are in NYSE local time (EST/EDT), convert to UTC for session consistency
-        if pytz is not None:
-            # Use pytz for proper DST handling (EST = UTC-5 in winter, EDT = UTC-4 in summer)
-            nyc_tz = pytz.timezone('America/New_York')
-            df['datetime'] = (df['datetime']
-                              .dt.tz_localize(None)
-                              .dt.tz_localize(nyc_tz, ambiguous='NaT', nonexistent='NaT')
-                              .dt.tz_convert('UTC'))
-        else:
-            # Fallback: assume fixed EST (UTC-5) for January testing
-            df['datetime'] = df['datetime'] - pd.Timedelta(hours=5)
+        # CSV times are already in broker time (EST) — no conversion needed.
+        # Keeping naive EST timestamps to match MQL5's native bar alignment.
+        pass
     elif 'date' in df.columns:
         # Daily exports often omit a separate time column.
         date_str = df['date'].astype(str).str.strip()
@@ -274,9 +226,11 @@ def calc_ema(s: pd.Series, n: int) -> pd.Series:
     return s.ewm(span=n, adjust=False).mean()
 
 def calc_rsi(s: pd.Series, n: int = 14) -> pd.Series:
+    """V6: Wilder RSI (alpha = 1/(n+1), matches MQL5 iRSI exactly)."""
     d  = s.diff()
-    g  = d.clip(lower=0).ewm(span=n, adjust=False).mean()
-    ls = (-d).clip(lower=0).ewm(span=n, adjust=False).mean()
+    # com = span - 1 for Wilder's smoothing constant: alpha = 1/(1+com) = 1/n
+    g  = d.clip(lower=0).ewm(com=n-1, adjust=False).mean()
+    ls = (-d).clip(lower=0).ewm(com=n-1, adjust=False).mean()
     return 100 - 100 / (1 + g / ls.replace(0, np.nan))
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
@@ -325,13 +279,16 @@ def apply_start_date(df: pd.DataFrame, start_date: Optional[str], end_date: Opti
 # ══════════════════════════════════════════════════════════════════════════════
 # FAST LOOKUP HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
-def fast_val(idx_arr: np.ndarray, vals: np.ndarray, ts) -> float:
-    i = np.searchsorted(idx_arr, ts, side='right') - 1
+def fast_val(idx_arr: np.ndarray, vals: np.ndarray, ts, is_h4: bool = False) -> float:
+    """V6: H4 uses side='left' (closed bar); others use side='right' (forming bar)."""
+    side = 'left' if is_h4 else 'right'
+    i = np.searchsorted(idx_arr, ts, side=side) - 1
     return float(vals[i]) if i >= 0 else np.nan
 
-def score_tf(idx_arr, c_arr, e20_arr, e50_arr, rsi_arr, ts, direction: str) -> int:
-    """Score 0–3 for a single timeframe."""
-    i = np.searchsorted(idx_arr, ts, side='right') - 1
+def score_tf(idx_arr, c_arr, e20_arr, e50_arr, rsi_arr, ts, direction: str, is_h4: bool = False) -> int:
+    """V6: Score 0–3 for a single timeframe. H4 uses closed bar; others use forming bar."""
+    side = 'left' if is_h4 else 'right'
+    i = np.searchsorted(idx_arr, ts, side=side) - 1
     if i < 0:
         return 0
     c, e20, e50, rv = c_arr[i], e20_arr[i], e50_arr[i], rsi_arr[i]
@@ -579,9 +536,7 @@ def run_scenario(
     debug_rows = [] if debug else None
     debug_tol_mult = 5.0
 
-    ftmo = dict(FTMO_CONFIG)
-    if ftmo['account_size'] <= 0.0:
-        ftmo['account_size'] = max(float(capital), 1.0)
+    ftmo = FTMO_CONFIG
     ftmo['profit_target_cash'] = ftmo['account_size'] * (ftmo['profit_target_pct'] / 100.0)
     ftmo['max_loss_cash'] = ftmo['account_size'] * (ftmo['max_loss_pct'] / 100.0)
     ftmo['max_daily_loss_cash'] = ftmo['account_size'] * (ftmo['max_daily_loss_pct'] / 100.0)
@@ -662,7 +617,7 @@ def run_scenario(
             exit_signal_px = None
 
             # Trailing stop update (CRITICAL: must come before breakeven check)
-            atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
+            atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts, is_h4=True)
             if not np.isnan(atr_h4_v_now) and atr_h4_v_now > 0:
                 trail_dist = atr_trail * p['atr_e']
                 if p['dir'] == 'long':
@@ -847,7 +802,7 @@ def run_scenario(
                 continue
 
         # ── scan zones ────────────────────────────────────────────────────
-        atr_h4_v = fast_val(h4_idx, h4_atr_arr, ts)
+        atr_h4_v = fast_val(h4_idx, h4_atr_arr, ts, is_h4=True)
         if np.isnan(atr_h4_v) or atr_h4_v <= 0:
             continue
 
@@ -932,7 +887,7 @@ def run_scenario(
 
             # ── p2 FILTER 1: Session gate ─────────────────────────────────
             session_mult = get_session_size_mult(ts_pd, inst_cfg)
-            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_UTC:
+            if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_EST:
                 session_mult *= HIGH_PEAK_SESSION_BOOST
             if session_mult == 0.0:
                 skipped['session'] += 1
@@ -986,8 +941,8 @@ def run_scenario(
             regime = get_regime(daily_idx, daily_regime, ts)
             regime_mult = get_regime_size_mult(regime, z_dir)
 
-            # ── Multi-timeframe score ─────────────────────────────────────
-            h4_score = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir)
+            # ── Multi-timeframe score (V6: H4 uses closed bar) ──────────────
+            h4_score = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir, is_h4=True)
             h1_score = score_tf(h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, ts, z_dir)
 
             if cfg['entry_tf'] == 'm1':
@@ -1212,23 +1167,6 @@ def run_scenario(
                 'atr_e'             : atr_h4_v,  # Store H4 ATR at entry for trailing stop
             })
 
-            # Emit a JSON signal for MT5 to consume (newline-delimited JSON)
-            if EMIT_SIGNALS:
-                try:
-                    sig = {
-                        'entry_ts': ts_pd,
-                        'dir': z_dir,
-                        'entry': float(entry_exec),
-                        'stop': float(stop_px) if stop_px is not None else None,
-                        'tp': float(tp_px) if tp_px is not None else None,
-                        'qty': float(qty),
-                        'confidence_mult': float(conf_mult) if conf_mult is not None else None,
-                        'regime': regime,
-                    }
-                    write_signal(sig)
-                except Exception:
-                    pass
-
             if debug_rows is not None:
                 debug_rows.append({
                     'ts': ts_pd,
@@ -1401,7 +1339,7 @@ def main():
     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
-    parser.add_argument('--capital',     type=float, default=10_000)
+    parser.add_argument('--capital',     type=float, default=70_000)
     parser.add_argument('--output-dir',  default='.',
                         help='Directory to save trade CSV outputs')
     parser.add_argument('--spread-bps',  type=float, default=0.0,
@@ -1435,7 +1373,7 @@ def main():
         FTMO_CONFIG['min_trading_days'] = 0
     print(f"\nPhantom {ENGINE_VERSION.upper()} | Instrument: {args.instrument}")
     print(
-        f"  Session: {inst_cfg['session_start']:02d}:00–{inst_cfg['session_end']:02d}:00 UTC"
+        f"  Session: {inst_cfg['session_start']:02d}:00–{inst_cfg['session_end']:02d}:00 EST"
         f"  | TP: {inst_cfg['tp_mult']}R"
         f"  | ATR stop: {inst_cfg['atr_stop_mult']}x"
         f"  | Confirm: {inst_cfg['min_confirm_bars']} bars"
@@ -1451,15 +1389,18 @@ def main():
     m1    = apply_start_date(add_indicators(load_csv(args.m1)), args.start_date, args.end_date)
     m5    = apply_start_date(add_indicators(load_csv(args.m5)), args.start_date, args.end_date)
     h1    = apply_start_date(add_indicators(load_csv(args.h1)), args.start_date, args.end_date)
-    h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date, args.end_date)
+    # V6: Load full H4 history (no date filter) for zone building; use filtered h4 for trade loop
+    h4_full = add_indicators(load_csv(args.h4))
+    h4    = apply_start_date(h4_full.copy(), args.start_date, args.end_date)
     m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date, args.end_date)
     daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date, args.end_date)
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
 
     print("\nBuilding H4 pivot zones...")
+    # V6: Use full H4 history (not date-filtered) to find all pivots
     zone_ts, zone_px, zone_dir = build_h4_zones(
-        h4,
+        h4_full,
         pivot_bars=DEFAULTS['h4_pivot_bars'],
         lookback=DEFAULTS['h4_lookback'],
     )

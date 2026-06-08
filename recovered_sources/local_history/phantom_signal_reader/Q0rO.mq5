@@ -28,6 +28,7 @@ enum SignalMode
 };
 
 input SignalMode InpSignalMode = SIGNAL_MODE_REPLAY;
+input bool   InpEnableLocalRiskManager = false;
 
 //--- Risk management (NEW in v1.5)
 input double   InpTrailATRMult        = 0.8;     // Trailing stop = price - (ATR * mult)
@@ -795,13 +796,13 @@ void OnTick() {
         ProcessSignalsLive();
     }
 
-    // Keep replay mode as executor-only: Python owns risk management decisions.
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    // Python remains authoritative by default; local manager is opt-in only.
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE)
         ManageTrailingStops();
 }
 
 void OnTimer() {
-    if(InpSignalMode == SIGNAL_MODE_LIVE)
+    if(InpEnableLocalRiskManager && InpSignalMode == SIGNAL_MODE_LIVE)
         ManageTrailingStops();
 }
 
