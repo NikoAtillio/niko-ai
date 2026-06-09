@@ -10,11 +10,20 @@
 #include <Trade/Trade.mqh>
 CTrade trade;
 
+//==================== FORWARD DECLARATIONS =========================
+void   LogCSV(const string line);
+void   ProcessLine(const string raw);
+void   Notify(const string title, const string body);
+double NormalizePrice(const double p);
+double NormalizeLots(double lots);
+int    FindId(const string id);
+
 //==================== INPUTS =======================================
 input string  InpSignalFile          = "phantom_signals.jsonl"; // file in Common\Files
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
 input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
+input bool    InpReplayUseSignalPricing = true;                 // in replay, use signal qty/entry/exit for parity ledger
 
 // --- broker mode ---
 enum ENUM_BROKER_MODE { BROKER_AUTO=0, BROKER_FTMO=1, BROKER_CASH=2 };
@@ -27,7 +36,7 @@ input double  InpProfitTarget        = 500.0;                   // log only, kee
 input bool    InpHardStopOnMaxLoss   = false;                   // true = disable permanently on max loss
 
 // --- lot scaling ---
-input double  InpMetaAccountFallback = 10000.0;                 // used only if a signal lacks signal_account_size
+input double  InpMetaAccountFallback = 5000.0;                  // used only if a signal lacks signal_account_size
 input double  InpMaxLots             = 50.0;                    // hard safety cap
 input double  InpMinLots             = 0.01;
 
@@ -50,7 +59,7 @@ int      g_stopslevel;
 ulong    g_filepos     = 0;     // byte offset already consumed (live polling)
 int      g_lineidx     = 0;     // lines consumed (replay)
 bool     g_meta_seen   = false;
-double   g_meta_acct   = 10000.0;
+double   g_meta_acct   = 5000.0;
 ENUM_BROKER_MODE g_mode = BROKER_CASH;
 
 // guardrail state
@@ -64,8 +73,39 @@ datetime g_current_day    = 0;
 string   g_ids[];
 ulong    g_tickets[];
 double   g_last_sl[];      // last applied SL per mapped id (dedupe)
+double   g_sig_entry[];    // signal entry price per id (replay parity)
+double   g_sig_qty[];      // signal qty per id (replay parity)
+int      g_sig_dir[];      // +1 long, -1 short (replay parity)
+
+double   g_synth_net = 0.0;
+int      g_synth_trades = 0;
+int      g_synth_wins = 0;
 
 datetime g_last_bar = 0;
+
+// replay event store (loaded once)
+string   g_replay_raw[];
+datetime g_replay_ts[];
+int      g_replay_next = 0;
+bool     g_replay_loaded = false;
+
+// seen open IDs to enforce one-shot execution even if the stream has duplicates
+string   g_open_once_ids[];
+
+bool HasOpenFired(const string id)
+{
+   for(int i=0; i<ArraySize(g_open_once_ids); i++)
+      if(g_open_once_ids[i] == id) return true;
+   return false;
+}
+
+void MarkOpenFired(const string id)
+{
+   if(id == "" || HasOpenFired(id)) return;
+   int n = ArraySize(g_open_once_ids);
+   ArrayResize(g_open_once_ids, n + 1);
+   g_open_once_ids[n] = id;
+}
 
 //==================== HELPERS ======================================
 int FindId(const string id)
@@ -82,9 +122,15 @@ void MapId(const string id, const ulong ticket)
       ArrayResize(g_ids,n+1);
       ArrayResize(g_tickets,n+1);
       ArrayResize(g_last_sl,n+1);
+      ArrayResize(g_sig_entry,n+1);
+      ArrayResize(g_sig_qty,n+1);
+      ArrayResize(g_sig_dir,n+1);
       g_ids[n]=id;
       g_tickets[n]=ticket;
       g_last_sl[n]=0.0;
+      g_sig_entry[n]=0.0;
+      g_sig_qty[n]=0.0;
+      g_sig_dir[n]=0;
    }
    else {
       g_tickets[idx]=ticket;
@@ -99,9 +145,15 @@ void UnmapId(const string id)
    g_ids[idx]=g_ids[last];
    g_tickets[idx]=g_tickets[last];
    g_last_sl[idx]=g_last_sl[last];
+   g_sig_entry[idx]=g_sig_entry[last];
+   g_sig_qty[idx]=g_sig_qty[last];
+   g_sig_dir[idx]=g_sig_dir[last];
    ArrayResize(g_ids,last);
    ArrayResize(g_tickets,last);
    ArrayResize(g_last_sl,last);
+    ArrayResize(g_sig_entry,last);
+    ArrayResize(g_sig_qty,last);
+    ArrayResize(g_sig_dir,last);
 }
 
 double NormalizePrice(const double p){ return NormalizeDouble(p,g_digits); }
@@ -160,6 +212,71 @@ double JGetNum(const string js,const string key,const double def=0.0)
    string s=JGetStr(js,key);
    if(s=="") return def;
    return StringToDouble(s);
+}
+
+datetime ParseSignalTime(const string js)
+{
+   string ts = JGetStr(js, "signal_ts");
+   if(ts == "") ts = JGetStr(js, "entry_ts");
+   if(ts == "") return (datetime)0;
+   StringReplace(ts, "T", " ");
+   int z = StringFind(ts, "Z");
+   if(z >= 0) ts = StringSubstr(ts, 0, z);
+   return StringToTime(ts);
+}
+
+bool LoadAllEvents()
+{
+   if(g_replay_loaded) return true;
+
+   int h=FileOpen(InpSignalFile, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h==INVALID_HANDLE) return false;
+
+   ArrayResize(g_replay_raw, 0);
+   ArrayResize(g_replay_ts, 0);
+   g_replay_next = 0;
+
+   while(!FileIsEnding(h)){
+      string line = FileReadString(h);
+      StringTrimLeft(line);
+      StringTrimRight(line);
+      if(StringLen(line) < 2) continue;
+
+      int n = ArraySize(g_replay_raw);
+      ArrayResize(g_replay_raw, n + 1);
+      ArrayResize(g_replay_ts, n + 1);
+      g_replay_raw[n] = line;
+      g_replay_ts[n] = ParseSignalTime(line);
+   }
+
+   FileClose(h);
+   g_replay_loaded = true;
+   LogCSV("LOAD_EVENTS;count=" + IntegerToString(ArraySize(g_replay_raw)));
+   PrintFormat("PhantomBridge replay loaded %d events", ArraySize(g_replay_raw));
+   return true;
+}
+
+void ReplayDueEvents(const datetime bar_time)
+{
+   if(!g_replay_loaded && !LoadAllEvents()) return;
+
+   static datetime s_last_valid_ts = 0;
+
+   while(g_replay_next < ArraySize(g_replay_raw)){
+      datetime ts = g_replay_ts[g_replay_next];
+
+      if(ts <= 0){
+         // Undated events inherit prior valid event time so they cannot jump ahead.
+         ts = s_last_valid_ts;
+      }
+      else {
+         s_last_valid_ts = ts;
+      }
+
+      if(ts > bar_time) break;
+      ProcessLine(g_replay_raw[g_replay_next]);
+      g_replay_next++;
+   }
 }
 
 //==================== NOTIFY =======================================
@@ -300,6 +417,11 @@ void HandleOpen(const string js)
    }
 
    string id  = JGetStr(js,"id");
+   if(id=="") id = JGetStr(js,"entry_ts");
+   if(HasOpenFired(id)){
+      LogCSV("OPEN_DUP_SKIP;"+id);
+      return;
+   }
    string dir = JGetStr(js,"dir");
    double entry = JGetNum(js,"entry");
    double stop  = JGetNum(js,"stop");
@@ -309,7 +431,9 @@ void HandleOpen(const string js)
    if(sacct<=0) sacct=InpMetaAccountFallback;
 
    double live_eq = AccountInfoDouble(ACCOUNT_EQUITY);
-   double lots = qty * (live_eq / sacct); // per-signal scaling
+   double lots;
+   if(InpReplayMode && InpReplayUseSignalPricing) lots = qty;
+   else                                            lots = qty * (live_eq / sacct); // per-signal scaling
    lots = NormalizeLots(lots);
    if(lots<=0){
       LogCSV("OPEN_SKIP_ZEROLOT;"+id);
@@ -322,18 +446,37 @@ void HandleOpen(const string js)
    double sl = ClampStopDistance(price, stop, is_long);
    double tpx = NormalizePrice(tp);
 
+   // Fidelity mode in replay: do not attach broker SL/TP.
+   double open_sl = InpReplayMode ? 0.0 : sl;
+   double open_tp = InpReplayMode ? 0.0 : tpx;
+
    trade.SetExpertMagicNumber(InpMagicNumber);
    bool ok;
-   if(is_long) ok=trade.Buy(lots,g_symbol,0.0,sl,tpx,id);
-   else        ok=trade.Sell(lots,g_symbol,0.0,sl,tpx,id);
+   if(is_long) ok=trade.Buy(lots,g_symbol,0.0,open_sl,open_tp,id);
+   else        ok=trade.Sell(lots,g_symbol,0.0,open_sl,open_tp,id);
 
    if(ok){
       ulong tk=trade.ResultOrder();
-      // resolve to position ticket
-      if(PositionSelect(g_symbol)) tk=(ulong)PositionGetInteger(POSITION_TICKET);
+      // Resolve to position ticket by matching comment/magic/symbol.
+      ulong resolved=0;
+      for(int pi=PositionsTotal()-1; pi>=0; pi--){
+         ulong cand=PositionGetTicket(pi);
+         if(cand==0) continue;
+         if(!PositionSelectByTicket(cand)) continue;
+         if(PositionGetInteger(POSITION_MAGIC)!=InpMagicNumber) continue;
+         if(PositionGetString(POSITION_SYMBOL)!=g_symbol) continue;
+         if(PositionGetString(POSITION_COMMENT)==id){ resolved=cand; break; }
+      }
+      if(resolved!=0) tk=resolved;
       MapId(id,tk);
+      MarkOpenFired(id);
       int idx=FindId(id);
-      if(idx>=0) g_last_sl[idx]=sl;
+      if(idx>=0){
+         g_last_sl[idx]=sl;
+         g_sig_entry[idx]=entry;
+         g_sig_qty[idx]=qty;
+         g_sig_dir[idx]=is_long ? 1 : -1;
+      }
       LogCSV("OPEN;"+id+";dir="+dir+";lots="+DoubleToString(lots,2)+
              ";want_entry="+DoubleToString(entry,g_digits)+
              ";fill="+DoubleToString(trade.ResultPrice(),g_digits)+
@@ -371,6 +514,12 @@ void HandleModify(const string js)
    // dedupe: skip no-op modify
    if(MathAbs(sl - g_last_sl[idx]) < g_point*0.5) return;
 
+   if(InpReplayMode){
+      g_last_sl[idx]=sl;
+      LogCSV("MODIFY_AUDIT;"+id+";new_sl="+DoubleToString(sl,g_digits));
+      return;
+   }
+
    if(trade.PositionModify(tk, sl, tp)){
       g_last_sl[idx]=sl;
       LogCSV("MODIFY;"+id+";new_sl="+DoubleToString(sl,g_digits));
@@ -389,10 +538,28 @@ void HandleModify(const string js)
 void HandleClose(const string js)
 {
    string id = JGetStr(js,"id");
+   double exit_sig = JGetNum(js,"exit");
    int idx=FindId(id);
    if(idx<0){
       LogCSV("CLOSE_NO_MAP;"+id);
       return;
+   }
+
+   if(InpReplayMode && InpReplayUseSignalPricing && exit_sig>0.0){
+      double entry_sig = g_sig_entry[idx];
+      double qty_sig = g_sig_qty[idx];
+      int dir_sig = g_sig_dir[idx];
+      if(qty_sig>0.0 && dir_sig!=0){
+         double pnl_sig = (dir_sig>0) ? (exit_sig-entry_sig)*qty_sig : (entry_sig-exit_sig)*qty_sig;
+         g_synth_net += pnl_sig;
+         g_synth_trades++;
+         if(pnl_sig>0.0) g_synth_wins++;
+         LogCSV("CLOSE_SYNTH;"+id+
+                ";entry="+DoubleToString(entry_sig,g_digits)+
+                ";exit="+DoubleToString(exit_sig,g_digits)+
+                ";qty="+DoubleToString(qty_sig,6)+
+                ";pnl="+DoubleToString(pnl_sig,2));
+      }
    }
 
    ulong tk=g_tickets[idx];
@@ -429,35 +596,18 @@ void ProcessLine(const string raw)
 }
 
 //==================== FILE READ ====================================
-// Reads any new lines appended since last call.
-void PumpFile()
+// Reads any new lines appended since last call (live polling only).
+void PumpFileLive()
 {
    int h=FileOpen(InpSignalFile, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
    if(h==INVALID_HANDLE) return;
 
-   // seek to where we left off (live). In replay we re-read from 0 and skip consumed lines.
-   if(!InpReplayMode){
-      FileSeek(h,(long)g_filepos,SEEK_SET);
-      while(!FileIsEnding(h)){
-         string line=FileReadString(h);
-         if(StringLen(line)>0) ProcessLine(line);
-      }
-      g_filepos=(ulong)FileTell(h);
+   FileSeek(h,(long)g_filepos,SEEK_SET);
+   while(!FileIsEnding(h)){
+      string line=FileReadString(h);
+      if(StringLen(line)>0) ProcessLine(line);
    }
-   else {
-      int i=0;
-      while(!FileIsEnding(h)){
-         string line=FileReadString(h);
-         if(i>=g_lineidx && StringLen(line)>0){
-            ProcessLine(line);
-            g_lineidx++;
-         }
-         else if(StringLen(line)>0){
-            i++;
-         }
-         if(i<g_lineidx) i=g_lineidx; // keep in sync
-      }
-   }
+   g_filepos=(ulong)FileTell(h);
    FileClose(h);
 }
 
@@ -490,6 +640,18 @@ int OnInit()
    g_current_day=ServerDay();
    g_day_start_equity=AccountInfoDouble(ACCOUNT_EQUITY);
 
+   g_replay_loaded = false;
+   g_replay_next = 0;
+   ArrayResize(g_replay_raw, 0);
+   ArrayResize(g_replay_ts, 0);
+   ArrayResize(g_open_once_ids, 0);
+   ArrayResize(g_sig_entry, 0);
+   ArrayResize(g_sig_qty, 0);
+   ArrayResize(g_sig_dir, 0);
+   g_synth_net = 0.0;
+   g_synth_trades = 0;
+   g_synth_wins = 0;
+
    PrintFormat("PhantomBridge init | symbol=%s digits=%d step=%.2f stops=%d mode=%s replay=%s",
                g_symbol,g_digits,g_volstep,g_stopslevel,
                (g_mode==BROKER_FTMO?"FTMO":(g_mode==BROKER_CASH?"CASH":"AUTO")),
@@ -507,10 +669,20 @@ void OnTick()
    g_last_bar=bt;
 
    if(g_mode==BROKER_CASH) ResetDayIfNeeded();
-   PumpFile();
+   if(InpReplayMode){
+      ReplayDueEvents(bt);
+   }
+   else {
+      PumpFileLive();
+   }
 }
 
 void OnDeinit(const int reason)
 {
+   if(InpReplayMode && InpReplayUseSignalPricing){
+      LogCSV("SYNTH_SUMMARY;trades="+IntegerToString(g_synth_trades)+
+             ";wins="+IntegerToString(g_synth_wins)+
+             ";net="+DoubleToString(g_synth_net,2));
+   }
    LogCSV("DEINIT;reason="+IntegerToString(reason));
 }

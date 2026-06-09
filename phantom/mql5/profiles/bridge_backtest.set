@@ -1,0 +1,18 @@
+; PhantomBridge_v2 - BACKTEST / REPLAY profile
+InpSignalFile=phantom_signals.jsonl
+InpMagicNumber=920025
+InpSymbolOverride=US100
+InpReplayMode=true
+InpBrokerMode=0
+InpMaxDailyLoss=500.0
+InpMaxOverallLoss=1000.0
+InpProfitTarget=500.0
+InpHardStopOnMaxLoss=false
+InpMetaAccountFallback=5000.0
+InpMaxLots=50.0
+InpMinLots=0.01
+InpNotifyPush=false
+InpNotifyEmail=false
+InpNotifyAlert=false
+InpLogToCSV=true
+InpLogFile=phantom_bridge_backtest_log.csv

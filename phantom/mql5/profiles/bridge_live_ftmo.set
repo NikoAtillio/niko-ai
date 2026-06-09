@@ -1,0 +1,18 @@
+; PhantomBridge_v2 - LIVE FTMO profile
+InpSignalFile=phantom_signals.jsonl
+InpMagicNumber=920025
+InpSymbolOverride=US100
+InpReplayMode=false
+InpBrokerMode=1
+InpMaxDailyLoss=500.0
+InpMaxOverallLoss=1000.0
+InpProfitTarget=500.0
+InpHardStopOnMaxLoss=false
+InpMetaAccountFallback=5000.0
+InpMaxLots=50.0
+InpMinLots=0.01
+InpNotifyPush=true
+InpNotifyEmail=false
+InpNotifyAlert=true
+InpLogToCSV=true
+InpLogFile=phantom_bridge_ftmo_log.csv

@@ -245,7 +245,6 @@ SCENARIOS = {
         h4_min      = 1,
         h1_min      = 1,
         ltf_min     = 1,
-        ltf_cap     = 3,
         vol_filter  = False,
         timeout_bars= None,
         atr_trail   = 0.8,
@@ -660,7 +659,7 @@ def run_scenario(
             pnl = gross_pnl - fees
             capital += pnl
             risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
-            emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': 'ftmo_guardrail'})
+            emit_event({'action': 'close', 'id': p['id'], 'signal_ts': ts_pd, 'exit': float(exit_px), 'reason': 'ftmo_guardrail'})
             closed.append({
                 'entry_ts': p['entry_ts'],
                 'exit_ts': ts_pd,
@@ -727,6 +726,7 @@ def run_scenario(
                 emit_event({
                     'action': 'modify',
                     'id': p['id'],
+                    'signal_ts': ts_pd,
                     'new_stop': float(p['stop']),
                     'reason': 'breakeven' if p.get('be_triggered') else 'trail',
                 })
@@ -817,7 +817,7 @@ def run_scenario(
                     'confidence_mult'    : p.get('confidence_mult', 1.0),
                     'regime'             : p.get('regime', 'unknown'),
                 })
-                emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': exit_reason})
+                emit_event({'action': 'close', 'id': p['id'], 'signal_ts': ts_pd, 'exit': float(exit_px), 'reason': exit_reason})
             else:
                 still_open.append(p)
 
