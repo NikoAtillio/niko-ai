@@ -54,6 +54,17 @@ _SIGNAL_SEQ = {'n': 0}
 _EVENT_BUFFER = []
 _MT5_COMMON_FILES_CACHE = None
 
+# Time policy for raw CSV loading.
+# None: treat CSV timestamps as already broker/server time (MT5 export default).
+# Set to a timezone string only for non-broker datasets that require conversion.
+CSV_SOURCE_TZ = None
+
+# Timezone guardrail settings.
+TZ_GUARD_ENABLED = True
+TZ_GUARD_MIN_OPENS = 3
+TZ_GUARD_SEPARATION_RATIO = 5.0
+TZ_GUARD_MAX_MEAN_ABS_ERR = 2.0
+
 def _find_mt5_common_files():
     """Return candidate MT5 Common/Files paths under the Wine prefix."""
     global _MT5_COMMON_FILES_CACHE
@@ -77,6 +88,140 @@ def _find_mt5_common_files():
             unique_matches.append(path)
     _MT5_COMMON_FILES_CACHE = unique_matches
     return _MT5_COMMON_FILES_CACHE
+
+def _signal_file_path() -> str:
+    return os.path.join(os.getcwd(), 'signals', SIGNAL_FILENAME)
+
+def evaluate_tz_alignment_from_signals(m5_df: pd.DataFrame,
+                                       signal_file: Optional[str] = None,
+                                       min_opens: int = TZ_GUARD_MIN_OPENS):
+    """
+    Estimate hour offset between signal timestamps and loaded M5 bars.
+    Compares signal open `entry` prices against raw M5 closes across offsets.
+    Returns a dict with enough context for deterministic guardrail decisions.
+    """
+    if signal_file is None:
+        signal_file = _signal_file_path()
+    if not os.path.exists(signal_file):
+        return {'status': 'no-signal-file'}
+    if not isinstance(m5_df.index, pd.DatetimeIndex) or 'close' not in m5_df.columns:
+        return {'status': 'invalid-m5'}
+
+    opens = []
+    try:
+        with open(signal_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                o = json.loads(line)
+                if o.get('action') != 'open':
+                    continue
+                ts = o.get('entry_ts')
+                entry = o.get('entry')
+                if ts is None or entry is None:
+                    continue
+                try:
+                    ts_pd = pd.Timestamp(ts)
+                    if ts_pd.tzinfo is not None:
+                        ts_pd = ts_pd.tz_convert(None)
+                    opens.append((ts_pd, float(entry)))
+                except Exception:
+                    continue
+    except Exception as ex:
+        return {'status': 'signal-read-error', 'error': str(ex)}
+
+    if len(opens) < min_opens:
+        return {'status': 'insufficient-opens', 'n_opens': len(opens)}
+
+    close_series = m5_df['close']
+    if getattr(close_series.index, 'tz', None) is not None:
+        close_series = close_series.copy()
+        close_series.index = close_series.index.tz_convert(None)
+
+    scores = []
+    for h in range(-12, 13):
+        errs = []
+        for ts_pd, entry in opens:
+            shifted = ts_pd + pd.Timedelta(hours=h)
+            if shifted in close_series.index:
+                errs.append(abs(float(close_series.loc[shifted]) - entry))
+        if errs:
+            scores.append({
+                'offset_h': h,
+                'mean_abs_err': float(np.mean(errs)),
+                'max_abs_err': float(np.max(errs)),
+                'n': len(errs),
+            })
+
+    if not scores:
+        return {'status': 'no-overlap', 'n_opens': len(opens)}
+
+    scores.sort(key=lambda s: s['mean_abs_err'])
+    best = scores[0]
+    runner = scores[1] if len(scores) > 1 else None
+    ratio = (runner['mean_abs_err'] / best['mean_abs_err']) if (runner and best['mean_abs_err'] > 0) else (np.inf if runner else np.inf)
+
+    return {
+        'status': 'ok',
+        'n_opens': len(opens),
+        'best': best,
+        'runner': runner,
+        'ratio': float(ratio),
+        'top': scores[:5],
+    }
+
+def enforce_tz_guard(alignment: dict,
+                     stage: str,
+                     enforce: bool,
+                     min_opens: int = TZ_GUARD_MIN_OPENS,
+                     separation_ratio: float = TZ_GUARD_SEPARATION_RATIO,
+                     max_mean_abs_err: float = TZ_GUARD_MAX_MEAN_ABS_ERR):
+    """
+    Deterministic timezone guard.
+    Hard-fail only when evidence is sufficient and offset is clearly non-zero.
+    """
+    status = alignment.get('status')
+    if status != 'ok':
+        print(f"[tz-guard] {stage}: skipped ({status})")
+        return
+
+    best = alignment['best']
+    runner = alignment.get('runner')
+    ratio = alignment.get('ratio', np.inf)
+    n_opens = alignment.get('n_opens', 0)
+    best_h = int(best['offset_h'])
+    best_err = float(best['mean_abs_err'])
+    runner_txt = f"{runner['offset_h']}h/{runner['mean_abs_err']:.4f}" if runner else 'n/a'
+
+    print(
+        f"[tz-guard] {stage}: best={best_h:+d}h mean_err={best_err:.4f} "
+        f"runner={runner_txt} ratio={ratio:.2f} opens={n_opens}"
+    )
+
+    ratio_ok = (np.isinf(ratio) or ratio >= separation_ratio)
+    strong_evidence = (
+        n_opens >= min_opens and
+        ratio_ok and
+        best_err <= max_mean_abs_err
+    )
+    if not strong_evidence:
+        print(
+            f"[tz-guard] {stage}: warning only (evidence not strong enough: "
+            f"opens>={min_opens}, ratio>={separation_ratio}, best_err<={max_mean_abs_err})"
+        )
+        return
+
+    if best_h != 0:
+        msg = (
+            f"[tz-guard] {stage}: FAIL offset={best_h:+d}h (non-zero with strong evidence). "
+            f"Top offsets={alignment.get('top')}"
+        )
+        if enforce:
+            raise RuntimeError(msg)
+        print(msg)
+    else:
+        print(f"[tz-guard] {stage}: PASS (offset 0h)")
 
 def reset_signal_file():
     """Clear the in-memory buffer at run start."""
@@ -266,17 +411,17 @@ def load_csv(path: str) -> pd.DataFrame:
         date_str = df['date'].astype(str).str.strip()
         time_str = df['time'].astype(str).str.strip()
         df['datetime'] = pd.to_datetime(date_str + ' ' + time_str, errors='coerce')
-        # CSV times are in NYSE local time (EST/EDT), convert to UTC for session consistency
-        if pytz is not None:
-            # Use pytz for proper DST handling (EST = UTC-5 in winter, EDT = UTC-4 in summer)
-            nyc_tz = pytz.timezone('America/New_York')
+        # Broker export default: keep naive timestamps as-is (broker/server clock).
+        # Optional conversion path for non-broker datasets.
+        if CSV_SOURCE_TZ is not None:
+            if pytz is None:
+                raise RuntimeError('CSV_SOURCE_TZ set but pytz is unavailable')
+            src_tz = pytz.timezone(CSV_SOURCE_TZ)
             df['datetime'] = (df['datetime']
                               .dt.tz_localize(None)
-                              .dt.tz_localize(nyc_tz, ambiguous='NaT', nonexistent='NaT')
-                              .dt.tz_convert('UTC'))
-        else:
-            # Fallback: assume fixed EST (UTC-5) for January testing
-            df['datetime'] = df['datetime'] - pd.Timedelta(hours=5)
+                              .dt.tz_localize(src_tz, ambiguous='NaT', nonexistent='NaT')
+                              .dt.tz_convert('UTC')
+                              .dt.tz_localize(None))
     elif 'date' in df.columns:
         # Daily exports often omit a separate time column.
         date_str = df['date'].astype(str).str.strip()
@@ -1579,6 +1724,10 @@ def main():
     daily = add_daily_regime(daily, inst_cfg)
     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
 
+    if TZ_GUARD_ENABLED:
+        pre = evaluate_tz_alignment_from_signals(m5)
+        enforce_tz_guard(pre, stage='pre-run', enforce=False)
+
     print("\nBuilding H4 pivot zones...")
     zone_ts, zone_px, zone_dir = build_h4_zones(
         h4,
@@ -1645,6 +1794,11 @@ def main():
         **arrays,
     )
     flush_signals()
+
+    if TZ_GUARD_ENABLED:
+        post = evaluate_tz_alignment_from_signals(m5)
+        enforce_tz_guard(post, stage='post-run', enforce=True)
+
     if EMIT_SIGNALS and df_r is not None:
         ok = replay_and_validate(df_r, args.capital)
         print('✅ REPLAY MATCHES INTERNAL BACKTEST' if ok else '❌ REPLAY MISMATCH - DO NOT PROCEED TO MQL5')

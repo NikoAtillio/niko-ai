@@ -17,6 +17,9 @@ void   Notify(const string title, const string body);
 double NormalizePrice(const double p);
 double NormalizeLots(double lots);
 int    FindId(const string id);
+void   UnmapId(const string id);
+bool   StampModelMode();
+void   DetectStraddles(const datetime bar_time);
 
 //==================== INPUTS =======================================
 input string  InpSignalFile          = "phantom_signals.jsonl"; // file in Common\Files
@@ -48,6 +51,7 @@ input bool    InpNotifyAlert         = true;                    // Alert popup +
 // --- logging ---
 input bool    InpLogToCSV            = true;
 input string  InpLogFile             = "phantom_bridge_log.csv";
+input bool    InpEnableStraddleAudit = true;                    // log-only straddle detector
 
 //==================== STATE ========================================
 string   g_symbol;
@@ -89,6 +93,14 @@ datetime g_replay_ts[];
 int      g_replay_next = 0;
 bool     g_replay_loaded = false;
 
+// pending replay TP closes: arm on close(reason=tp), then watch ticks in-bar
+string   g_pending_ids[];
+ulong    g_pending_tickets[];
+double   g_pending_tp[];
+double   g_pending_sl[];
+int      g_pending_dir[];      // +1 long, -1 short
+datetime g_pending_expiry[];   // next bar open fallback
+
 // seen open IDs to enforce one-shot execution even if the stream has duplicates
 string   g_open_once_ids[];
 
@@ -105,6 +117,156 @@ void MarkOpenFired(const string id)
    int n = ArraySize(g_open_once_ids);
    ArrayResize(g_open_once_ids, n + 1);
    g_open_once_ids[n] = id;
+}
+
+int FindPending(const string id)
+{
+   for(int i=0; i<ArraySize(g_pending_ids); i++)
+      if(g_pending_ids[i] == id) return i;
+   return -1;
+}
+
+void RemovePendingAt(const int idx)
+{
+   int last = ArraySize(g_pending_ids) - 1;
+   if(idx < 0 || idx > last) return;
+
+   g_pending_ids[idx]     = g_pending_ids[last];
+   g_pending_tickets[idx] = g_pending_tickets[last];
+   g_pending_tp[idx]      = g_pending_tp[last];
+   g_pending_sl[idx]      = g_pending_sl[last];
+   g_pending_dir[idx]     = g_pending_dir[last];
+   g_pending_expiry[idx]  = g_pending_expiry[last];
+
+   ArrayResize(g_pending_ids, last);
+   ArrayResize(g_pending_tickets, last);
+   ArrayResize(g_pending_tp, last);
+   ArrayResize(g_pending_sl, last);
+   ArrayResize(g_pending_dir, last);
+   ArrayResize(g_pending_expiry, last);
+}
+
+void ArmReplayTpClose(const string id, const ulong tk, const int dir_sig, const double tp_price, const double sl_price)
+{
+   int idx = FindPending(id);
+   if(idx < 0){
+      int n = ArraySize(g_pending_ids);
+      ArrayResize(g_pending_ids, n + 1);
+      ArrayResize(g_pending_tickets, n + 1);
+      ArrayResize(g_pending_tp, n + 1);
+      ArrayResize(g_pending_sl, n + 1);
+      ArrayResize(g_pending_dir, n + 1);
+      ArrayResize(g_pending_expiry, n + 1);
+      idx = n;
+   }
+
+   g_pending_ids[idx] = id;
+   g_pending_tickets[idx] = tk;
+   g_pending_tp[idx] = tp_price;
+   g_pending_sl[idx] = sl_price;
+   g_pending_dir[idx] = dir_sig;
+   g_pending_expiry[idx] = g_last_bar + PeriodSeconds(PERIOD_M5);
+
+   LogCSV("CLOSE_TP_ARM;"+id+
+          ";tp="+DoubleToString(tp_price,g_digits)+
+          ";sl="+DoubleToString(sl_price,g_digits)+
+          ";expiry="+TimeToString(g_pending_expiry[idx], TIME_DATE|TIME_SECONDS));
+}
+
+void ProcessPendingReplayTpCloses()
+{
+   if(!InpReplayMode) return;
+   if(!InpReplayUseSignalPricing) return;
+
+   for(int i=ArraySize(g_pending_ids)-1; i>=0; i--){
+      string id = g_pending_ids[i];
+      ulong tk = g_pending_tickets[i];
+
+      if(!PositionSelectByTicket(tk)){
+         LogCSV("CLOSE_TP_FILLED;"+id);
+         UnmapId(id);
+         RemovePendingAt(i);
+         continue;
+      }
+
+      if(TimeCurrent() < g_pending_expiry[i]) continue;
+
+      if(trade.PositionClose(tk)){
+         LogCSV("CLOSE_TP_FALLBACK_MKT;"+id+
+                ";fill="+DoubleToString(trade.ResultPrice(),g_digits));
+         UnmapId(id);
+      }
+      else {
+         LogCSV("CLOSE_TP_FALLBACK_MKT_FAIL;"+id+
+                ";ret="+IntegerToString(trade.ResultRetcode())+
+                ";"+trade.ResultRetcodeDescription());
+      }
+
+      RemovePendingAt(i);
+   }
+}
+
+//==================== TESTER MODE STAMP ===========================
+// MT5 does not expose a direct modelling enum in EA runtime.
+// We stamp best-effort context so runs can be audited for trust level.
+bool StampModelMode()
+{
+   bool in_tester = (bool)MQLInfoInteger(MQL_TESTER);
+   if(!in_tester){
+      LogCSV("MODEL_MODE;tester=false;mode=LIVE_OR_DEMO");
+      return true;
+   }
+
+   MqlTick ticks[];
+   int copied = CopyTicks(g_symbol, ticks, COPY_TICKS_ALL, 0, 32);
+   bool has_ticks = (copied > 0);
+
+   string mode = has_ticks ? "TICK_DRIVEN_LIKELY" : "UNKNOWN_OR_OHLC";
+   LogCSV("MODEL_MODE;tester=true;copied_ticks="+IntegerToString(copied)+";mode="+mode);
+
+   if(!has_ticks){
+      LogCSV("MODEL_MODE_WARN;low_confidence_modelling;use_every_tick_real_for_straddle_trust");
+      Print("WARNING: Low-confidence tester tick context. Use 'Every tick based on real ticks' for reliable TP/SL ordering.");
+   }
+   return has_ticks;
+}
+
+//==================== STRADDLE AUDIT (LOG-ONLY) ===================
+// Detect bars where both armed TP and armed SL are within the same completed
+// bar range. No fill override is applied; this is visibility only.
+void DetectStraddles(const datetime bar_time)
+{
+   if(!InpEnableStraddleAudit) return;
+   if(!InpReplayMode) return;
+   if(!InpReplayUseSignalPricing) return;
+   if(ArraySize(g_pending_ids) <= 0) return;
+
+   double bhigh = iHigh(g_symbol, PERIOD_M5, 1);
+   double blow  = iLow(g_symbol, PERIOD_M5, 1);
+   if(bhigh <= 0.0 || blow <= 0.0 || bhigh < blow) return;
+
+   for(int p=0; p<ArraySize(g_pending_ids); p++){
+      string id = g_pending_ids[p];
+      double tp = g_pending_tp[p];
+      double sl = g_pending_sl[p];
+      int dir = g_pending_dir[p];
+
+      if(tp <= 0.0 || sl <= 0.0) continue;
+
+      bool tp_in = (tp >= blow && tp <= bhigh);
+      bool sl_in = (sl >= blow && sl <= bhigh);
+      if(!(tp_in && sl_in)) continue;
+
+      string d = (dir > 0) ? "long" : ((dir < 0) ? "short" : "unknown");
+      LogCSV("STRADDLE_DETECTED;"+id+
+             ";bar_ts="+TimeToString(bar_time, TIME_DATE|TIME_SECONDS)+
+             ";bar_high="+DoubleToString(bhigh,g_digits)+
+             ";bar_low="+DoubleToString(blow,g_digits)+
+             ";tp="+DoubleToString(tp,g_digits)+
+             ";sl="+DoubleToString(sl,g_digits)+
+             ";dir="+d+
+             ";policy_hint=sl_first");
+   }
 }
 
 //==================== HELPERS ======================================
@@ -539,6 +701,7 @@ void HandleClose(const string js)
 {
    string id = JGetStr(js,"id");
    double exit_sig = JGetNum(js,"exit");
+   string reason = JGetStr(js,"reason");
    int idx=FindId(id);
    if(idx<0){
       LogCSV("CLOSE_NO_MAP;"+id);
@@ -568,6 +731,23 @@ void HandleClose(const string js)
       LogCSV("CLOSE_ALREADY;"+id);
       UnmapId(id);
       return;
+   }
+
+   if(InpReplayMode && InpReplayUseSignalPricing && reason=="tp" && exit_sig>0.0){
+      double sl_sig = g_last_sl[idx];
+      int dir_sig = g_sig_dir[idx];
+      double tp_arm = NormalizePrice(exit_sig);
+      double sl_arm = (sl_sig>0.0) ? NormalizePrice(sl_sig) : 0.0;
+
+      // Arm broker-side TP/SL to emulate resting-order semantics in replay.
+      // This avoids optimistic market-on-touch fills at wick extremes.
+      if(trade.PositionModify(tk, sl_arm, tp_arm)){
+         ArmReplayTpClose(id, tk, dir_sig, tp_arm, sl_arm);
+         return;
+      }
+      LogCSV("CLOSE_TP_ARM_FAIL;"+id+
+             ";ret="+IntegerToString(trade.ResultRetcode())+
+             ";"+trade.ResultRetcodeDescription());
    }
 
    if(trade.PositionClose(tk)){
@@ -648,6 +828,12 @@ int OnInit()
    ArrayResize(g_sig_entry, 0);
    ArrayResize(g_sig_qty, 0);
    ArrayResize(g_sig_dir, 0);
+   ArrayResize(g_pending_ids, 0);
+   ArrayResize(g_pending_tickets, 0);
+   ArrayResize(g_pending_tp, 0);
+   ArrayResize(g_pending_sl, 0);
+   ArrayResize(g_pending_dir, 0);
+   ArrayResize(g_pending_expiry, 0);
    g_synth_net = 0.0;
    g_synth_trades = 0;
    g_synth_wins = 0;
@@ -658,15 +844,20 @@ int OnInit()
                (InpReplayMode?"true":"false"));
 
    LogCSV("INIT;symbol="+g_symbol+";mode="+(g_mode==BROKER_FTMO?"FTMO":"CASH"));
+   StampModelMode();
    return INIT_SUCCEEDED;
 }
 
 void OnTick()
 {
+   ProcessPendingReplayTpCloses();
+
    // bar-close M5 gate: act once per new bar
    datetime bt=iTime(g_symbol,PERIOD_M5,0);
    if(bt==g_last_bar) return;
    g_last_bar=bt;
+
+   DetectStraddles(bt);
 
    if(g_mode==BROKER_CASH) ResetDayIfNeeded();
    if(InpReplayMode){
