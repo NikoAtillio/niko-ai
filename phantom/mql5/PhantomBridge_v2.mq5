@@ -320,6 +320,14 @@ void UnmapId(const string id)
 
 double NormalizePrice(const double p){ return NormalizeDouble(p,g_digits); }
 
+double MinStopDistance()
+{
+   double stop_dist = (g_stopslevel > 0) ? (g_stopslevel * g_point) : 0.0;
+   int freeze_level = (int)SymbolInfoInteger(g_symbol, SYMBOL_TRADE_FREEZE_LEVEL);
+   double freeze_dist = (freeze_level > 0) ? (freeze_level * g_point) : 0.0;
+   return MathMax(stop_dist, freeze_dist);
+}
+
 double NormalizeLots(double lots)
 {
    if(lots<=0) return 0.0;
@@ -333,8 +341,8 @@ double NormalizeLots(double lots)
 
 double ClampStopDistance(const double price, double sl, const bool is_long)
 {
-   if(g_stopslevel<=0) return NormalizePrice(sl);
-   double minDist = g_stopslevel*g_point;
+   double minDist = MinStopDistance();
+   if(minDist<=0.0) return NormalizePrice(sl);
    if(is_long){ if(price-sl < minDist) sl = price-minDist; }
    else       { if(sl-price < minDist) sl = price+minDist; }
    return NormalizePrice(sl);
@@ -670,6 +678,19 @@ void HandleModify(const string js)
    bool is_long = (PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY);
    double cur_price = is_long ? SymbolInfoDouble(g_symbol,SYMBOL_BID)
                               : SymbolInfoDouble(g_symbol,SYMBOL_ASK);
+   double minDist = MinStopDistance();
+
+   bool sl_valid_side = is_long ? (new_stop < (cur_price - minDist))
+                                : (new_stop > (cur_price + minDist));
+   if(!sl_valid_side){
+      LogCSV("MODIFY_SKIP_LATE;"+id+
+             ";reason=invalid_sl_side"+
+             ";ref="+DoubleToString(cur_price,g_digits)+
+             ";sl="+DoubleToString(new_stop,g_digits)+
+             ";minDist="+DoubleToString(minDist,g_digits));
+      return;
+   }
+
    double sl = ClampStopDistance(cur_price, new_stop, is_long);
    double tp = PositionGetDouble(POSITION_TP);
 
@@ -688,6 +709,30 @@ void HandleModify(const string js)
    }
    else {
       int rc=(int)trade.ResultRetcode();
+      if(rc==10016){
+         // Price can move between compute and submit; refresh and retry once.
+         double retry_price = is_long ? SymbolInfoDouble(g_symbol,SYMBOL_BID)
+                                      : SymbolInfoDouble(g_symbol,SYMBOL_ASK);
+         bool retry_valid_side = is_long ? (new_stop < (retry_price - minDist))
+                                         : (new_stop > (retry_price + minDist));
+         if(!retry_valid_side){
+            LogCSV("MODIFY_SKIP_LATE;"+id+
+                   ";reason=invalid_sl_side_refresh"+
+                   ";ref="+DoubleToString(retry_price,g_digits)+
+                   ";sl="+DoubleToString(new_stop,g_digits)+
+                   ";minDist="+DoubleToString(minDist,g_digits));
+            return;
+         }
+
+         double retry_sl = ClampStopDistance(retry_price, new_stop, is_long);
+         if(MathAbs(retry_sl - sl) >= g_point*0.5 && trade.PositionModify(tk, retry_sl, tp)){
+            g_last_sl[idx]=retry_sl;
+            LogCSV("MODIFY_RETRY;"+id+";new_sl="+DoubleToString(retry_sl,g_digits));
+            return;
+         }
+         rc=(int)trade.ResultRetcode();
+      }
+
       if(rc==10025 || rc==10027){
          g_last_sl[idx]=sl; // no change / disabled - swallow
       }
@@ -736,18 +781,45 @@ void HandleClose(const string js)
    if(InpReplayMode && InpReplayUseSignalPricing && reason=="tp" && exit_sig>0.0){
       double sl_sig = g_last_sl[idx];
       int dir_sig = g_sig_dir[idx];
-      double tp_arm = NormalizePrice(exit_sig);
-      double sl_arm = (sl_sig>0.0) ? NormalizePrice(sl_sig) : 0.0;
+      bool is_long = (PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY);
+      double ref_px = is_long ? SymbolInfoDouble(g_symbol,SYMBOL_BID)
+                              : SymbolInfoDouble(g_symbol,SYMBOL_ASK);
+      double minDist = MinStopDistance();
 
-      // Arm broker-side TP/SL to emulate resting-order semantics in replay.
-      // This avoids optimistic market-on-touch fills at wick extremes.
-      if(trade.PositionModify(tk, sl_arm, tp_arm)){
-         ArmReplayTpClose(id, tk, dir_sig, tp_arm, sl_arm);
-         return;
+      double tp_arm = NormalizePrice(exit_sig);
+      if(minDist>0.0){
+         if(is_long){
+            if(tp_arm-ref_px < minDist) tp_arm = NormalizePrice(ref_px+minDist);
+         }
+         else {
+            if(ref_px-tp_arm < minDist) tp_arm = NormalizePrice(ref_px-minDist);
+         }
       }
-      LogCSV("CLOSE_TP_ARM_FAIL;"+id+
-             ";ret="+IntegerToString(trade.ResultRetcode())+
-             ";"+trade.ResultRetcodeDescription());
+
+      double sl_arm = 0.0;
+      if(sl_sig>0.0){
+         sl_arm = ClampStopDistance(ref_px, sl_sig, is_long);
+      }
+
+      bool tp_valid_side = is_long ? (tp_arm>ref_px) : (tp_arm<ref_px);
+      if(!tp_valid_side){
+         LogCSV("CLOSE_TP_ARM_SKIP_LATE;"+id+
+                ";reason=invalid_tp_side"+
+                ";ref="+DoubleToString(ref_px,g_digits)+
+                ";tp="+DoubleToString(tp_arm,g_digits));
+      }
+      else {
+
+         // Arm broker-side TP/SL to emulate resting-order semantics in replay.
+         // This avoids optimistic market-on-touch fills at wick extremes.
+         if(trade.PositionModify(tk, sl_arm, tp_arm)){
+            ArmReplayTpClose(id, tk, dir_sig, tp_arm, sl_arm);
+            return;
+         }
+         LogCSV("CLOSE_TP_ARM_FAIL;"+id+
+                ";ret="+IntegerToString(trade.ResultRetcode())+
+                ";"+trade.ResultRetcodeDescription());
+      }
    }
 
    if(trade.PositionClose(tk)){

@@ -390,6 +390,7 @@ SCENARIOS = {
         h4_min      = 1,
         h1_min      = 1,
         ltf_min     = 1,
+        ltf_cap     = 3,
         vol_filter  = False,
         timeout_bars= None,
         atr_trail   = 0.8,
