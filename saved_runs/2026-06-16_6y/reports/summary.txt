@@ -1,0 +1,19 @@
+[CASH]
+trades: 2087
+start_equity: 10000.0
+end_equity: 3875271.4921828164
+net_pnl: 3865271.4921828173
+max_dd_amount: 185011.37495580036
+max_dd_pct: -18.5222490884668
+first_trade: 2021-01-28 17:00:00
+last_trade: 2025-12-31 22:45:00
+
+[FTMO]
+trades: 18
+start_equity: 10000.0
+end_equity: 9199.554292217255
+net_pnl: -800.4457077827437
+max_dd_amount: 930.6941776293534
+max_dd_pct: -9.187278874744575
+first_trade: 2021-01-28 17:00:00
+last_trade: 2021-03-10 14:00:00

@@ -1,6 +1,6 @@
 """
 PHANTOM p2 - Multi-Timeframe Backtest Engine
-=============================================
+====
 Improvements over p1:
   1. Instrument config objects  — per-instrument session windows, ATR multipliers, TP targets
   2. Adaptive TP                — 1.3R (XAU/US100) or 1.5R (BTC) instead of fixed 2R
@@ -93,8 +93,8 @@ def _signal_file_path() -> str:
     return os.path.join(os.getcwd(), 'signals', SIGNAL_FILENAME)
 
 def evaluate_tz_alignment_from_signals(m5_df: pd.DataFrame,
-                                       signal_file: Optional[str] = None,
-                                       min_opens: int = TZ_GUARD_MIN_OPENS):
+                    signal_file: Optional[str] = None,
+                    min_opens: int = TZ_GUARD_MIN_OPENS):
     """
     Estimate hour offset between signal timestamps and loaded M5 bars.
     Compares signal open `entry` prices against raw M5 closes across offsets.
@@ -172,11 +172,11 @@ def evaluate_tz_alignment_from_signals(m5_df: pd.DataFrame,
     }
 
 def enforce_tz_guard(alignment: dict,
-                     stage: str,
-                     enforce: bool,
-                     min_opens: int = TZ_GUARD_MIN_OPENS,
-                     separation_ratio: float = TZ_GUARD_SEPARATION_RATIO,
-                     max_mean_abs_err: float = TZ_GUARD_MAX_MEAN_ABS_ERR):
+                    stage: str,
+                    enforce: bool,
+                    min_opens: int = TZ_GUARD_MIN_OPENS,
+                    separation_ratio: float = TZ_GUARD_SEPARATION_RATIO,
+                    max_mean_abs_err: float = TZ_GUARD_MAX_MEAN_ABS_ERR):
     """
     Deterministic timezone guard.
     Hard-fail only when evidence is sufficient and offset is clearly non-zero.
@@ -286,18 +286,21 @@ HIGH_PEAK_HOURS_UTC = {14, 15, 16, 17}
 FTMO_CONFIG = {
     'account_size': 0.0,
     'profit_target_pct': 10.0,
-    'max_loss_pct': 10.0,
-    'max_daily_loss_pct': 5.0,
+    'max_loss_pct': 8.0,
+    'max_daily_loss_pct': 4.5,
+    'soft_stop_ratio': 0.8,
+    'manual_resume_file': 'tmp/ftmo_resume.flag',
+    'hard_close_on_trigger': True,
     'min_trading_days': 2,
     'trading_period_days': 0,
     'max_leverage': 30.0,
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # INSTRUMENT CONFIG
 # Each instrument gets its own session window, ATR multiplier, TP ratio,
 # confirmation bars, and weekend policy.
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 INSTRUMENT_CONFIG = {
     'XAU': dict(
         # Session: tightened to 08:00–19:00 UTC; exclude 11:00 lunch lull
@@ -362,9 +365,9 @@ INSTRUMENT_CONFIG = {
     ),
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # SCENARIO CONFIG
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 DEFAULTS = {
     'capital'       : 70_000,
     'max_concurrent': 3,
@@ -375,6 +378,7 @@ DEFAULTS = {
     'h4_lookback'   : 50,
     'circuit_breaker_losses': 5, # pause after N consecutive losses
     'circuit_breaker_hours' : 24,
+    'consecutive_loss_hard_stop': 10,
     'breakeven_r'   : 0.8,       # move stop to entry at this R level
     'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
     'confidence_min' : 0.5,      # size multiplier when low confidence
@@ -401,9 +405,9 @@ ACTIVE_SCENARIO_LETTER = 'B'
 ACTIVE_SCENARIO_ID = f"{ENGINE_VERSION.upper()}{ACTIVE_SCENARIO_LETTER}"
 ACTIVE_SCENARIO_CFG = SCENARIOS[ACTIVE_SCENARIO_LETTER]
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # DATA LOADING
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def load_csv(path: str) -> pd.DataFrame:
     """Load MetaTrader-style tab-separated OHLCV file."""
     df = pd.read_csv(path, sep='\t', header=0)
@@ -419,10 +423,10 @@ def load_csv(path: str) -> pd.DataFrame:
                 raise RuntimeError('CSV_SOURCE_TZ set but pytz is unavailable')
             src_tz = pytz.timezone(CSV_SOURCE_TZ)
             df['datetime'] = (df['datetime']
-                              .dt.tz_localize(None)
-                              .dt.tz_localize(src_tz, ambiguous='NaT', nonexistent='NaT')
-                              .dt.tz_convert('UTC')
-                              .dt.tz_localize(None))
+                    .dt.tz_localize(None)
+                    .dt.tz_localize(src_tz, ambiguous='NaT', nonexistent='NaT')
+                    .dt.tz_convert('UTC')
+                    .dt.tz_localize(None))
     elif 'date' in df.columns:
         # Daily exports often omit a separate time column.
         date_str = df['date'].astype(str).str.strip()
@@ -442,9 +446,9 @@ def load_csv(path: str) -> pd.DataFrame:
         df['tickvol'] = 1.0
     return df
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # INDICATORS
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def calc_atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
     h, l, c = df['high'], df['low'], df['close']
     tr = pd.concat(
@@ -504,9 +508,9 @@ def apply_start_date(df: pd.DataFrame, start_date: Optional[str], end_date: Opti
         df = df[df.index <= ts_end]
     return df
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # FAST LOOKUP HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def fast_val(idx_arr: np.ndarray, vals: np.ndarray, ts) -> float:
     i = np.searchsorted(idx_arr, ts, side='right') - 1
     return float(vals[i]) if i >= 0 else np.nan
@@ -528,9 +532,9 @@ def score_tf(idx_arr, c_arr, e20_arr, e50_arr, rsi_arr, ts, direction: str) -> i
         if rv < 50:  score += 1
     return score
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # ZONE DETECTION
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def build_h4_zones(h4: pd.DataFrame, pivot_bars: int = 2, lookback: int = 50):
     """Detect H4 pivot highs/lows as supply/demand zones."""
     highs = h4['high'].values
@@ -561,9 +565,9 @@ def build_h4_zones(h4: pd.DataFrame, pivot_bars: int = 2, lookback: int = 50):
         np.array(zone_dir),
     )
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # SESSION & REGIME HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def get_session_size_mult(ts: pd.Timestamp, inst_cfg: dict) -> float:
     """
     Returns a size multiplier based on session rules:
@@ -616,9 +620,9 @@ def get_regime_size_mult(regime: str, direction: str) -> float:
         return 1.0
     return 0.5  # counter-trend
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # ZONE CONFIRMATION DELAY
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def zone_is_confirmed(ts: pd.Timestamp, zone_ts_val, inst_cfg: dict) -> bool:
     """
     Returns True if enough time has passed since the zone was formed
@@ -630,9 +634,9 @@ def zone_is_confirmed(ts: pd.Timestamp, zone_ts_val, inst_cfg: dict) -> bool:
     elapsed = (ts - zone_time).total_seconds() / 60
     return elapsed >= min_minutes
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # CLUSTER TRACKING
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 class ClusterTracker:
     """Tracks how many trades have been entered in each 4h window."""
     def __init__(self, max_per_window: int = 3):
@@ -653,15 +657,18 @@ class ClusterTracker:
     def count_in_window(self, ts: pd.Timestamp) -> int:
         return self._counts.get(self._window_key(ts), 0)
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # CIRCUIT BREAKER
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 class CircuitBreaker:
     """Pauses trading for N hours after M consecutive losses."""
-    def __init__(self, max_losses: int = 5, pause_hours: int = 24):
+    def __init__(self, max_losses: int = 5, pause_hours: int = 24, hard_stop_losses: int = 10):
         self.max_losses   = max_losses
         self.pause_hours  = pause_hours
+        self.hard_stop_losses = hard_stop_losses
         self._consec      = 0
+        self._cumulative_losses = 0
+        self._hard_stopped = False
         self._paused_until: pd.Timestamp = pd.Timestamp.min
 
     def is_paused(self, ts: pd.Timestamp) -> bool:
@@ -672,6 +679,10 @@ class CircuitBreaker:
             self._consec = 0
         else:
             self._consec += 1
+            self._cumulative_losses += 1
+            if self._cumulative_losses >= self.hard_stop_losses:
+                self._hard_stopped = True
+                return
             if self._consec >= self.max_losses:
                 self._paused_until = ts + pd.Timedelta(hours=self.pause_hours)
                 self._consec = 0  # reset after triggering
@@ -680,9 +691,23 @@ class CircuitBreaker:
     def consecutive_losses(self) -> int:
         return self._consec
 
-# ══════════════════════════════════════════════════════════════════════════════
+    @property
+    def cumulative_losses(self) -> int:
+        return self._cumulative_losses
+
+    @property
+    def hard_stopped(self) -> bool:
+        return self._hard_stopped
+
+    def manual_reset_hard_stop(self):
+        """Manual intervention reset after a hard-stop pause window."""
+        self._hard_stopped = False
+        self._consec = 0
+        self._cumulative_losses = 0
+
+# ════
 # EXECUTION ADJUSTMENT
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def apply_execution_adjustment(
     px: float, direction: str, side: str,
     spread_bps: float, slippage_bps: float
@@ -694,9 +719,9 @@ def apply_execution_adjustment(
         return px + adj if direction == 'long' else px - adj
     return px - adj if direction == 'long' else px + adj
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # BACKTEST ENGINE
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def run_scenario(
     candles: pd.DataFrame,
     h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr,
@@ -744,6 +769,7 @@ def run_scenario(
     breaker     = CircuitBreaker(
         max_losses  = DEFAULTS['circuit_breaker_losses'],
         pause_hours = DEFAULTS['circuit_breaker_hours'],
+        hard_stop_losses = DEFAULTS['consecutive_loss_hard_stop'],
     )
 
     c_idx = candles.index.values
@@ -769,15 +795,21 @@ def run_scenario(
     ftmo['max_daily_loss_cash'] = ftmo['account_size'] * (ftmo['max_daily_loss_pct'] / 100.0)
 
     challenge_start_ts = pd.Timestamp(c_idx[0])
-    challenge_end_ts = None
-    if ftmo['trading_period_days'] > 0:
-        challenge_end_ts = challenge_start_ts + pd.Timedelta(days=ftmo['trading_period_days'])
     daily_anchor = challenge_start_ts.normalize()
     daily_start_equity = capital
     traded_days = set()
     ftmo_hard_stop = False
+    ftmo_hard_stop_reason = None
+    ftmo_hard_stop_until = None
+    ftmo_daily_soft_pause = False
+    ftmo_total_soft_pause = False
+    ftmo_total_manual_resume = False  # latch: True after a manual resume until equity recovers
+    ftmo_hard_stop_pause_days = max(0, int(ftmo.get('hard_stop_pause_days', 0) or 0))
     target_hit_ts = None
     target_hit_equity = None
+
+    def fmt_gbp(value):
+        return f"£{value:,.2f}"
 
     def mark_to_market(open_positions, mark_price):
         unreal = 0.0
@@ -789,7 +821,7 @@ def run_scenario(
             )
         return unreal
 
-    def close_positions_for_ftmo(open_positions, ts_pd, signal_px):
+    def close_positions_for_ftmo(open_positions, ts_pd, signal_px, close_reason='ftmo_guardrail', log_prefix='HARD-STOP FORCE-CLOSE'):
         nonlocal capital
         closed = []
         for p in open_positions:
@@ -805,7 +837,12 @@ def run_scenario(
             pnl = gross_pnl - fees
             capital += pnl
             risk_cash = max(1e-9, p['initial_risk_price'] * p['qty'])
-            emit_event({'action': 'close', 'id': p['id'], 'signal_ts': ts_pd, 'exit': float(exit_px), 'reason': 'ftmo_guardrail'})
+            print(
+                f"  [ftmo] {log_prefix} {ts_pd} | "
+                f"id={p['id']} | dir={p['dir']} | qty={p['qty']:.6f} | "
+                f"entry={p['entry']:.2f} | exit={exit_px:.2f} | pnl={fmt_gbp(pnl)}"
+            )
+            emit_event({'action': 'close', 'id': p['id'], 'signal_ts': ts_pd, 'exit': float(exit_px), 'reason': close_reason})
             closed.append({
                 'entry_ts': p['entry_ts'],
                 'exit_ts': ts_pd,
@@ -824,7 +861,7 @@ def run_scenario(
                 'fees': fees,
                 'pnl': pnl,
                 'win': pnl > 0,
-                'exit_reason': 'ftmo_guardrail',
+                'exit_reason': close_reason,
                 'qty': p['qty'],
                 'be_triggered': p.get('be_triggered', False),
                 'confidence_mult': p.get('confidence_mult', 1.0),
@@ -840,7 +877,7 @@ def run_scenario(
         if EMIT_HEARTBEATS:
             emit_event({'action': 'heartbeat', 'ts': ts_pd})
 
-        # ── manage open positions ─────────────────────────────────────────
+        # ── manage open positions ────
         still_open = []
         for p in positions:
             exit_reason = None
@@ -973,28 +1010,165 @@ def run_scenario(
         if ts_pd.normalize() != daily_anchor:
             daily_anchor = ts_pd.normalize()
             daily_start_equity = capital + mark_to_market(positions, price)
+            ftmo_daily_soft_pause = False
+            if ftmo_hard_stop and ftmo_hard_stop_reason == 'daily_loss':
+                ftmo_hard_stop = False
+                ftmo_hard_stop_reason = None
+                print(
+                    f"  [ftmo] daily hard-stop RESET {ts_pd} | "
+                    f"new UTC day, daily limits refreshed"
+                )
+
+        if (
+            ftmo_hard_stop
+            and ftmo_hard_stop_reason not in ('daily_loss', None)
+            and ftmo_hard_stop_until is not None
+            and ts_pd >= ftmo_hard_stop_until
+        ):
+            ftmo_hard_stop = False
+            ftmo_hard_stop_reason = None
+            ftmo_hard_stop_until = None
+            breaker.manual_reset_hard_stop()
+            print(
+                f"  [ftmo] hard-stop AUTO-RESUME {ts_pd} | "
+                f"pause window elapsed, trading resumed"
+            )
 
         equity_now = capital + mark_to_market(positions, price)
         daily_floor = daily_start_equity - ftmo['max_daily_loss_cash']
         total_floor = start_cap - ftmo['max_loss_cash']
+        daily_soft_floor = daily_start_equity - (ftmo['max_daily_loss_cash'] * ftmo['soft_stop_ratio'])
+        total_soft_floor = start_cap - (ftmo['max_loss_cash'] * ftmo['soft_stop_ratio'])
         profit_target_equity = start_cap + ftmo['profit_target_cash']
+        hard_stop_reasons = []
+        hard_stop_trigger_reason = None
 
-        if challenge_end_ts is not None and ts_pd >= challenge_end_ts:
+        if breaker.hard_stopped and ftmo['max_loss_pct'] < 1000 and not ftmo_hard_stop:
+            hard_stop_reasons.append('consecutive_losses')
+            hard_stop_trigger_reason = 'consecutive_losses'
             ftmo_hard_stop = True
-        if equity_now <= daily_floor or equity_now <= total_floor:
+        if equity_now <= daily_floor:
+            if not ftmo_hard_stop:
+                hard_stop_reasons.append('daily_loss')
+                hard_stop_trigger_reason = 'daily_loss'
             ftmo_hard_stop = True
+        if equity_now <= total_floor:
+            if not ftmo_hard_stop:
+                hard_stop_reasons.append('total_loss')
+                hard_stop_trigger_reason = 'total_loss'
+            ftmo_hard_stop = True
+        if hard_stop_trigger_reason is not None:
+            ftmo_hard_stop_reason = hard_stop_trigger_reason
+            if hard_stop_trigger_reason != 'daily_loss' and ftmo_hard_stop_pause_days > 0:
+                ftmo_hard_stop_until = ts_pd.normalize() + pd.Timedelta(days=ftmo_hard_stop_pause_days)
+                print(
+                    f"  [ftmo] hard-stop PAUSE-UNTIL {ftmo_hard_stop_until} | "
+                    f"reason={hard_stop_trigger_reason}"
+                )
         if target_hit_ts is None and equity_now >= profit_target_equity:
             target_hit_ts = ts_pd
             target_hit_equity = equity_now
 
         if ftmo_hard_stop:
-            if positions:
-                results.extend(close_positions_for_ftmo(positions, ts_pd, price))
+            # Only log at the moment of first trigger (hard_stop_reasons non-empty).
+            if hard_stop_reasons:
+                print(
+                    f"  [ftmo] hard-stop TRIGGERED {ts_pd} | "
+                    f"reason={'+'.join(hard_stop_reasons)} | "
+                    f"equity={fmt_gbp(equity_now)} | "
+                    f"daily_soft={fmt_gbp(daily_soft_floor)} | daily_hard={fmt_gbp(daily_floor)} | "
+                    f"total_soft={fmt_gbp(total_soft_floor)} | total_hard={fmt_gbp(total_floor)}"
+                )
+            if positions and ftmo.get('hard_close_on_trigger', True):
+                results.extend(close_positions_for_ftmo(positions, ts_pd, price, 'ftmo_guardrail', 'HARD-STOP FORCE-CLOSE'))
                 positions = []
+            elif positions and not ftmo.get('hard_close_on_trigger', True):
+                print(
+                    f"  [ftmo] hard-stop active {ts_pd} | hard-close disabled | "
+                    f"open_positions={len(positions)}"
+                )
             skipped['ftmo'] += 1
             continue
 
-        # ── entry logic ───────────────────────────────────────────────────
+        # FTMO soft stops: pause before hard-loss floors are reached.
+        # Daily soft stop resets at next UTC day.
+        if (not ftmo_daily_soft_pause) and equity_now <= daily_soft_floor:
+            ftmo_daily_soft_pause = True
+            soft_closed = 0
+            if positions:
+                soft_closed = len(positions)
+                results.extend(
+                    close_positions_for_ftmo(
+                        positions,
+                        ts_pd,
+                        price,
+                        'ftmo_daily_soft_stop',
+                        'DAILY-SOFT FORCE-CLOSE',
+                    )
+                )
+                positions = []
+            print(
+                f"  [ftmo] daily soft-stop active {ts_pd} | "
+                f"equity={fmt_gbp(equity_now)} <= daily_soft={fmt_gbp(daily_soft_floor)} | "
+                f"daily_hard={fmt_gbp(daily_floor)} | "
+                f"total_soft={fmt_gbp(total_soft_floor)} | total_hard={fmt_gbp(total_floor)} | "
+                f"closed {soft_closed} open position(s)"
+            )
+
+        # Total-loss soft stop requires manual intervention to resume entries.
+        # Once equity climbs back above the soft floor, clear the manual-resume
+        # latch so a fresh breach later will require intervention again.
+        if ftmo_total_manual_resume and equity_now > total_soft_floor:
+            ftmo_total_manual_resume = False
+            print(
+                f"  [ftmo] total soft-stop latch cleared {ts_pd} | "
+                f"equity={fmt_gbp(equity_now)} > total_soft={fmt_gbp(total_soft_floor)}"
+            )
+        # Only (re)arm the pause if we are NOT operating under an active manual
+        # resume. This prevents the pause from re-triggering on the very next
+        # bar while equity is still below the soft floor.
+        if (not ftmo_total_soft_pause) and (not ftmo_total_manual_resume) \
+                and equity_now <= total_soft_floor:
+            ftmo_total_soft_pause = True
+            print(
+                f"  [ftmo] total soft-stop active {ts_pd} | "
+                f"equity={fmt_gbp(equity_now)} <= total_soft={fmt_gbp(total_soft_floor)} | "
+                f"total_hard={fmt_gbp(total_floor)} | "
+                f"daily_soft={fmt_gbp(daily_soft_floor)} | daily_hard={fmt_gbp(daily_floor)}"
+            )
+
+        if ftmo_total_soft_pause:
+            resume_file = str(ftmo.get('manual_resume_file', '') or '').strip()
+            if resume_file and os.path.exists(resume_file):
+                ftmo_total_soft_pause = False
+                ftmo_total_manual_resume = True  # latch until equity recovers
+                print(
+                    f"  [ftmo] manual resume detected {ts_pd}: {resume_file} | "
+                    f"equity={fmt_gbp(equity_now)} | total_soft={fmt_gbp(total_soft_floor)}"
+                )
+            else:
+                skipped['ftmo'] += 1
+                if debug_rows is not None:
+                    debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'ftmo_total_soft_pause',
+                    })
+                continue
+
+        if ftmo_daily_soft_pause:
+            skipped['ftmo'] += 1
+            if debug_rows is not None:
+                debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'ftmo_daily_soft_pause',
+                })
+            continue
+
+        # ── entry logic ────
         if len(positions) >= max_concurrent:
             skipped['concurrent'] += 1
             if debug_rows is not None:
@@ -1023,10 +1197,10 @@ def run_scenario(
             if (ts_pd - last_loss_exit).total_seconds() / 60 < lockout_min:
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'bar_skip',
-                        'reason': 'lockout',
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'lockout',
                     })
                 continue
 
@@ -1035,14 +1209,14 @@ def run_scenario(
             if (ts_pd - last_entry).total_seconds() / 60 < cooldown_min:
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'bar_skip',
-                        'reason': 'cooldown',
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'cooldown',
                     })
                 continue
 
-        # ── scan zones ────────────────────────────────────────────────────
+        # ── scan zones ────
         atr_h4_v = fast_val(h4_idx, h4_atr_arr, ts)
         if np.isnan(atr_h4_v) or atr_h4_v <= 0:
             continue
@@ -1063,15 +1237,15 @@ def run_scenario(
             if z_dist > conf_tol:
                 if debug_rows is not None and z_dist <= conf_tol * debug_tol_mult:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'tolerance',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'conf_tol': conf_tol,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'tolerance',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'conf_tol': conf_tol,
                     })
                 continue
 
@@ -1094,39 +1268,39 @@ def run_scenario(
                         })
                     continue
 
-            # ── BOUNCE-ONLY FILTER: price approaching from opposite side ──────
+            # ── BOUNCE-ONLY FILTER: price approaching from opposite side ────
             # For a long zone (demand), price must be coming from above (bounce into support)
             # For a short zone (supply), price must be coming from below (bounce into resistance)
             if z_dir == 'long' and price < z_px * (1 - conf_tol):
                 skipped['not_bounce'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'not_bounce',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'not_bounce',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue  # price already broke below — not a bounce
             if z_dir == 'short' and price > z_px * (1 + conf_tol):
                 skipped['not_bounce'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'not_bounce',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'not_bounce',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue  # price already broke above — not a bounce
 
-            # ── p2 FILTER 1: Session gate ─────────────────────────────────
+            # ── p2 FILTER 1: Session gate ────
             session_mult = get_session_size_mult(ts_pd, inst_cfg)
             if ts_pd.dayofweek < 5 and ts_pd.hour in HIGH_PEAK_HOURS_UTC:
                 session_mult *= HIGH_PEAK_SESSION_BOOST
@@ -1134,55 +1308,55 @@ def run_scenario(
                 skipped['session'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'session',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'session_mult': session_mult,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'session',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'session_mult': session_mult,
                     })
                 continue
 
-            # ── p2 FILTER 2: Zone confirmation delay ──────────────────────
+            # ── p2 FILTER 2: Zone confirmation delay ────
             if not zone_is_confirmed(ts_pd, z_ts, inst_cfg):
                 skipped['confirm'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'confirm',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'confirm',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue
 
-            # ── p2 FILTER 3: Cluster cap ──────────────────────────────────
+            # ── p2 FILTER 3: Cluster cap ────
             if not cluster.can_enter(ts_pd):
                 skipped['cluster'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'cluster',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'cluster',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue
 
-            # ── p2 FILTER 4: Trend regime ─────────────────────────────────
+            # ── p2 FILTER 4: Trend regime ────
             regime = get_regime(daily_idx, daily_regime, ts)
             regime_mult = get_regime_size_mult(regime, z_dir)
 
-            # ── Multi-timeframe score ─────────────────────────────────────
+            # ── Multi-timeframe score ────
             h4_score = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir)
             h1_score = score_tf(h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, ts, z_dir)
 
@@ -1195,51 +1369,51 @@ def run_scenario(
                 skipped['score'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'score_h4',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'h4_score': h4_score,
-                        'h1_score': h1_score,
-                        'ltf_score': ltf_score,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'score_h4',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'h4_score': h4_score,
+                    'h1_score': h1_score,
+                    'ltf_score': ltf_score,
                     })
                 continue
             if h1_score < h1_min:
                 skipped['score'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'score_h1',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'h4_score': h4_score,
-                        'h1_score': h1_score,
-                        'ltf_score': ltf_score,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'score_h1',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'h4_score': h4_score,
+                    'h1_score': h1_score,
+                    'ltf_score': ltf_score,
                     })
                 continue
             if ltf_score < ltf_min:
                 skipped['score'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'score_ltf',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'h4_score': h4_score,
-                        'h1_score': h1_score,
-                        'ltf_score': ltf_score,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'score_ltf',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'h4_score': h4_score,
+                    'h1_score': h1_score,
+                    'ltf_score': ltf_score,
                     })
                 continue
 
@@ -1250,32 +1424,32 @@ def run_scenario(
                 skipped['score'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'score_total',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'total_score': total_score,
-                        'effective_score_min': effective_score_min,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'score_total',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'total_score': total_score,
+                    'effective_score_min': effective_score_min,
                     })
                 continue
             if ltf_score > ltf_cap:
                 skipped['score'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'score_cap',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
-                        'ltf_score': ltf_score,
-                        'ltf_cap': ltf_cap,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'score_cap',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
+                    'ltf_score': ltf_score,
+                    'ltf_cap': ltf_cap,
                     })
                 continue
 
@@ -1285,15 +1459,15 @@ def run_scenario(
                     # Align M1 entry timestamp to the latest available M5 bar.
                     i_m5 = np.searchsorted(m5_idx, ts, side='right') - 1
                     vol_ok = (
-                        i_m5 >= 0
-                        and i_m5 < len(m5_vol)
-                        and i_m5 < len(m5_vol_ma)
-                        and m5_vol[i_m5] > m5_vol_ma[i_m5]
+                    i_m5 >= 0
+                    and i_m5 < len(m5_vol)
+                    and i_m5 < len(m5_vol_ma)
+                    and m5_vol[i_m5] > m5_vol_ma[i_m5]
                     )
                 else:
                     i_ltf = np.searchsorted(m5_idx, ts, side='right') - 1
                     vol_ok = (i_ltf >= 0 and
-                              m5_vol[i_ltf] > m5_vol_ma[i_ltf])
+                    m5_vol[i_ltf] > m5_vol_ma[i_ltf])
                 if not vol_ok:
                     skipped['vol'] += 1
                     if debug_rows is not None:
@@ -1309,7 +1483,7 @@ def run_scenario(
                         })
                     continue
 
-            # ── p2 CONFIDENCE SCORING ─────────────────────────────────────
+            # ── p2 CONFIDENCE SCORING ────
             # Phase 2 supports configurable confidence modes.
             cluster_count = cluster.count_in_window(ts_pd)
             in_peak_session = (
@@ -1333,7 +1507,7 @@ def run_scenario(
             else:
                 conf_mult = 1.0
 
-            # ── Position sizing ───────────────────────────────────────────
+            # ── Position sizing ────
             stop_dist  = atr_stop * atr_h4_v
             remaining_daily = max(0.0, equity_now - daily_floor)
             remaining_total = max(0.0, equity_now - total_floor)
@@ -1342,19 +1516,19 @@ def run_scenario(
                 skipped['ftmo'] += 1
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'ftmo',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'ftmo',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue
             stop_px    = price - stop_dist if z_dir == 'long' else price + stop_dist
             tp_px      = (price + tp_mult * stop_dist if z_dir == 'long'
-                          else price - tp_mult * stop_dist)
+                    else price - tp_mult * stop_dist)
 
             entry_exec = apply_execution_adjustment(
                 price, z_dir, 'entry', spread_bps, slippage_bps
@@ -1375,14 +1549,14 @@ def run_scenario(
             if qty <= 0:
                 if debug_rows is not None:
                     debug_rows.append({
-                        'ts': ts_pd,
-                        'price': price,
-                        'event': 'zone_skip',
-                        'reason': 'qty',
-                        'zone_ts': z_ts,
-                        'zone_px': z_px,
-                        'zone_dir': z_dir,
-                        'zone_dist': z_dist,
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'zone_skip',
+                    'reason': 'qty',
+                    'zone_ts': z_ts,
+                    'zone_px': z_px,
+                    'zone_dir': z_dir,
+                    'zone_dist': z_dist,
                     })
                 continue
 
@@ -1452,7 +1626,7 @@ def run_scenario(
             # Only take one zone per bar
             break
 
-    # ── close any remaining open positions at last bar ────────────────────
+    # ── close any remaining open positions at last bar ────
     for p in positions:
         exit_signal_px = c_c[-1]
         exit_px = apply_execution_adjustment(
@@ -1510,9 +1684,9 @@ def run_scenario(
         debug_df.to_csv(debug_path, index=False)
     return df_r
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # SIGNAL VALIDATION
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def replay_and_validate(df_internal, start_capital):
     """Replay the emitted JSONL stream and compare it with the internal backtest."""
     local_path = os.path.join(os.getcwd(), 'signals', SIGNAL_FILENAME)
@@ -1578,9 +1752,9 @@ def replay_and_validate(df_internal, start_capital):
         and delta <= 0.01
     )
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # REPORTING
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float,
                    skipped: dict, start_cap: float = 5_000,
                    target_hit_ts=None, target_hit_equity=None,
@@ -1653,14 +1827,14 @@ def _print_summary(df_r: pd.DataFrame, label: str, final_cap: float,
     print(f"  Timeout %   : {t_pct:.1f}%")
     print(f"  Skipped     : {skipped}")
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 # MAIN
-# ══════════════════════════════════════════════════════════════════════════════
+# ════
 def main():
     parser = argparse.ArgumentParser(description=f'Phantom {ENGINE_VERSION} Backtest')
     parser.add_argument('--instrument',  required=True,
-                        choices=['XAU', 'US100', 'BTC'],
-                        help='Instrument: XAU | US100 | BTC')
+                    choices=['XAU', 'US100', 'BTC'],
+                    help='Instrument: XAU | US100 | BTC')
     parser.add_argument('--m1',          required=True,  help='Path to M1 CSV')
     parser.add_argument('--m5',          required=True,  help='Path to M5 CSV')
     parser.add_argument('--h1',          required=True,  help='Path to H1 CSV')
@@ -1669,23 +1843,36 @@ def main():
     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
     parser.add_argument('--capital',     type=float, default=10_000)
     parser.add_argument('--output-dir',  default='.',
-                        help='Directory to save trade CSV outputs')
+                    help='Directory to save trade CSV outputs')
     parser.add_argument('--spread-bps',  type=float, default=0.0,
-                        help='Round-trip spread in bps')
+                    help='Round-trip spread in bps')
     parser.add_argument('--slippage-bps',type=float, default=0.0,
-                        help='Adverse slippage per side in bps')
+                    help='Adverse slippage per side in bps')
     parser.add_argument('--commission-per-trade', type=float, default=0.0,
-                        help='Fixed commission per closed trade')
+                    help='Fixed commission per closed trade')
     parser.add_argument('--start-date', default=None,
-                        help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
+                    help='Optional start date filter (YYYY-MM-DD) applied to all timeframes')
     parser.add_argument('--end-date', default=None,
-                        help='Optional end date filter (YYYY-MM-DD) applied to all timeframes')
+                    help='Optional end date filter (YYYY-MM-DD) applied to all timeframes')
     parser.add_argument('--debug', action='store_true',
-                        help='Write debug decision CSV for entries/skips')
+                    help='Write debug decision CSV for entries/skips')
     parser.add_argument('--debug-file', default=None,
-                        help='Optional debug CSV path (defaults to output-dir)')
+                    help='Optional debug CSV path (defaults to output-dir)')
     parser.add_argument('--disable-ftmo', action='store_true',
-                        help='Run without FTMO guardrails (for comparison)')
+                    help='Run without FTMO guardrails (for comparison)')
+    parser.add_argument('--disable-ftmo-profit-target', action='store_true',
+                    help='Keep FTMO on but ignore the profit target for a full run')
+    parser.add_argument('--ftmo-soft-stop-ratio', type=float, default=0.8,
+                    help='Pause entries when equity reaches this fraction of FTMO loss limits')
+    parser.add_argument('--ftmo-manual-resume-file', default='tmp/ftmo_resume.flag',
+                    help='Presence of this file resumes trading after total-loss soft stop')
+    parser.add_argument('--ftmo-hard-close', dest='ftmo_hard_close', action='store_true',
+                    help='Force-close all open positions immediately when a hard FTMO stop triggers')
+    parser.add_argument('--no-ftmo-hard-close', dest='ftmo_hard_close', action='store_false',
+                    help='Disable forced close on hard FTMO stop (testing only)')
+    parser.add_argument('--ftmo-hard-stop-pause-days', type=int, default=0,
+                    help='Temporarily pause this many days after non-daily hard stops, then auto-resume')
+    parser.set_defaults(ftmo_hard_close=True)
     args = parser.parse_args()
 
     output_dir = args.output_dir or '.'
@@ -1694,11 +1881,17 @@ def main():
     inst_cfg = INSTRUMENT_CONFIG[args.instrument]
 
     # Optionally disable FTMO guardrails for comparison runs
+    FTMO_CONFIG['soft_stop_ratio'] = max(0.0, min(float(args.ftmo_soft_stop_ratio), 1.0))
+    FTMO_CONFIG['manual_resume_file'] = str(args.ftmo_manual_resume_file)
+    FTMO_CONFIG['hard_close_on_trigger'] = bool(args.ftmo_hard_close)
+    FTMO_CONFIG['hard_stop_pause_days'] = max(0, int(args.ftmo_hard_stop_pause_days))
     if getattr(args, 'disable_ftmo', False):
-        FTMO_CONFIG['profit_target_pct'] = 999999.0
-        FTMO_CONFIG['max_loss_pct'] = 999999.0
-        FTMO_CONFIG['max_daily_loss_pct'] = 999999.0
+        FTMO_CONFIG['profit_target_pct'] = 9999.0
+        FTMO_CONFIG['max_loss_pct'] = 9999.0
+        FTMO_CONFIG['max_daily_loss_pct'] = 9999.0
         FTMO_CONFIG['min_trading_days'] = 0
+    elif getattr(args, 'disable_ftmo_profit_target', False):
+        FTMO_CONFIG['profit_target_pct'] = 9999.0
     reset_signal_file()
     emit_run_meta(args.capital, not getattr(args, 'disable_ftmo', False), args.instrument)
     print(f"\nPhantom {ENGINE_VERSION.upper()} | Instrument: {args.instrument}")
@@ -1712,7 +1905,9 @@ def main():
         f"  FTMO: Target {FTMO_CONFIG['profit_target_pct']:.1f}% | "
         f"Max Daily Loss {FTMO_CONFIG['max_daily_loss_pct']:.1f}% | "
         f"Max Loss {FTMO_CONFIG['max_loss_pct']:.1f}% | "
-        f"Leverage 1:{int(FTMO_CONFIG['max_leverage'])}"
+        f"Leverage 1:{int(FTMO_CONFIG['max_leverage'])} | "
+        f"Soft Stop {FTMO_CONFIG['soft_stop_ratio']*100:.0f}% | "
+        f"Hard Close {'ON' if FTMO_CONFIG['hard_close_on_trigger'] else 'OFF'}"
     )
 
     print("\nLoading data...")
