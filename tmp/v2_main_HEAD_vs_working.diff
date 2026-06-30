@@ -1,0 +1,238 @@
+--- tmp/phantom_US100_high_ftmo_EA_v2.main_HEAD.py	2026-06-16 17:12:45
++++ phantom/phantom_US100/phantom_US100_high_ftmo_EA_v2.py	2026-06-16 16:56:24
+@@ -42,6 +42,8 @@
+ warnings.filterwarnings('ignore')
+ 
+ ENGINE_VERSION = 'p2_ftmo_v2'
++NOTIONAL_CAP = 400_000   # cap lot-sizing notional base at £400k (matches ~35-40 lot live MT5 behaviour)
++MAX_LOT_CAP  = 50        # Hard per-order cap (Vantage NAS100 limit)
+ 
+ # Signal emission to MT5: write newline-delimited JSON into a file
+ # placed in a local `signals/` folder and -- when available -- into the
+@@ -485,8 +487,48 @@
+     daily['regime'] = np.where(
+         daily['regime_ema_fast'] > daily['regime_ema_slow'], 'bull', 'bear'
+     )
++    return daily
++
++def add_daily_sma21(daily: pd.DataFrame) -> pd.DataFrame:
++    """Add 21-day SMA for LTF directional bias layer."""
++    daily = daily.copy()
++    daily['sma21d'] = daily['close'].rolling(21).mean()
++    daily['ltf_bias'] = np.where(daily['close'] >= daily['sma21d'], 'bull', 'bear')
+     return daily
++
++def add_weekly_bias(weekly: pd.DataFrame) -> pd.DataFrame:
++    """Add 20-week SMA for HTF directional bias layer."""
++    weekly = weekly.copy()
++    weekly['sma20w'] = weekly['close'].rolling(20).mean()
++    weekly['htf_bias'] = np.where(weekly['close'] >= weekly['sma20w'], 'bull', 'bear')
++    return weekly
++
++def get_htf_bias(weekly_idx: np.ndarray, weekly_htf_bias: np.ndarray, ts) -> str:
++    i = np.searchsorted(weekly_idx, ts, side='right') - 1
++    return weekly_htf_bias[i] if i >= 0 else 'bull'
++
++def get_ltf_bias(daily_idx: np.ndarray, daily_ltf_bias: np.ndarray, ts) -> str:
++    i = np.searchsorted(daily_idx, ts, side='right') - 1
++    return daily_ltf_bias[i] if i >= 0 else 'bull'
++
++def compute_bias_conf_adj(htf_bias: str, ltf_bias: str, direction: str) -> float:
++    """
++    Dual MA soft gate:
++      Both layers aligned WITH trade  -> 1.3x conf boost (easier to trigger)
++      Both layers AGAINST trade       -> 0.6x conf penalty (needs strong raw conf)
++      Conflicting layers              -> 1.0x neutral
++    """
++    htf_with = (htf_bias == 'bull' and direction == 'long') or \
++               (htf_bias == 'bear' and direction == 'short')
++    ltf_with = (ltf_bias == 'bull' and direction == 'long') or \
++               (ltf_bias == 'bear' and direction == 'short')
+ 
++    if htf_with and ltf_with:
++        return 1.3    # fully aligned - boost confidence
++    if not htf_with and not ltf_with:
++        return 0.6    # fully against - soft gate (needs conf_mult x 0.6 >= threshold)
++    return 1.0        # mixed - neutral, both directions remain open
++
+ def apply_start_date(df: pd.DataFrame, start_date: Optional[str], end_date: Optional[str] = None) -> pd.DataFrame:
+     """Optionally filter a dataframe to rows within a UTC date range."""
+     if not isinstance(df.index, pd.DatetimeIndex):
+@@ -727,10 +769,11 @@
+     h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr,
+     h1_idx, h1_c, h1_e20, h1_e50, h1_rsi,
+     m15_idx, m15_atr_arr,
++    weekly_idx, weekly_htf_bias,
+     m5_idx, m5_c, m5_e20, m5_e50, m5_rsi, m5_vol, m5_vol_ma,
+     m1_idx, m1_c, m1_e20, m1_e50, m1_rsi,
+     zone_ts, zone_px, zone_dir,
+-    daily_idx, daily_regime,
++    daily_idx, daily_regime, daily_ltf_bias,
+     cfg: dict,
+     inst_cfg: dict,
+     capital: float,
+@@ -748,6 +791,8 @@
+ ) -> pd.DataFrame:
+ 
+     start_cap = capital
++    peak_equity = capital   # track rolling peak for FTMO DD tier
++    ftmo_dd_tier = 0        # 0=normal, 1=2-4%, 2=4-6%, 3=6-7.5%, 4=>7.5%
+ 
+     risk_pct    = cfg['risk_pct'] * HIGH_RISK_PCT_MULT
+     score_min   = cfg['score_min']
+@@ -1035,6 +1080,22 @@
+             )
+ 
+         equity_now = capital + mark_to_market(positions, price)
++
++        # Update rolling peak and DD tier
++        if equity_now > peak_equity:
++            peak_equity = equity_now
++
++        dd_from_peak_pct = ((equity_now - peak_equity) / peak_equity * 100) if peak_equity > 0 else 0.0
++        if dd_from_peak_pct > -2.0:
++            ftmo_dd_tier = 0;  dd_risk_mult = 1.0
++        elif dd_from_peak_pct > -4.0:
++            ftmo_dd_tier = 1;  dd_risk_mult = 0.7
++        elif dd_from_peak_pct > -6.0:
++            ftmo_dd_tier = 2;  dd_risk_mult = 0.4
++        elif dd_from_peak_pct > -7.5:
++            ftmo_dd_tier = 3;  dd_risk_mult = 0.2
++        else:
++            ftmo_dd_tier = 4;  dd_risk_mult = 0.10   # throttle hard but never lock sizing to zero
+         daily_floor = daily_start_equity - ftmo['max_daily_loss_cash']
+         total_floor = start_cap - ftmo['max_loss_cash']
+         daily_soft_floor = daily_start_equity - (ftmo['max_daily_loss_cash'] * ftmo['soft_stop_ratio'])
+@@ -1169,16 +1230,6 @@
+             continue
+ 
+         # ── entry logic ────
+-        if len(positions) >= max_concurrent:
+-            skipped['concurrent'] += 1
+-            if debug_rows is not None:
+-                debug_rows.append({
+-                    'ts': ts_pd,
+-                    'price': price,
+-                    'event': 'bar_skip',
+-                    'reason': 'concurrent',
+-                })
+-            continue
+ 
+         # Circuit breaker check
+         if breaker.is_paused(ts_pd):
+@@ -1356,6 +1407,11 @@
+             regime = get_regime(daily_idx, daily_regime, ts)
+             regime_mult = get_regime_size_mult(regime, z_dir)
+ 
++            # ── Dual MA directional bias soft gate ────
++            htf_bias = get_htf_bias(weekly_idx, weekly_htf_bias, ts)
++            ltf_bias = get_ltf_bias(daily_idx, daily_ltf_bias, ts)
++            bias_adj = compute_bias_conf_adj(htf_bias, ltf_bias, z_dir)
++
+             # ── Multi-timeframe score ────
+             h4_score = score_tf(h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, ts, z_dir)
+             h1_score = score_tf(h1_idx, h1_c, h1_e20, h1_e50, h1_rsi, ts, z_dir)
+@@ -1506,12 +1562,32 @@
+                 )
+             else:
+                 conf_mult = 1.0
++            conf_mult = conf_mult * bias_adj   # apply bias soft gate
+ 
+-            # ── Position sizing ────
++            # ── Confidence-gated stacking ────
++            n_open_same_dir = sum(1 for p in positions if p['dir'] == z_dir)
++
++            # Stack limit depends on trend alignment, confidence, and FTMO DD tier
++            if ftmo_dd_tier >= 1:             # >2% drawdown: max 1 concurrent
++                stack_limit = 1
++            elif regime_mult == 1.0 and conf_mult >= DEFAULTS['confidence_mult']:
++                stack_limit = 3               # with-trend + high confidence
++            elif regime_mult == 1.0:
++                stack_limit = 2               # with-trend, normal confidence
++            else:
++                stack_limit = 1               # counter-trend: no stacking
++
++            if n_open_same_dir >= stack_limit or len(positions) >= max_concurrent:
++                skipped['concurrent'] += 1
++                continue
++
++            # ── Position sizing with notional cap + DD tier multiplier ────
++            notional_base = min(capital, NOTIONAL_CAP)
+             stop_dist  = atr_stop * atr_h4_v
+             remaining_daily = max(0.0, equity_now - daily_floor)
+             remaining_total = max(0.0, equity_now - total_floor)
+-            risk_amt = min(capital * risk_pct, remaining_daily, remaining_total)
++            base_risk  = notional_base * risk_pct * dd_risk_mult
++            risk_amt   = min(base_risk, remaining_daily, remaining_total)
+             if risk_amt <= 0.0:
+                 skipped['ftmo'] += 1
+                 if debug_rows is not None:
+@@ -1545,6 +1621,7 @@
+             max_notional = max(0.0, equity_now * ftmo['max_leverage'])
+             if entry_exec > 0 and max_notional > 0:
+                 qty = min(qty, max_notional / entry_exec)
++            qty = min(qty, MAX_LOT_CAP)
+ 
+             if qty <= 0:
+                 if debug_rows is not None:
+@@ -1840,6 +1917,7 @@
+     parser.add_argument('--h1',          required=True,  help='Path to H1 CSV')
+     parser.add_argument('--h4',          required=True,  help='Path to H4 CSV')
+     parser.add_argument('--daily',       required=True,  help='Path to Daily CSV (for regime filter)')
++    parser.add_argument('--weekly',      required=True,  help='Path to Weekly CSV (for 20-week MA bias)')
+     parser.add_argument('--m15',         required=True,  help='Path to M15 CSV (for not-chasing filter)')
+     parser.add_argument('--capital',     type=float, default=10_000)
+     parser.add_argument('--output-dir',  default='.',
+@@ -1860,6 +1938,8 @@
+                     help='Optional debug CSV path (defaults to output-dir)')
+     parser.add_argument('--disable-ftmo', action='store_true',
+                     help='Run without FTMO guardrails (for comparison)')
++    parser.add_argument('--cash-max-leverage', type=float, default=200.0,
++                    help='Max leverage when --disable-ftmo is set (cash mode only)')
+     parser.add_argument('--disable-ftmo-profit-target', action='store_true',
+                     help='Keep FTMO on but ignore the profit target for a full run')
+     parser.add_argument('--ftmo-soft-stop-ratio', type=float, default=0.8,
+@@ -1885,11 +1965,13 @@
+     FTMO_CONFIG['manual_resume_file'] = str(args.ftmo_manual_resume_file)
+     FTMO_CONFIG['hard_close_on_trigger'] = bool(args.ftmo_hard_close)
+     FTMO_CONFIG['hard_stop_pause_days'] = max(0, int(args.ftmo_hard_stop_pause_days))
++    FTMO_CONFIG['max_leverage'] = 30.0
+     if getattr(args, 'disable_ftmo', False):
+         FTMO_CONFIG['profit_target_pct'] = 9999.0
+         FTMO_CONFIG['max_loss_pct'] = 9999.0
+         FTMO_CONFIG['max_daily_loss_pct'] = 9999.0
+         FTMO_CONFIG['min_trading_days'] = 0
++        FTMO_CONFIG['max_leverage'] = max(1.0, float(args.cash_max_leverage))
+     elif getattr(args, 'disable_ftmo_profit_target', False):
+         FTMO_CONFIG['profit_target_pct'] = 9999.0
+     reset_signal_file()
+@@ -1917,7 +1999,10 @@
+     h4    = apply_start_date(add_indicators(load_csv(args.h4)), args.start_date, args.end_date)
+     m15   = apply_start_date(add_indicators(load_csv(args.m15)), args.start_date, args.end_date)
+     daily = apply_start_date(add_indicators(load_csv(args.daily)), args.start_date, args.end_date)
++    weekly = apply_start_date(load_csv(args.weekly), args.start_date, args.end_date)
++    weekly = add_weekly_bias(weekly)
+     daily = add_daily_regime(daily, inst_cfg)
++    daily = add_daily_sma21(daily)
+     print(f"  M1:{len(m1)}  M5:{len(m5)}  M15:{len(m15)}  H1:{len(h1)}  H4:{len(h4)}  Daily:{len(daily)}")
+ 
+     if TZ_GUARD_ENABLED:
+@@ -1935,6 +2020,9 @@
+     # Regime arrays
+     daily_idx    = daily.index.values
+     daily_regime = daily['regime'].values
++    weekly_idx       = weekly.index.values
++    weekly_htf_bias  = weekly['htf_bias'].values
++    daily_ltf_bias   = daily['ltf_bias'].values
+ 
+     # Cache numpy arrays
+     arrays = dict(
+@@ -1972,6 +2060,8 @@
+         candles=candles,
+         zone_ts=zone_ts, zone_px=zone_px, zone_dir=zone_dir,
+         daily_idx=daily_idx, daily_regime=daily_regime,
++        weekly_idx=weekly_idx, weekly_htf_bias=weekly_htf_bias,
++        daily_ltf_bias=daily_ltf_bias,
+         cfg=cfg,
+         inst_cfg=inst_cfg,
+         capital=args.capital,

@@ -1,0 +1,11 @@
+FTMO Event Counts
+hard_stop_triggered: 0
+hard_stop_pause_until: 0
+hard_stop_auto_resume: 0
+daily_soft_stop_active: 1
+daily_soft_force_close: 2
+total_soft_stop_active: 1
+manual_resume_detected: 1
+daily_hard_reset: 0
+
+Hard-Stop Reasons

@@ -1,0 +1,28 @@
+9:+NOTIONAL_CAP = 400_000   # cap lot-sizing notional base at £400k (matches ~35-40 lot live MT5 behaviour)
+18:+def add_daily_sma21(daily: pd.DataFrame) -> pd.DataFrame:
+20:+    daily = daily.copy()
+21:+    daily['sma21d'] = daily['close'].rolling(21).mean()
+22:+    daily['ltf_bias'] = np.where(daily['close'] >= daily['sma21d'], 'bull', 'bear')
+23:+    return daily
+36:+def get_ltf_bias(daily_idx: np.ndarray, daily_ltf_bias: np.ndarray, ts) -> str:
+37:+    i = np.searchsorted(daily_idx, ts, side='right') - 1
+38:+    return daily_ltf_bias[i] if i >= 0 else 'bull'
+69:-    daily_idx, daily_regime,
+70:+    daily_idx, daily_regime, daily_ltf_bias,
+94:+            ftmo_dd_tier = 0;  dd_risk_mult = 1.0
+96:+            ftmo_dd_tier = 1;  dd_risk_mult = 0.7
+98:+            ftmo_dd_tier = 2;  dd_risk_mult = 0.4
+100:+            ftmo_dd_tier = 3;  dd_risk_mult = 0.2
+102:+            ftmo_dd_tier = 4;  dd_risk_mult = 0.10   # throttle hard but never lock sizing to zero
+129:+            ltf_bias = get_ltf_bias(daily_idx, daily_ltf_bias, ts)
+160:+            notional_base = min(capital, NOTIONAL_CAP)
+164:-            risk_amt = min(capital * risk_pct, remaining_daily, remaining_total)
+165:+            base_risk  = notional_base * risk_pct * dd_risk_mult
+166:+            risk_amt   = min(base_risk, remaining_daily, remaining_total)
+190:+    parser.add_argument('--cash-max-leverage', type=float, default=200.0,
+191:+                    help='Max leverage when --disable-ftmo is set (cash mode only)')
+199:+    FTMO_CONFIG['max_leverage'] = 30.0
+205:+        FTMO_CONFIG['max_leverage'] = max(1.0, float(args.cash_max_leverage))
+216:+    daily = add_daily_sma21(daily)
+226:+    daily_ltf_bias   = daily['ltf_bias'].values
+235:+        daily_ltf_bias=daily_ltf_bias,

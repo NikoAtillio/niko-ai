@@ -1,0 +1,12 @@
+FTMO Event Counts
+hard_stop_triggered: 1303
+hard_stop_pause_until: 1303
+hard_stop_auto_resume: 1302
+daily_soft_stop_active: 1
+daily_soft_force_close: 2
+total_soft_stop_active: 1
+manual_resume_detected: 1
+daily_hard_reset: 0
+
+Hard-Stop Reasons
+total_loss : 1303
