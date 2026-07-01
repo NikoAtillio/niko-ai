@@ -986,12 +986,13 @@ void HandleClose(const string js)
       LogCSV("CLOSE;"+id+";fill="+DoubleToString(trade.ResultPrice(),g_digits));
 
       if(pnl_live < 0.0) g_cumulative_losses++;
+      else g_cumulative_losses = 0;
 
       if(g_cumulative_losses >= 10){
          g_disabled_perm = true;
          FlattenAll("CONSECUTIVE_LOSSES");
          Notify("PHANTOM CASH DISABLED",
-                "10 cumulative losses reached. Flattened & HARD-PAUSED until manual resume.");
+                "10 consecutive losses reached. Flattened & HARD-PAUSED until manual resume.");
          SaveState();
          LogCSV("DISABLE_CONSECUTIVE_LOSSES;count="+IntegerToString(g_cumulative_losses));
       }
