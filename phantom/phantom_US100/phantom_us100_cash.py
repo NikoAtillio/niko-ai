@@ -855,12 +855,13 @@ class CircuitBreaker:
         else:
             self._consec += 1
             self._cumulative_losses += 1
-            if self._cumulative_losses >= self.hard_stop_losses:
+            if self._consec >= self.hard_stop_losses:
                 self._hard_stopped = True
                 return
             if self._consec >= self.max_losses:
                 self._paused_until = ts + pd.Timedelta(hours=self.pause_hours)
-                self._consec = 0  # reset after triggering
+                # Keep the loss streak so the 10-loss hard stop is truly consecutive,
+                # not cumulative across wins.
 
     @property
     def consecutive_losses(self) -> int:
