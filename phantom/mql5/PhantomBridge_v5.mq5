@@ -34,7 +34,7 @@ input bool    InpReplayUseSignalPricing = false;                // in replay, us
 
 // --- broker mode ---
 enum ENUM_BROKER_MODE { BROKER_AUTO=0, BROKER_FTMO=1, BROKER_CASH=2 };
-input ENUM_BROKER_MODE InpBrokerMode = BROKER_AUTO;
+input ENUM_BROKER_MODE InpBrokerMode = BROKER_CASH;
 
 // --- account baseline ---
 // start_cap = the original account size used as the fixed risk/guardrail base.
