@@ -42,7 +42,7 @@ input string  InpSignalFile          = "phantom_signals.jsonl"; // file in Commo
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
 input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
-input bool    InpReplayUseSignalPricing = true;                 // in replay, use signal qty/entry/exit for parity ledger
+input bool    InpReplayUseSignalPricing = false;                // tuple-style default: use EA sizing in replay (not raw signal qty)
 
 // --- broker mode --- [CASH-1] Hardcoded Cash, no auto-detect
 enum ENUM_BROKER_MODE { BROKER_CASH=2 };
@@ -80,7 +80,7 @@ input bool    InpManualResume        = false;                   // TRUE = clear 
 input double  InpMetaAccountFallback = 5000.0;                  // used only if a signal lacks signal_account_size
 input double  InpMaxLots             = 50.0;                    // absolute hard safety cap
 input double  InpMinLots             = 0.01;
-input bool    InpUsePythonSizing     = true;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
+input bool    InpUsePythonSizing     = false;                   // tuple-style default: EA computes tiered lots
 
 // --- notifications ---
 input bool    InpNotifyPush          = true;
