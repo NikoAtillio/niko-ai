@@ -405,10 +405,20 @@ DEFAULTS = {
     'circuit_breaker_hours' : 24,
     'consecutive_loss_hard_stop': 10,
     'breakeven_r'   : 0.8,       # move stop to entry at this R level
-    'confidence_mult': 1.5,      # size multiplier when all 3 conditions aligned
-    'confidence_min' : 0.5,      # size multiplier when low confidence
+    'confidence_mult': 6.6,      # aggressive top-confidence sizing (tripled)
+    'confidence_medium_mult': 1.3, # increased medium-confidence sizing
+    'confidence_min' : 0.3,      # size multiplier when low confidence
+    'confidence_max' : 8.0,      # allow aggressive confidence sizing above legacy 2.0 cap
+    'high_conf_stack_threshold': 1.5,  # keep 3-stack gate stable while raising top-end sizing
     'confidence_mode': 'inverted', # flat | inverted | score
     'confidence_score_min': 7,
+    # Volatility throttle: damp only the boosted confidence component when
+    # H4 ATR is elevated vs its rolling mean.
+    'vol_throttle_enabled': True,
+    'vol_throttle_lookback': 96,
+    'vol_throttle_ratio_start': 1.2,
+    'vol_throttle_ratio_end': 1.8,
+    'vol_throttle_min_factor': 0.65,
 }
 
 SCENARIOS = {
@@ -611,7 +621,7 @@ def _rsi_conf(rv: float, direction: str) -> float:
 
 # Trend-state tuning knobs (target ~60% WR — see build-spec VALIDATION rows).
 ADX_TREND_GATE  = 22.0   # apply trend logic only when ADX >= this
-TF_ALIGN_WEIGHT = 0.12   # conf_mult weight per net aligned timeframe
+TF_ALIGN_WEIGHT = 0.18   # conf_mult weight per net aligned timeframe
 
 def compute_trend_state(direction: str,
                         price: float,
@@ -624,11 +634,11 @@ def compute_trend_state(direction: str,
                         counter_trend: bool):
     """Unified trend-state gate. Returns (conf_mult, hard_skip, with_trend).
 
-      conf_mult  : confidence size multiplier, clamped to [0.5, 2.0].
-      hard_skip  : True only when (ADX>=gate) AND counter-trend regime
-                   AND all three structural timeframes oppose the trade.
-      with_trend : True when the majority of timeframes align with the trade
-                   (drives stacking limits).
+    conf_mult  : confidence size multiplier, clamped to [confidence_min, 2.0].
+    hard_skip  : True only when (ADX>=gate) AND counter-trend regime
+                 AND all three structural timeframes oppose the trade.
+    with_trend : True when the majority of timeframes align with the trade
+                 (drives stacking limits).
 
     When ADX < gate the market is treated as trendless: trade at minimum
     confidence size (no stacking, never hard-skipped) so choppy low-ADX
@@ -655,7 +665,8 @@ def compute_trend_state(direction: str,
         vwap_align += 1 if ((price > vwap_m) == (direction == 'long')) else -1
 
     conf_mult = 1.0 + TF_ALIGN_WEIGHT * (tf_align + 0.5 * vwap_align)
-    conf_mult = max(0.5, min(2.0, conf_mult))
+    conf_cap = float(DEFAULTS.get('confidence_max', 2.0))
+    conf_mult = max(DEFAULTS['confidence_min'], min(conf_cap, conf_mult))
 
     with_trend = agree >= 2 and agree > against
     hard_skip = counter_trend and (against == 3)
@@ -900,7 +911,7 @@ def apply_execution_adjustment(
 # ════
 def run_scenario(
     candles: pd.DataFrame,
-    h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr,
+    h4_idx, h4_c, h4_e20, h4_e50, h4_rsi, h4_atr_arr, h4_atr_ma_arr,
     h4_ma21, h4_ma50, h4_ma200, h4_slope, h4_vww, h4_vwm, h4_adx,
     h1_idx, h1_c, h1_e20, h1_e50, h1_rsi,
     m15_idx, m15_atr_arr,
@@ -1710,8 +1721,14 @@ def run_scenario(
             if confidence_mode == 'flat':
                 conf_mult = 1.0
             elif confidence_mode == 'inverted':
-                # True inverted confidence: first cluster touch gets the size premium.
-                conf_mult = DEFAULTS['confidence_mult'] if cluster_count == 0 else 1.0
+                # Inverted confidence tiers:
+                # first cluster touch = high-confidence premium,
+                # later touches = medium-confidence premium.
+                conf_mult = (
+                    DEFAULTS['confidence_mult']
+                    if cluster_count == 0
+                    else DEFAULTS.get('confidence_medium_mult', 1.0)
+                )
             elif confidence_mode == 'score':
                 conf_mult = (
                     DEFAULTS['confidence_mult']
@@ -1720,16 +1737,37 @@ def run_scenario(
                 )
             else:
                 conf_mult = 1.0
-            # Apply the trend-state confidence multiplier, then clamp to [0.5, 2.0].
+            # Apply the trend-state confidence multiplier.
             conf_mult = conf_mult * bias_adj
-            conf_mult = max(DEFAULTS['confidence_min'], min(2.0, conf_mult))
+
+            # Volatility throttle: if H4 ATR is elevated relative to its recent
+            # mean, reduce only the boosted portion above 1.0.
+            if DEFAULTS.get('vol_throttle_enabled', True) and conf_mult > 1.0:
+                atr_ma_v = fast_val(h4_idx, h4_atr_ma_arr, ts)
+                atr_ratio = 1.0
+                if not np.isnan(atr_h4_v) and not np.isnan(atr_ma_v) and atr_ma_v > 0:
+                    atr_ratio = atr_h4_v / atr_ma_v
+                ratio_start = float(DEFAULTS.get('vol_throttle_ratio_start', 1.2))
+                ratio_end = max(ratio_start + 1e-9, float(DEFAULTS.get('vol_throttle_ratio_end', 1.8)))
+                min_factor = max(0.0, min(1.0, float(DEFAULTS.get('vol_throttle_min_factor', 0.65))))
+                if atr_ratio > ratio_start:
+                    if atr_ratio >= ratio_end:
+                        boost_factor = min_factor
+                    else:
+                        t = (atr_ratio - ratio_start) / (ratio_end - ratio_start)
+                        boost_factor = 1.0 - t * (1.0 - min_factor)
+                    conf_mult = 1.0 + (conf_mult - 1.0) * boost_factor
+
+            # Final confidence clamp.
+            conf_cap = float(DEFAULTS.get('confidence_max', 2.0))
+            conf_mult = max(DEFAULTS['confidence_min'], min(conf_cap, conf_mult))
 
             # ── Confidence-gated stacking ────
             n_open_same_dir = sum(1 for p in positions if p['dir'] == z_dir)
 
             # CASH build: stacking is governed SOLELY by trend alignment
             # (with_trend) and confidence — no FTMO drawdown-tier override.
-            if with_trend and conf_mult >= DEFAULTS['confidence_mult']:
+            if with_trend and conf_mult >= DEFAULTS.get('high_conf_stack_threshold', 1.5):
                 stack_limit = 3               # with-trend + high confidence
             elif with_trend:
                 stack_limit = 2               # with-trend, normal confidence
@@ -2206,6 +2244,10 @@ def main():
         h4_idx=h4.index.values,   h4_c=h4['close'].values,
         h4_e20=h4['ema20'].values, h4_e50=h4['ema50'].values,
         h4_rsi=h4['rsi'].values,   h4_atr_arr=h4['atr'].values,
+        h4_atr_ma_arr=h4['atr'].rolling(
+            window=max(2, int(DEFAULTS.get('vol_throttle_lookback', 96))),
+            min_periods=2,
+        ).mean().values,
         h4_ma21=h4['ma21'].values, h4_ma50=h4['ma50'].values,
         h4_ma200=h4['ma200'].values, h4_slope=h4['ma50_slope'].values,
         h4_vww=h4['vwap_w'].values, h4_vwm=h4['vwap_m'].values,
