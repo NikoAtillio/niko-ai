@@ -5,7 +5,7 @@
 //|  meta / open / modify / close / heartbeat                    |
 //+----+
 #property strict
-#property description "PHANTOM v5 bridge (tuple-accurate) - reads phantom_signals.jsonl and mirrors Python signals"
+#property description "PHANTOM p2 bridge v5 - reads phantom_signals.jsonl and mirrors Python signals"
 
 #include <Trade/Trade.mqh>
 CTrade trade;
@@ -34,7 +34,7 @@ input bool    InpReplayUseSignalPricing = false;                // in replay, us
 
 // --- broker mode ---
 enum ENUM_BROKER_MODE { BROKER_AUTO=0, BROKER_FTMO=1, BROKER_CASH=2 };
-input ENUM_BROKER_MODE InpBrokerMode = BROKER_CASH;
+input ENUM_BROKER_MODE InpBrokerMode = BROKER_AUTO;
 
 // --- account baseline ---
 // start_cap = the original account size used as the fixed risk/guardrail base.
@@ -42,9 +42,9 @@ input ENUM_BROKER_MODE InpBrokerMode = BROKER_CASH;
 input double  InpStartCapOverride    = 10000.0;                 // fixed risk-base anchor
 
 // --- shared guardrails (FTMO % rules; mirror Python engine) ---
-input double  InpDailyLossPct        = 8.0;                     // daily loss limit, %
+input double  InpDailyLossPct        = 5.0;                     // daily loss limit, % (FTMO=5)
 input double  InpMaxLossPct          = 10.0;                    // max loss limit, % (FTMO=10)
-input double  InpCircuitBreakerPct   = 62.5;                    // soft stop at 5% when daily limit is 8% (62.5% of daily amount)
+input double  InpCircuitBreakerPct   = 80.0;                    // stop opening at this % of daily limit (80)
 // No profit target in either mode (FTMO auto-closes trials; live runs uncapped).
 
 // --- FTMO-mode specifics ---
