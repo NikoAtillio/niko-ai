@@ -1,23 +1,11 @@
 //+----+
-//|                    PhantomBridge_v5.mq5                         |
-//|  V5 FUND BRIDGE (tuple-v2 compatible)                    |
+//|                    PhantomBridge_v5.mq5     |
+//|        Faithful MT5 translator for the PHANTOM p2 signal stream  |
 //|  Reads phantom_signals.jsonl (FILE_COMMON) and replays actions:  |
-//|  meta / open / modify / close / heartbeat                        |
-//|                                                                  |
-//|  CHANGES vs source (PhantomBridge_v2.mq5):                       |
-//|    [CASH-1] Force BROKER_CASH — removed DetectMode/auto-detect   |
-//|    [CASH-2] Tiered risk via TieredRiskPct() based on equity/cap  |
-//|    [CASH-3] Trailing 15% max-loss floor off peak equity          |
-//|    [CASH-4] x10 lot cap (InpCashLotCapMult * base_lot)           |
-//|    [CASH-5] Withdrawal re-anchor in OnTradeTransaction()         |
-//|    [CASH-6] Daily loss 4.5% off day-start balance                |
-//|    [CASH-7] Circuit breaker 80% of daily loss limit              |
-//|    [CASH-8] Stripped FTMO-only inputs (FtmoRiskPct, leverage)    |
-//|    [CASH-9] Stripped profit_target / min_trading_days (removed)   |
-//|    [CASH-10] Per-login state isolation preserved                  |
+//|  meta / open / modify / close / heartbeat                    |
 //+----+
 #property strict
-#property description "PHANTOM p2 bridge (V5 FUND) - reads phantom_signals.jsonl and mirrors Python signals"
+#property description "PHANTOM v5 bridge (tuple-accurate) - reads phantom_signals.jsonl and mirrors Python signals"
 
 #include <Trade/Trade.mqh>
 CTrade trade;
@@ -34,7 +22,7 @@ bool   StampModelMode();
 void   DetectStraddles(const datetime bar_time);
 void   SaveState();
 void   LoadState();
-double TieredRiskPct(const double equity);  // [CASH-2]
+double TieredRiskPct(const double equity);
 double ComputeLotsForSignal(const string dir,const double entry,const double stop,const double qty,const double sacct);
 
 //==== INPUTS ====
@@ -42,21 +30,29 @@ input string  InpSignalFile          = "phantom_signals.jsonl"; // file in Commo
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
 input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
-input bool    InpReplayUseSignalPricing = false;                // tuple-style default: use EA sizing in replay (not raw signal qty)
+input bool    InpReplayUseSignalPricing = false;                // in replay, use signal qty/entry/exit for parity ledger
 
-// --- broker mode --- [CASH-1] Hardcoded Cash, no auto-detect
-enum ENUM_BROKER_MODE { BROKER_CASH=2 };
-input ENUM_BROKER_MODE InpBrokerMode = BROKER_CASH;            // FORCED: Cash mode only
+// --- broker mode ---
+enum ENUM_BROKER_MODE { BROKER_AUTO=0, BROKER_FTMO=1, BROKER_CASH=2 };
+input ENUM_BROKER_MODE InpBrokerMode = BROKER_AUTO;
 
 // --- account baseline ---
-input double  InpStartCapOverride    = 10000.0;                 // fixed risk-base anchor (initial deposit)
+// start_cap = the original account size used as the fixed risk/guardrail base.
+// 0 = auto-capture the account balance at first OnInit (recommended for live).
+input double  InpStartCapOverride    = 10000.0;                 // fixed risk-base anchor
 
-// --- shared guardrails ---
-input double  InpDailyLossPct        = 8.0;                     // [CASH-6] daily loss limit, % off day-start balance
-input double  InpCircuitBreakerPct   = 62.5;                    // [CASH-7] soft stop: 5% when daily limit is 8% (62.5% of daily amount)
-// [CASH-9] No profit_target or min_trading_days inputs
+// --- shared guardrails (FTMO % rules; mirror Python engine) ---
+input double  InpDailyLossPct        = 8.0;                     // daily loss limit, %
+input double  InpMaxLossPct          = 10.0;                    // max loss limit, % (FTMO=10)
+input double  InpCircuitBreakerPct   = 62.5;                    // soft stop at 5% when daily limit is 8% (62.5% of daily amount)
+// No profit target in either mode (FTMO auto-closes trials; live runs uncapped).
 
-// --- CASH tiered risk inputs --- [CASH-2]
+// --- FTMO-mode specifics ---
+input double  InpFtmoRiskPct         = 1.40;                    // risk per trade, % of FIXED start_cap
+input double  InpFtmoMaxLeverage     = 30.0;                    // leverage-based lot cap (1:30)
+
+// --- CASH/exponential-mode specifics ---
+// Risk base = current equity, tapered by milestone tiers (multiples of start_cap).
 input double  InpTier1Mult           = 2.0;                     // < this multiple -> tier-1 risk
 input double  InpTier1RiskPct        = 3.95;
 input double  InpTier2Mult           = 4.0;
@@ -65,32 +61,31 @@ input double  InpTier3Mult           = 7.0;
 input double  InpTier3RiskPct        = 2.40;
 input double  InpTier4Mult           = 10.0;
 input double  InpTier4RiskPct        = 1.85;
-input double  InpTier5RiskPct        = 1.40;                    // >= tier-4 multiple (fallback for >10x)
-
-// --- CASH trailing max-loss floor --- [CASH-3]
+input double  InpTier5RiskPct        = 1.40;                    // >= tier-4 multiple
+// CASH max-loss is a TRAILING floor off peak equity (not static).
 input double  InpCashTrailMaxLossPct = 15.0;                    // trailing drawdown floor, % of peak equity
-
-// --- CASH lot cap --- [CASH-4]
 input double  InpCashLotCapMult      = 10.0;                    // lot cap = this x natural daily-base lots
 
 // --- manual resume after a hard pause (trailing-floor breach) ---
+// The EA writes a hard-pause flag to its per-login state file. Set this TRUE
+// (and re-attach) to re-arm after you've reviewed the drawdown event.
 input bool    InpManualResume        = false;                   // TRUE = clear hard-pause and resume
 
 // --- lot scaling / safety ---
 input double  InpMetaAccountFallback = 5000.0;                  // used only if a signal lacks signal_account_size
-input double  InpMaxLots             = 50.0;                    // absolute hard safety cap
+input double  InpMaxLots             = 50.0;                    // absolute hard safety cap (both modes)
 input double  InpMinLots             = 0.01;
-input bool    InpUsePythonSizing     = false;                   // tuple-style default: EA computes tiered lots
+input bool    InpUsePythonSizing     = false;                   // TRUE = trust signal qty; FALSE = EA computes lots per mode
 
 // --- notifications ---
-input bool    InpNotifyPush          = true;
-input bool    InpNotifyEmail         = false;
-input bool    InpNotifyAlert         = true;
+input bool    InpNotifyPush          = true;                    // SendNotification (mobile)
+input bool    InpNotifyEmail         = false;                   // SendMail (needs SMTP)
+input bool    InpNotifyAlert         = true;                    // Alert popup + Print
 
 // --- logging ---
 input bool    InpLogToCSV            = true;
 input string  InpLogFile             = "phantom_bridge_log.csv";
-input bool    InpEnableStraddleAudit = true;
+input bool    InpEnableStraddleAudit = true;                    // log-only straddle detector
 
 //==== STATE ====
 string   g_symbol;
@@ -99,36 +94,34 @@ double   g_point;
 double   g_volstep, g_volmin, g_volmax;
 int      g_stopslevel;
 
-ulong    g_filepos     = 0;
-int      g_lineidx     = 0;
+ulong    g_filepos     = 0;     // byte offset already consumed (live polling)
+int      g_lineidx     = 0;     // lines consumed (replay)
 bool     g_meta_seen   = false;
 double   g_meta_acct   = 5000.0;
-// [CASH-1] g_mode is always BROKER_CASH
 ENUM_BROKER_MODE g_mode = BROKER_CASH;
 
 // guardrail state
-bool     g_halted_today   = false;
-bool     g_disabled_perm  = false;
-int      g_cumulative_losses = 0;
+bool     g_halted_today   = false;   // soft daily halt -> auto-resume next server day
+bool     g_disabled_perm  = false;   // hard pause -> requires InpManualResume to clear
 datetime g_halt_serverday = 0;
-double   g_day_start_equity = 0.0;
-double   g_day_start_balance = 0.0;
-double   g_last_balance = 0.0;       // [CASH-5] tracks balance to detect withdrawals
+double   g_day_start_equity = 0.0;   // equity captured at server-day open (live)
+double   g_day_start_balance = 0.0;  // balance at server-day midnight (FTMO floor base)
+double   g_last_balance = 0.0;       // tracks balance to detect withdrawals
 datetime g_current_day    = 0;
 
 // account baseline + peak tracking
 double   g_start_cap      = 0.0;     // fixed original account size (risk/guardrail base)
-double   g_peak_equity    = 0.0;     // [CASH-3] high-water mark for trailing floor
-long     g_login          = 0;       // [CASH-10] per-account state isolation
+double   g_peak_equity    = 0.0;     // high-water mark (CASH trailing floor)
+long     g_login          = 0;       // account login (per-account state isolation)
 string   g_state_file     = "";      // phantom_state_<login>.json
 
 // signal_id -> position ticket map
 string   g_ids[];
 ulong    g_tickets[];
-double   g_last_sl[];
-double   g_sig_entry[];
-double   g_sig_qty[];
-int      g_sig_dir[];
+double   g_last_sl[];      // last applied SL per mapped id (dedupe)
+double   g_sig_entry[];    // signal entry price per id (replay parity)
+double   g_sig_qty[];      // signal qty per id (replay parity)
+int      g_sig_dir[];      // +1 long, -1 short (replay parity)
 
 double   g_synth_net = 0.0;
 int      g_synth_trades = 0;
@@ -136,21 +129,21 @@ int      g_synth_wins = 0;
 
 datetime g_last_bar = 0;
 
-// replay event store
+// replay event store (loaded once)
 string   g_replay_raw[];
 datetime g_replay_ts[];
 int      g_replay_next = 0;
 bool     g_replay_loaded = false;
 
-// pending replay TP closes
+// pending replay TP closes: arm on close(reason=tp), then watch ticks in-bar
 string   g_pending_ids[];
 ulong    g_pending_tickets[];
 double   g_pending_tp[];
 double   g_pending_sl[];
-int      g_pending_dir[];
-datetime g_pending_expiry[];
+int      g_pending_dir[];      // +1 long, -1 short
+datetime g_pending_expiry[];   // next bar open fallback
 
-// seen open IDs
+// seen open IDs to enforce one-shot execution even if the stream has duplicates
 string   g_open_once_ids[];
 
 bool HasOpenFired(const string id)
@@ -256,6 +249,8 @@ void ProcessPendingReplayTpCloses()
 }
 
 //==== TESTER MODE STAMP ====
+// MT5 does not expose a direct modelling enum in EA runtime.
+// We stamp best-effort context so runs can be audited for trust level.
 bool StampModelMode()
 {
    bool in_tester = (bool)MQLInfoInteger(MQL_TESTER);
@@ -279,6 +274,8 @@ bool StampModelMode()
 }
 
 //==== STRADDLE AUDIT (LOG-ONLY) ====
+// Detect bars where both armed TP and armed SL are within the same completed
+// bar range. No fill override is applied; this is visibility only.
 void DetectStraddles(const datetime bar_time)
 {
    if(!InpEnableStraddleAudit) return;
@@ -358,9 +355,9 @@ void UnmapId(const string id)
    ArrayResize(g_ids,last);
    ArrayResize(g_tickets,last);
    ArrayResize(g_last_sl,last);
-   ArrayResize(g_sig_entry,last);
-   ArrayResize(g_sig_qty,last);
-   ArrayResize(g_sig_dir,last);
+    ArrayResize(g_sig_entry,last);
+    ArrayResize(g_sig_qty,last);
+    ArrayResize(g_sig_dir,last);
 }
 
 double NormalizePrice(const double p){ return NormalizeDouble(p,g_digits); }
@@ -394,6 +391,7 @@ double ClampStopDistance(const double price, double sl, const bool is_long)
 }
 
 //==== JSON (minimal flat parser) ====
+// Flat one-line JSON objects only (our schema). Returns "" if key absent.
 string JGetStr(const string js, const string key)
 {
    string pat="\""+key+"\"";
@@ -466,7 +464,7 @@ bool LoadAllEvents()
    FileClose(h);
    g_replay_loaded = true;
    LogCSV("LOAD_EVENTS;count=" + IntegerToString(ArraySize(g_replay_raw)));
-   PrintFormat("PhantomBridge CASH replay loaded %d events", ArraySize(g_replay_raw));
+   PrintFormat("PhantomBridge replay loaded %d events", ArraySize(g_replay_raw));
    return true;
 }
 
@@ -480,6 +478,7 @@ void ReplayDueEvents(const datetime bar_time)
       datetime ts = g_replay_ts[g_replay_next];
 
       if(ts <= 0){
+         // Undated events inherit prior valid event time so they cannot jump ahead.
          ts = s_last_valid_ts;
       }
       else {
@@ -518,9 +517,19 @@ void LogCSV(const string line)
    FileClose(h);
 }
 
-// [CASH-1] DetectMode() removed — g_mode is always BROKER_CASH
+//==== BROKER MODE DETECT ====
+ENUM_BROKER_MODE DetectMode()
+{
+   if(InpBrokerMode!=BROKER_AUTO) return InpBrokerMode;
+   string co=AccountInfoString(ACCOUNT_COMPANY);
+   string sv=AccountInfoString(ACCOUNT_SERVER);
+   string s=co+" "+sv;
+   StringToLower(s);
+   if(StringFind(s,"ftmo")>=0) return BROKER_FTMO;
+   return BROKER_CASH;
+}
 
-//==== GUARDRAILS (CASH: rolling equity + trailing peak) ====
+//==== GUARDRAILS (cash mode) ====
 datetime ServerDay()
 {
    datetime t=TimeCurrent();
@@ -537,32 +546,33 @@ void ResetDayIfNeeded()
    datetime d=ServerDay();
    if(d!=g_current_day){
       g_current_day=d;
+      // FTMO recalculates the daily floor from the balance recorded at 00:00.
       g_day_start_equity=AccountInfoDouble(ACCOUNT_EQUITY);
       g_day_start_balance=AccountInfoDouble(ACCOUNT_BALANCE);
-      g_last_balance=AccountInfoDouble(ACCOUNT_BALANCE);
       if(g_halted_today && g_halt_serverday!=d){
          g_halted_today=false;
-         Notify("PHANTOM CASH resumed","New server day "+TimeToString(d,TIME_DATE)+". Daily halt cleared; trading resumed.");
+         Notify("PHANTOM resumed","New server day "+TimeToString(d,TIME_DATE)+". Daily halt cleared; trading resumed.");
          SaveState();
       }
    }
 }
 
-//==== TIERED RISK (CASH/exponential mode) ==== [CASH-2]
+//==== TIERED RISK (CASH/exponential mode) ====
 // Returns risk-per-trade % based on current equity as a multiple of start_cap.
-// Tiers taper risk as account grows to lock in compounded gains.
 double TieredRiskPct(const double equity)
 {
    double base = (g_start_cap>0.0) ? g_start_cap : 1.0;
    double mult = equity / base;
-   if(mult < InpTier1Mult) return InpTier1RiskPct;   // <2x  -> 3.95%
-   if(mult < InpTier2Mult) return InpTier2RiskPct;   // <4x  -> 3.10%
-   if(mult < InpTier3Mult) return InpTier3RiskPct;   // <7x  -> 2.40%
-   if(mult < InpTier4Mult) return InpTier4RiskPct;   // <10x -> 1.85%
-   return InpTier5RiskPct;                            // >=10x -> 1.40%
+   if(mult < InpTier1Mult) return InpTier1RiskPct;
+   if(mult < InpTier2Mult) return InpTier2RiskPct;
+   if(mult < InpTier3Mult) return InpTier3RiskPct;
+   if(mult < InpTier4Mult) return InpTier4RiskPct;
+   return InpTier5RiskPct;
 }
 
-//==== STATE PERSISTENCE (per-login, JSON) ==== [CASH-10]
+//==== STATE PERSISTENCE (per-login, JSON) ====
+// Keeps start_cap, peak_equity and hard-pause flag isolated per account so
+// the FTMO and Vantage terminals never share state.
 void SaveState()
 {
    if(g_state_file=="") return;
@@ -608,38 +618,47 @@ void FlattenAll(const string why)
    LogCSV("FLATTEN;"+why);
 }
 
-// [CASH-3/6/7] CASH guardrail — daily floor off day-start balance, max-loss trailing off peak
+// returns true if trading is currently blocked.
+// Implements the shared FTMO-style guardrails for BOTH modes, differing only
+// in the loss BASE (FTMO=fixed start_cap; CASH=rolling equity + trailing peak).
 bool GuardrailBlock()
 {
    if(g_disabled_perm){
       LogCSV("GUARDRAIL_BLOCK;reason=HARD_PAUSE");
-      return true;
+      return true;       // hard pause -> needs InpManualResume
    }
 
    ResetDayIfNeeded();
    if(g_halted_today){
       LogCSV("GUARDRAIL_BLOCK;reason=DAILY_HALT");
-      return true;
+      return true;        // soft daily halt -> auto-resume next day
    }
 
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
 
-   // [CASH-3] Update peak high-water mark (drives trailing floor)
-   if(eq > g_peak_equity){ g_peak_equity = eq; SaveState(); }
+   // keep peak high-water mark current (drives CASH trailing floor)
+   if(eq > g_peak_equity){ g_peak_equity = eq; }
 
-   // ---- daily loss amount: CASH = % off day-start balance ---- [CASH-6]
-   double daily_amount  = g_day_start_balance * (InpDailyLossPct/100.0);
+   // ---- daily loss amount ----
+   // FTMO  : fixed 5% of start_cap.  Floor = midnight balance - amount.
+   // CASH  : rolling 5% of current equity-at-midnight.  Floor = midnight balance - amount.
+   double daily_amount;
+   if(g_mode==BROKER_FTMO)
+      daily_amount = g_start_cap * (InpDailyLossPct/100.0);
+   else
+      daily_amount = g_day_start_balance * (InpDailyLossPct/100.0);
+
    double daily_floor   = g_day_start_balance - daily_amount;
-   double daily_loss    = g_day_start_equity - eq;
-   double breaker_level = daily_amount * (InpCircuitBreakerPct/100.0);  // [CASH-7]
+   double daily_loss    = g_day_start_equity - eq;          // positive when losing
+   double breaker_level = daily_amount * (InpCircuitBreakerPct/100.0);
 
-   // ---- circuit breaker: soft stop at 80% of daily amount ---- [CASH-7]
+   // ---- circuit breaker: stop OPENING once we've lost InpCircuitBreakerPct of the daily amount ----
    if(daily_loss >= breaker_level && daily_loss < daily_amount){
       LogCSV("CIRCUIT_BREAKER;loss="+DoubleToString(daily_loss,2)+
              ";level="+DoubleToString(breaker_level,2)+";amount="+DoubleToString(daily_amount,2));
       g_halted_today=true;
       g_halt_serverday=ServerDay();
-      Notify("PHANTOM CASH breaker","Hit "+DoubleToString(InpCircuitBreakerPct,0)+"% of daily loss limit (loss="+
+      Notify("PHANTOM breaker","Hit "+DoubleToString(InpCircuitBreakerPct,0)+"% of daily loss limit (loss="+
              DoubleToString(daily_loss,2)+"). Stop opening; auto-resume next server day.");
       SaveState();
       return true;
@@ -650,22 +669,27 @@ bool GuardrailBlock()
       FlattenAll("MAX_DAILY_LOSS");
       g_halted_today=true;
       g_halt_serverday=ServerDay();
-      Notify("PHANTOM CASH halted","Daily loss floor breached (eq="+DoubleToString(eq,2)+
+      Notify("PHANTOM halted","Daily loss floor breached (eq="+DoubleToString(eq,2)+
              " <= floor="+DoubleToString(daily_floor,2)+"). Flattened & halted; auto-resume next day.");
       SaveState();
       return true;
    }
 
-   // ---- max loss floor: TRAILING 15% off peak equity ---- [CASH-3]
-   double max_floor = g_peak_equity * (1.0 - InpCashTrailMaxLossPct/100.0);
+   // ---- max loss floor ----
+   // FTMO : static 0.90 x start_cap  (= account death; hard pause).
+   // CASH : trailing 0.90 x peak_equity (locks in compounded gains; hard pause + manual resume).
+   double max_floor;
+   if(g_mode==BROKER_FTMO)
+      max_floor = g_start_cap - g_start_cap*(InpMaxLossPct/100.0);
+   else
+      max_floor = g_peak_equity - g_peak_equity*(InpCashTrailMaxLossPct/100.0);
 
    if(eq <= max_floor){
-      FlattenAll("MAX_LOSS_TRAILING");
-      g_disabled_perm=true;
+      FlattenAll("MAX_LOSS");
+      g_disabled_perm=true;                 // hard pause: requires manual review + InpManualResume
       g_halt_serverday=ServerDay();
-      Notify("PHANTOM CASH DISABLED","Trailing max-loss floor breached (eq="+DoubleToString(eq,2)+
-             " <= floor="+DoubleToString(max_floor,2)+
-             ", peak="+DoubleToString(g_peak_equity,2)+
+      Notify("PHANTOM DISABLED",(g_mode==BROKER_FTMO?"FTMO max-loss":"Trailing max-loss")+
+             " floor breached (eq="+DoubleToString(eq,2)+" <= floor="+DoubleToString(max_floor,2)+
              "). Flattened & HARD-PAUSED until manual resume.");
       SaveState();
       return true;
@@ -674,33 +698,29 @@ bool GuardrailBlock()
    return false;
 }
 
-//==== LOT SIZING (CASH: tiered risk on equity) ====
-// [CASH-1/2/4] Only CASH logic retained; FTMO branches removed
+//==== LOT SIZING (live, per detected mode) ====
+// Computes lots from the signal's price geometry and the active risk model.
+//   FTMO : risk_amt = start_cap * FtmoRiskPct%   (FIXED base, FTMO-compliant)
+//   CASH : risk_amt = equity    * TieredRiskPct% (growing base, milestone taper)
+// Lots are derived so that a stop-out loses ~risk_amt, then capped:
+//   FTMO : leverage cap (notional <= equity * leverage)
+//   CASH : min(InpCashLotCapMult x natural daily-base lots, InpMaxLots)
 double ComputeLotsForSignal(const string dir,const double entry,const double stop,const double qty,const double sacct)
 {
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
 
-   // price risk per unit
+   // price risk per unit (fallback to signal qty scaling if geometry missing)
    double stop_dist = MathAbs(entry - stop);
    if(stop_dist <= 0.0 || entry <= 0.0){
       double base_sa = (sacct>0.0)?sacct:InpMetaAccountFallback;
       return qty * (eq / base_sa);
    }
 
-   // [CASH-2] Tiered risk off current equity
-   double risk_pct  = TieredRiskPct(eq);
-   double risk_base = eq;
-   double risk_amt  = risk_base * (risk_pct/100.0);
+   double risk_pct, risk_base;
+   if(g_mode==BROKER_FTMO){ risk_pct = InpFtmoRiskPct;        risk_base = g_start_cap; }
+   else                   { risk_pct = TieredRiskPct(eq);     risk_base = eq;          }
 
-   // Cap risk by remaining distance to trailing max-loss floor [CASH-3]
-   double max_floor = g_peak_equity * (1.0 - InpCashTrailMaxLossPct/100.0);
-   double remaining_total = MathMax(0.0, eq - max_floor);
-   risk_amt = MathMin(risk_amt, remaining_total);
-   if(risk_amt<=0.0){
-      LogCSV("SIZE_BLOCK;reason=total_buffer_exhausted;eq="+DoubleToString(eq,2)+
-             ";floor="+DoubleToString(max_floor,2));
-      return 0.0;
-   }
+   double risk_amt = risk_base * (risk_pct/100.0);
 
    // value of a 1.0-lot move of stop_dist in account currency
    double tick_val  = SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_VALUE);
@@ -708,24 +728,33 @@ double ComputeLotsForSignal(const string dir,const double entry,const double sto
    double loss_per_lot;
    if(tick_val>0.0 && tick_size>0.0) loss_per_lot = (stop_dist/tick_size)*tick_val;
    else                              loss_per_lot = stop_dist * SymbolInfoDouble(g_symbol,SYMBOL_TRADE_CONTRACT_SIZE);
-   if(loss_per_lot<=0.0) loss_per_lot = stop_dist;
+   if(loss_per_lot<=0.0) loss_per_lot = stop_dist; // last-resort guard
 
    double lots = risk_amt / loss_per_lot;
 
-   // [CASH-4] Lot cap: InpCashLotCapMult x the natural "daily-base" lot size
-   // daily-base = lots implied by tier-1 risk on start_cap (the entry-day natural size)
-   double daily_base_risk = g_start_cap * (InpTier1RiskPct/100.0);
-   double daily_base_lots = daily_base_risk / loss_per_lot;
-   double cap_lots = daily_base_lots * InpCashLotCapMult;
-   if(cap_lots>0.0) lots = MathMin(lots, cap_lots);
+   if(g_mode==BROKER_FTMO){
+      // leverage cap: notional <= equity * leverage
+      double price = (entry>0.0)?entry:SymbolInfoDouble(g_symbol,SYMBOL_BID);
+      double csize = SymbolInfoDouble(g_symbol,SYMBOL_TRADE_CONTRACT_SIZE);
+      if(price>0.0 && csize>0.0){
+         double max_lots = (eq*InpFtmoMaxLeverage)/(price*csize);
+         if(max_lots>0.0) lots = MathMin(lots, max_lots);
+      }
+   }
+   else {
+      // CASH cap: InpCashLotCapMult x the natural "daily-base" lot size.
+      // daily-base = lots implied by tier-1 risk on start_cap (the entry-day natural size).
+      double daily_base_risk = g_start_cap * (InpTier1RiskPct/100.0);
+      double daily_base_lots = daily_base_risk / loss_per_lot;
+      double cap_lots = daily_base_lots * InpCashLotCapMult;
+      if(cap_lots>0.0) lots = MathMin(lots, cap_lots);
+   }
 
-   LogCSV("SIZE;mode=CASH"+
+   LogCSV("SIZE;mode="+(g_mode==BROKER_FTMO?"FTMO":"CASH")+
           ";risk_pct="+DoubleToString(risk_pct,2)+
           ";risk_amt="+DoubleToString(risk_amt,2)+
-          ";remaining_total="+DoubleToString(remaining_total,2)+
           ";loss_per_lot="+DoubleToString(loss_per_lot,2)+
-          ";lots_raw="+DoubleToString(lots,4)+
-          ";lot_cap="+DoubleToString(cap_lots,4));
+          ";lots_raw="+DoubleToString(lots,4));
    return lots;
 }
 
@@ -761,13 +790,15 @@ void HandleOpen(const string js)
 
    double lots;
    if(InpReplayMode && InpReplayUseSignalPricing){
+      // Replay parity ledger: trust the Python qty verbatim.
       lots = qty;
    }
    else if(InpUsePythonSizing){
+      // Legacy mode: scale Python qty by equity ratio.
       lots = qty * (live_eq / sacct);
    }
    else {
-      // [CASH-2] EA computes lots per tiered risk model
+      // Live: EA computes lots per detected mode (FTMO fixed-base vs CASH tapered).
       lots = ComputeLotsForSignal(dir, entry, stop, qty, sacct);
    }
    lots = NormalizeLots(lots);
@@ -782,6 +813,7 @@ void HandleOpen(const string js)
    double sl = ClampStopDistance(price, stop, is_long);
    double tpx = NormalizePrice(tp);
 
+   // Fidelity mode in replay: do not attach broker SL/TP.
    double open_sl = InpReplayMode ? 0.0 : sl;
    double open_tp = InpReplayMode ? 0.0 : tpx;
 
@@ -792,6 +824,7 @@ void HandleOpen(const string js)
 
    if(ok){
       ulong tk=trade.ResultOrder();
+      // Resolve to position ticket by matching comment/magic/symbol.
       ulong resolved=0;
       for(int pi=PositionsTotal()-1; pi>=0; pi--){
          ulong cand=PositionGetTicket(pi);
@@ -858,6 +891,7 @@ void HandleModify(const string js)
    double sl = ClampStopDistance(cur_price, new_stop, is_long);
    double tp = PositionGetDouble(POSITION_TP);
 
+   // dedupe: skip no-op modify
    if(MathAbs(sl - g_last_sl[idx]) < g_point*0.5) return;
 
    if(InpReplayMode){
@@ -873,6 +907,7 @@ void HandleModify(const string js)
    else {
       int rc=(int)trade.ResultRetcode();
       if(rc==10016){
+         // Price can move between compute and submit; refresh and retry once.
          double retry_price = is_long ? SymbolInfoDouble(g_symbol,SYMBOL_BID)
                     : SymbolInfoDouble(g_symbol,SYMBOL_ASK);
          bool retry_valid_side = is_long ? (new_stop < (retry_price - minDist))
@@ -896,7 +931,7 @@ void HandleModify(const string js)
       }
 
       if(rc==10025 || rc==10027){
-         g_last_sl[idx]=sl;
+         g_last_sl[idx]=sl; // no change / disabled - swallow
       }
       else {
          LogCSV("MODIFY_FAIL;"+id+";ret="+IntegerToString(rc)+";"+trade.ResultRetcodeDescription());
@@ -933,13 +968,12 @@ void HandleClose(const string js)
    }
 
    ulong tk=g_tickets[idx];
+   // If broker already stopped it out, position won't select -> no-op confirmation
    if(!PositionSelectByTicket(tk)){
       LogCSV("CLOSE_ALREADY;"+id);
       UnmapId(id);
       return;
    }
-
-   double pnl_live = PositionGetDouble(POSITION_PROFIT);
 
    if(InpReplayMode && InpReplayUseSignalPricing && reason=="tp" && exit_sig>0.0){
       double sl_sig = g_last_sl[idx];
@@ -972,6 +1006,9 @@ void HandleClose(const string js)
                 ";tp="+DoubleToString(tp_arm,g_digits));
       }
       else {
+
+         // Arm broker-side TP/SL to emulate resting-order semantics in replay.
+         // This avoids optimistic market-on-touch fills at wick extremes.
          if(trade.PositionModify(tk, sl_arm, tp_arm)){
             ArmReplayTpClose(id, tk, dir_sig, tp_arm, sl_arm);
             return;
@@ -984,18 +1021,6 @@ void HandleClose(const string js)
 
    if(trade.PositionClose(tk)){
       LogCSV("CLOSE;"+id+";fill="+DoubleToString(trade.ResultPrice(),g_digits));
-
-      if(pnl_live < 0.0) g_cumulative_losses++;
-      else g_cumulative_losses = 0;
-
-      if(g_cumulative_losses >= 10){
-         g_disabled_perm = true;
-         FlattenAll("CONSECUTIVE_LOSSES");
-         Notify("PHANTOM CASH DISABLED",
-                "10 consecutive losses reached. Flattened & HARD-PAUSED until manual resume.");
-         SaveState();
-         LogCSV("DISABLE_CONSECUTIVE_LOSSES;count="+IntegerToString(g_cumulative_losses));
-      }
    }
    else {
       LogCSV("CLOSE_FAIL;"+id+";ret="+IntegerToString(trade.ResultRetcode()));
@@ -1020,6 +1045,7 @@ void ProcessLine(const string raw)
 }
 
 //==== FILE READ ====
+// Reads any new lines appended since last call (live polling only).
 void PumpFileLive()
 {
    int h=FileOpen(InpSignalFile, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
@@ -1041,7 +1067,8 @@ int OnInit()
 
    g_symbol = (InpSymbolOverride!="") ? InpSymbolOverride : _Symbol;
    if(!SymbolSelect(g_symbol,true)){
-      string alts[]={"NAS100","USTEC","USTECH","US100.cash","NAS100.cash","ND100m","ND100M","US100"};
+      // fallback resolve
+         string alts[]={"NAS100","USTEC","USTECH","US100.cash","NAS100.cash","ND100m","ND100M","US100"};
       for(int i=0;i<ArraySize(alts);i++){
          if(SymbolSelect(alts[i],true)){
             g_symbol=alts[i];
@@ -1057,8 +1084,7 @@ int OnInit()
    g_volmax =SymbolInfoDouble(g_symbol,SYMBOL_VOLUME_MAX);
    g_stopslevel=(int)SymbolInfoInteger(g_symbol,SYMBOL_TRADE_STOPS_LEVEL);
 
-   // [CASH-1] No DetectMode() — always CASH
-   g_mode=BROKER_CASH;
+   g_mode=DetectMode();
    trade.SetExpertMagicNumber(InpMagicNumber);
    trade.SetTypeFillingBySymbol(g_symbol);
 
@@ -1067,20 +1093,23 @@ int OnInit()
    g_day_start_balance=AccountInfoDouble(ACCOUNT_BALANCE);
    g_last_balance=AccountInfoDouble(ACCOUNT_BALANCE);
 
-   // --- account baseline + per-login state --- [CASH-10]
+   // --- account baseline + per-login state ---
    g_login = AccountInfoInteger(ACCOUNT_LOGIN);
    g_state_file = "phantom_state_"+IntegerToString(g_login)+".json";
    if(in_tester){
+      // Keep tester runs isolated from persistent live/demo state.
       g_state_file = "";
       g_disabled_perm = false;
       g_halted_today = false;
    }
+   // start_cap: override > loaded state > current balance (auto-capture)
    g_start_cap = (InpStartCapOverride>0.0) ? InpStartCapOverride : 0.0;
    g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY);
-   LoadState();
+   LoadState();   // may restore start_cap / peak / hard-pause flag
    if(g_start_cap<=0.0) g_start_cap = AccountInfoDouble(ACCOUNT_BALANCE);
    if(g_peak_equity<=0.0) g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY);
    if(in_tester){
+      // Ensure persisted hard-pause never leaks into tester decisions.
       g_disabled_perm = false;
       g_halted_today = false;
    }
@@ -1089,7 +1118,7 @@ int OnInit()
    if(g_disabled_perm && InpManualResume){
       g_disabled_perm=false;
       g_peak_equity=AccountInfoDouble(ACCOUNT_EQUITY); // re-anchor high-water mark on resume
-      Notify("PHANTOM CASH resumed","Manual resume flag set. Hard-pause cleared; peak re-anchored at "+
+      Notify("PHANTOM resumed","Manual resume flag set. Hard-pause cleared; peak re-anchored at "+
              DoubleToString(g_peak_equity,2)+".");
    }
    SaveState();
@@ -1112,24 +1141,29 @@ int OnInit()
    g_synth_trades = 0;
    g_synth_wins = 0;
 
-   // [CASH-3/6] Init risk summary — daily off balance, max-loss trailing off peak
-   double init_daily_amount = g_day_start_balance * (InpDailyLossPct/100.0);
-   double init_daily_floor  = g_day_start_balance - init_daily_amount;
-   double init_max_floor    = g_peak_equity * (1.0 - InpCashTrailMaxLossPct/100.0);
-
-   PrintFormat("PhantomBridge CASH init | symbol=%s digits=%d step=%.2f stops=%d mode=CASH replay=%s",
+   PrintFormat("PhantomBridge init | symbol=%s digits=%d step=%.2f stops=%d mode=%s replay=%s",
                g_symbol,g_digits,g_volstep,g_stopslevel,
+               (g_mode==BROKER_FTMO?"FTMO":(g_mode==BROKER_CASH?"CASH":"AUTO")),
                (InpReplayMode?"true":"false"));
-   PrintFormat("PHANTOM_RISK_INIT | mode=CASH start_cap=%.2f daily_floor=%.2f max_floor=%.2f day_start_balance=%.2f peak_equity=%.2f",
-       g_start_cap, init_daily_floor, init_max_floor, g_day_start_balance, g_peak_equity);
-   LogCSV("RISK_INIT;mode=CASH"+
-      ";start_cap="+DoubleToString(g_start_cap,2)+
-      ";daily_floor="+DoubleToString(init_daily_floor,2)+
-      ";max_floor="+DoubleToString(init_max_floor,2)+
-      ";day_start_balance="+DoubleToString(g_day_start_balance,2)+
-      ";peak_equity="+DoubleToString(g_peak_equity,2));
 
-   LogCSV("INIT;symbol="+g_symbol+";mode=CASH");
+      string mode_label = (g_mode==BROKER_FTMO?"FTMO":"CASH");
+      double init_daily_amount = (g_mode==BROKER_FTMO)
+                 ? g_start_cap * (InpDailyLossPct/100.0)
+                 : g_day_start_balance * (InpDailyLossPct/100.0);
+      double init_daily_floor = g_day_start_balance - init_daily_amount;
+      double init_max_floor = (g_mode==BROKER_FTMO)
+                  ? (g_start_cap - g_start_cap*(InpMaxLossPct/100.0))
+                  : (g_peak_equity - g_peak_equity*(InpCashTrailMaxLossPct/100.0));
+      PrintFormat("PHANTOM_RISK_INIT | mode=%s start_cap=%.2f daily_floor=%.2f max_floor=%.2f day_start_balance=%.2f peak_equity=%.2f",
+          mode_label, g_start_cap, init_daily_floor, init_max_floor, g_day_start_balance, g_peak_equity);
+      LogCSV("RISK_INIT;mode="+mode_label+
+         ";start_cap="+DoubleToString(g_start_cap,2)+
+         ";daily_floor="+DoubleToString(init_daily_floor,2)+
+         ";max_floor="+DoubleToString(init_max_floor,2)+
+         ";day_start_balance="+DoubleToString(g_day_start_balance,2)+
+         ";peak_equity="+DoubleToString(g_peak_equity,2));
+
+   LogCSV("INIT;symbol="+g_symbol+";mode="+(g_mode==BROKER_FTMO?"FTMO":"CASH"));
    LogCSV("TICKINFO;tv="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_VALUE),5)+
           ";ts="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_SIZE),5)+
           ";csize="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_CONTRACT_SIZE),2));
@@ -1141,14 +1175,14 @@ void OnTick()
 {
    ProcessPendingReplayTpCloses();
 
+   // bar-close M5 gate: act once per new bar
    datetime bt=iTime(g_symbol,PERIOD_M5,0);
    if(bt==g_last_bar) return;
    g_last_bar=bt;
 
    DetectStraddles(bt);
 
-   // [CASH-1] Always run ResetDayIfNeeded for CASH mode
-   ResetDayIfNeeded();
+   if(g_mode==BROKER_CASH) ResetDayIfNeeded();
    if(InpReplayMode){
       ReplayDueEvents(bt);
    }
@@ -1157,7 +1191,7 @@ void OnTick()
    }
 }
 
-//==== WITHDRAWAL DETECTION ==== [CASH-5]
+//==== WITHDRAWAL DETECTION ====
 // A balance-reducing BALANCE deal (manual withdrawal) should not be treated as
 // strategy drawdown; re-anchor peak equity downward by withdrawn amount.
 void OnTradeTransaction(const MqlTradeTransaction &trans,
@@ -1171,13 +1205,13 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
    if(dtype != DEAL_TYPE_BALANCE) return;
 
    double amt = HistoryDealGetDouble(trans.deal, DEAL_PROFIT);
-   if(amt >= 0.0) return;  // deposit, not withdrawal
+   if(amt >= 0.0) return;
 
    double withdrawal = -amt;
    double eq_now = AccountInfoDouble(ACCOUNT_EQUITY);
 
-   // [CASH-5] Move the high-water mark down by the withdrawal amount, but never
-   // below current equity so the trailing floor remains coherent after re-basing.
+   // Move the high-water mark down by the withdrawal amount, but never below
+   // current equity so the floor remains coherent after re-basing.
    g_peak_equity = MathMax(eq_now, g_peak_equity - withdrawal);
    g_last_balance = AccountInfoDouble(ACCOUNT_BALANCE);
 
