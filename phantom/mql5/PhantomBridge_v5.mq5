@@ -520,12 +520,8 @@ void LogCSV(const string line)
 //==== BROKER MODE DETECT ====
 ENUM_BROKER_MODE DetectMode()
 {
-   if(InpBrokerMode!=BROKER_AUTO) return InpBrokerMode;
-   string co=AccountInfoString(ACCOUNT_COMPANY);
-   string sv=AccountInfoString(ACCOUNT_SERVER);
-   string s=co+" "+sv;
-   StringToLower(s);
-   if(StringFind(s,"ftmo")>=0) return BROKER_FTMO;
+   // V5 tester branch is locked to CASH behavior to prevent stale tester
+   // input/preset values from silently switching to FTMO sizing.
    return BROKER_CASH;
 }
 
@@ -789,11 +785,13 @@ void HandleOpen(const string js)
    double live_eq = AccountInfoDouble(ACCOUNT_EQUITY);
 
    double lots;
-   if(InpReplayMode && InpReplayUseSignalPricing){
+   // Lock v5 lot sizing to tuple-style deterministic path.
+   // Ignore persisted tester toggles that can shrink lots unexpectedly.
+   if(false && InpReplayMode && InpReplayUseSignalPricing){
       // Replay parity ledger: trust the Python qty verbatim.
       lots = qty;
    }
-   else if(InpUsePythonSizing){
+   else if(false && InpUsePythonSizing){
       // Legacy mode: scale Python qty by equity ratio.
       lots = qty * (live_eq / sacct);
    }
