@@ -52,8 +52,8 @@ input ENUM_BROKER_MODE InpBrokerMode = BROKER_CASH;            // FORCED: Cash m
 input double  InpStartCapOverride    = 10000.0;                 // fixed risk-base anchor (initial deposit)
 
 // --- shared guardrails ---
-input double  InpDailyLossPct        = 4.5;                     // [CASH-6] daily loss limit, % off day-start balance
-input double  InpCircuitBreakerPct   = 80.0;                    // [CASH-7] soft stop: 80% of daily limit amount
+input double  InpDailyLossPct        = 8.0;                     // [CASH-6] daily loss limit, % off day-start balance
+input double  InpCircuitBreakerPct   = 62.5;                    // [CASH-7] soft stop: 5% when daily limit is 8% (62.5% of daily amount)
 // [CASH-9] No profit_target or min_trading_days inputs
 
 // --- CASH tiered risk inputs --- [CASH-2]
