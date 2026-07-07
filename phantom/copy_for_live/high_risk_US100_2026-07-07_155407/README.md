@@ -8,7 +8,7 @@ Source commit snapshot:
 Artifacts:
 - signals_696k_10676.jsonl
 - phantom_US100_high_ftmo_EA_v2.py
-- PhantomBridge_v2.mq5
+- PhantomBridge_v5.mq5
 - SHA256SUMS.txt
 
 Signal identity:
@@ -19,9 +19,9 @@ Signal identity:
 
 How to use safely:
 1. Copy this signal file to MT5 Common Files as phantom_signals.jsonl.
-2. Compile/deploy PhantomBridge_v2.mq5.
+2. Compile/deploy PhantomBridge_v5.mq5.
 3. Verify hashes with SHA256SUMS.txt before running.
 
 Note:
-- This is the preserved 696k tuple using p2_ftmo_v2 lineage.
+- This is the preserved 696k tuple with v5 bridge + p2_ftmo_v2 signal lineage.
 - If you generate a new tuple from phantom_us100_v5_fund.py, store it as a separate run-labeled file in this folder or a sibling profile folder.
