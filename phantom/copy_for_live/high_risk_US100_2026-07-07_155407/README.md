@@ -1,4 +1,4 @@
-# high_risk_US100 (696k baseline)
+# high_risk_US100_2026-07-07_155407 (696k baseline)
 
 This folder is a frozen copy of the high-risk US100 run lineage that reproduced the 696k result.
 
@@ -6,7 +6,7 @@ Source commit snapshot:
 - 0fa63cfa3e2a2d829e8557f85c70b30f59cab80d
 
 Artifacts:
-- phantom_signals_high_risk_US100_696k_2026-07-07_p2_ftmo_v2_10676.jsonl
+- signals_696k_10676.jsonl
 - phantom_US100_high_ftmo_EA_v2.py
 - PhantomBridge_v2.mq5
 - SHA256SUMS.txt
