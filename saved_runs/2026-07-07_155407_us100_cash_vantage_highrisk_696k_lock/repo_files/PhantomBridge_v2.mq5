@@ -1,5 +1,5 @@
 //+----+
-//|                    PhantomBridge.mq5        |
+//|                    PhantomBridge_v2.mq5     |
 //|        Faithful MT5 translator for the PHANTOM p2 signal stream  |
 //|  Reads phantom_signals.jsonl (FILE_COMMON) and replays actions:  |
 //|  meta / open / modify / close / heartbeat                    |
@@ -42,8 +42,8 @@ input ENUM_BROKER_MODE InpBrokerMode = BROKER_AUTO;
 input double  InpStartCapOverride    = 10000.0;                 // fixed risk-base anchor
 
 // --- shared guardrails (FTMO % rules; mirror Python engine) ---
-input double  InpDailyLossPct        = 5.0;                     // daily loss limit, % (FTMO=5)
-input double  InpMaxLossPct          = 10.0;                    // max loss limit, % (FTMO=10)
+input double  InpDailyLossPct        = 4.5;                     // daily loss limit, % (buffered below FTMO 5)
+input double  InpMaxLossPct          = 8.0;                     // max loss limit, % (buffered below FTMO 10)
 input double  InpCircuitBreakerPct   = 80.0;                    // stop opening at this % of daily limit (80)
 // No profit target in either mode (FTMO auto-closes trials; live runs uncapped).
 
@@ -103,6 +103,7 @@ ENUM_BROKER_MODE g_mode = BROKER_CASH;
 // guardrail state
 bool     g_halted_today   = false;   // soft daily halt -> auto-resume next server day
 bool     g_disabled_perm  = false;   // hard pause -> requires InpManualResume to clear
+int      g_cumulative_losses = 0;    // permanent disable after 10 realized losses (cumulative)
 datetime g_halt_serverday = 0;
 double   g_day_start_equity = 0.0;   // equity captured at server-day open (live)
 double   g_day_start_balance = 0.0;  // balance at server-day midnight (FTMO floor base)
@@ -722,6 +723,20 @@ double ComputeLotsForSignal(const string dir,const double entry,const double sto
 
    double risk_amt = risk_base * (risk_pct/100.0);
 
+   // Cap risk by remaining distance to the total-loss floor.
+   double max_floor;
+   if(g_mode==BROKER_FTMO)
+      max_floor = g_start_cap - g_start_cap*(InpMaxLossPct/100.0);
+   else
+      max_floor = g_peak_equity - g_peak_equity*(InpCashTrailMaxLossPct/100.0);
+   double remaining_total = MathMax(0.0, eq - max_floor);
+   risk_amt = MathMin(risk_amt, remaining_total);
+   if(risk_amt<=0.0){
+      LogCSV("SIZE_BLOCK;reason=total_buffer_exhausted;eq="+DoubleToString(eq,2)+
+             ";floor="+DoubleToString(max_floor,2));
+      return 0.0;
+   }
+
    // value of a 1.0-lot move of stop_dist in account currency
    double tick_val  = SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_VALUE);
    double tick_size = SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_SIZE);
@@ -753,6 +768,7 @@ double ComputeLotsForSignal(const string dir,const double entry,const double sto
    LogCSV("SIZE;mode="+(g_mode==BROKER_FTMO?"FTMO":"CASH")+
           ";risk_pct="+DoubleToString(risk_pct,2)+
           ";risk_amt="+DoubleToString(risk_amt,2)+
+         ";remaining_total="+DoubleToString(remaining_total,2)+
           ";loss_per_lot="+DoubleToString(loss_per_lot,2)+
           ";lots_raw="+DoubleToString(lots,4));
    return lots;
@@ -975,6 +991,8 @@ void HandleClose(const string js)
       return;
    }
 
+   double pnl_live = PositionGetDouble(POSITION_PROFIT);
+
    if(InpReplayMode && InpReplayUseSignalPricing && reason=="tp" && exit_sig>0.0){
       double sl_sig = g_last_sl[idx];
       int dir_sig = g_sig_dir[idx];
@@ -1021,6 +1039,17 @@ void HandleClose(const string js)
 
    if(trade.PositionClose(tk)){
       LogCSV("CLOSE;"+id+";fill="+DoubleToString(trade.ResultPrice(),g_digits));
+
+      if(pnl_live < 0.0) g_cumulative_losses++;
+
+      if(g_cumulative_losses >= 10){
+         g_disabled_perm = true;
+         FlattenAll("CONSECUTIVE_LOSSES");
+         Notify("PHANTOM DISABLED",
+                "10 cumulative losses reached. Flattened & HARD-PAUSED until manual resume.");
+         SaveState();
+         LogCSV("DISABLE_CONSECUTIVE_LOSSES;count="+IntegerToString(g_cumulative_losses));
+      }
    }
    else {
       LogCSV("CLOSE_FAIL;"+id+";ret="+IntegerToString(trade.ResultRetcode()));

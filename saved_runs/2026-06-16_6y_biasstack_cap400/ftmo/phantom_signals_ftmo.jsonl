@@ -1,0 +1,77 @@
+{"v": 1, "action": "meta", "engine": "p2_ftmo_v2", "instrument": "US100", "signal_account_size": 10000.0, "ftmo": true, "ftmo_daily_dd_pct": 4.5, "atr_trail_mult": 0.8}
+{"v": 1, "action": "open", "id": "2021-01-28T17:00:00#1", "entry_ts": "2021-01-28T17:00:00", "dir": "long", "entry": 13321.05, "stop": 13064.916386492723, "tp": 13654.023697559458, "qty": 0.29515844861124557, "regime": "bear", "conf": 0.8999999999999999, "atr_entry": 170.7557423381838, "signal_account_size": 10000.0}
+{"v": 1, "action": "modify", "id": "2021-01-28T17:00:00#1", "signal_ts": "2021-01-28T18:00:00", "new_stop": 13244.195406129453, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-01-28T17:00:00#1", "signal_ts": "2021-01-28T19:00:00", "new_stop": 13253.945406129453, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-01-28T17:00:00#1", "signal_ts": "2021-01-29T20:00:00", "exit": 13253.945406129453, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-01T17:00:00#2", "entry_ts": "2021-02-01T17:00:00", "dir": "long", "entry": 13189.95, "stop": 12935.561165928579, "tp": 13520.65548429285, "qty": 0.296594240181493, "regime": "bear", "conf": 0.8999999999999999, "atr_entry": 169.59255604761503, "signal_account_size": 9980.19351217848}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-01T18:00:00", "new_stop": 13133.77595516191, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-01T19:00:00", "new_stop": 13141.175955161909, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T02:00:00", "new_stop": 13213.175955161909, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T03:00:00", "new_stop": 13229.675955161909, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T10:00:00", "new_stop": 13246.675955161909, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T15:00:00", "new_stop": 13189.95, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T16:00:00", "new_stop": 13295.675955161909, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T17:00:00", "new_stop": 13337.02595516191, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T18:00:00", "new_stop": 13341.175955161909, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T19:00:00", "new_stop": 13352.425955161909, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T20:00:00", "new_stop": 13369.675955161909, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T22:00:00", "new_stop": 13379.425955161909, "reason": "breakeven"}
+{"v": 1, "action": "close", "id": "2021-02-01T17:00:00#2", "signal_ts": "2021-02-02T22:00:00", "exit": 13520.65548429285, "reason": "tp"}
+{"v": 1, "action": "open", "id": "2021-02-10T16:00:00#3", "entry_ts": "2021-02-10T16:00:00", "dir": "short", "entry": 13617.75, "stop": 13727.34363248437, "tp": 13475.27827777032, "qty": 1.5063120355311619, "regime": "bull", "conf": 1.9500000000000002, "atr_entry": 73.06242165624595, "signal_account_size": 10078.278854016171}
+{"v": 1, "action": "modify", "id": "2021-02-10T16:00:00#3", "signal_ts": "2021-02-10T17:00:00", "new_stop": 13683.199937324996, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-02-10T16:00:00#3", "signal_ts": "2021-02-11T19:00:00", "exit": 13683.199937324996, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-16T14:00:00#4", "entry_ts": "2021-02-16T14:00:00", "dir": "long", "entry": 13862.1, "stop": 13792.636780997203, "tp": 13952.402184703637, "qty": 2.1722708427677344, "regime": "bull", "conf": 0.8999999999999999, "atr_entry": 46.30881266853112, "signal_account_size": 9979.690825698768}
+{"v": 1, "action": "modify", "id": "2021-02-16T14:00:00#4", "signal_ts": "2021-02-16T15:00:00", "new_stop": 13825.052949865176, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-02-16T14:00:00#4", "signal_ts": "2021-02-16T15:00:00", "exit": 13825.052949865176, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-16T17:00:00#5", "entry_ts": "2021-02-16T17:00:00", "dir": "short", "entry": 13760.1, "stop": 13852.051456469091, "tp": 13640.563106590183, "qty": 1.763421063201602, "regime": "bull", "conf": 1.9500000000000002, "atr_entry": 61.30097097939364, "signal_account_size": 9899.214598880335}
+{"v": 1, "action": "modify", "id": "2021-02-16T17:00:00#5", "signal_ts": "2021-02-16T18:00:00", "new_stop": 13848.140776783515, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-16T17:00:00#5", "signal_ts": "2021-02-16T19:00:00", "new_stop": 13813.390776783515, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-16T17:00:00#5", "signal_ts": "2021-02-17T02:00:00", "new_stop": 13780.040776783515, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-02-16T17:00:00#5", "signal_ts": "2021-02-17T10:00:00", "exit": 13780.040776783515, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-17T13:00:00#6", "entry_ts": "2021-02-17T13:00:00", "dir": "short", "entry": 13755.0, "stop": 13857.723370306869, "tp": 13621.459618601071, "qty": 0.917522500736256, "regime": "bull", "conf": 1.9500000000000002, "atr_entry": 68.48224687124551, "signal_account_size": 9864.050613083684}
+{"v": 1, "action": "modify", "id": "2021-02-17T13:00:00#6", "signal_ts": "2021-02-17T14:00:00", "new_stop": 13738.035797496996, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-02-17T13:00:00#6", "signal_ts": "2021-02-17T14:00:00", "exit": 13738.035797496996, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-18T20:00:00#7", "entry_ts": "2021-02-18T20:00:00", "dir": "long", "entry": 13649.8, "stop": 13525.062806825272, "tp": 13811.958351127145, "qty": 1.663272383977027, "regime": "bull", "conf": 1.5, "atr_entry": 83.15812878315131, "signal_account_size": 9879.615650587237}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-18T21:00:00", "new_stop": 13577.523496973477, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T09:00:00", "new_stop": 13591.273496973477, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T10:00:00", "new_stop": 13611.773496973477, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T11:00:00", "new_stop": 13629.773496973477, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T13:00:00", "new_stop": 13645.273496973477, "reason": "trail"}
+{"v": 1, "action": "open", "id": "2021-02-19T13:00:00#8", "entry_ts": "2021-02-19T13:00:00", "dir": "long", "entry": 13711.8, "stop": 13585.614761002204, "tp": 13875.840810697133, "qty": 1.6441854079775224, "regime": "bull", "conf": 1.5, "atr_entry": 84.12349266519675, "signal_account_size": 9879.615650587237}
+{"v": 1, "action": "modify", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T14:00:00", "new_stop": 13665.273496973477, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-19T13:00:00#8", "signal_ts": "2021-02-19T14:00:00", "new_stop": 13664.501205867842, "reason": "trail"}
+{"v": 1, "action": "open", "id": "2021-02-19T14:00:00#9", "entry_ts": "2021-02-19T14:00:00", "dir": "short", "entry": 13731.8, "stop": 13857.985238997795, "tp": 13567.759189302866, "qty": 0.6576741631910089, "regime": "bull", "conf": 1.0, "atr_entry": 84.12349266519675, "signal_account_size": 9879.615650587237}
+{"v": 1, "action": "close", "id": "2021-02-18T20:00:00#7", "signal_ts": "2021-02-19T15:00:00", "exit": 13665.273496973477, "reason": "stop"}
+{"v": 1, "action": "modify", "id": "2021-02-19T14:00:00#9", "signal_ts": "2021-02-19T15:00:00", "new_stop": 13744.348794132156, "reason": "trail"}
+{"v": 1, "action": "open", "id": "2021-02-19T15:00:00#10", "entry_ts": "2021-02-19T15:00:00", "dir": "long", "entry": 13677.05, "stop": 13550.864761002204, "tp": 13841.090810697133, "qty": 1.318774840915622, "regime": "bull", "conf": 1.0, "atr_entry": 84.12349266519675, "signal_account_size": 9905.352290786775}
+{"v": 1, "action": "modify", "id": "2021-02-19T15:00:00#10", "signal_ts": "2021-02-19T16:00:00", "new_stop": 13614.751205867842, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-19T14:00:00#9", "signal_ts": "2021-02-19T17:00:00", "new_stop": 13736.348794132156, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-19T14:00:00#9", "signal_ts": "2021-02-19T18:00:00", "new_stop": 13731.8, "reason": "breakeven"}
+{"v": 1, "action": "close", "id": "2021-02-19T14:00:00#9", "signal_ts": "2021-02-19T18:00:00", "exit": 13567.759189302866, "reason": "tp"}
+{"v": 1, "action": "close", "id": "2021-02-19T13:00:00#8", "signal_ts": "2021-02-22T08:00:00", "exit": 13439.25, "reason": "ftmo_daily_soft_stop"}
+{"v": 1, "action": "close", "id": "2021-02-19T15:00:00#10", "signal_ts": "2021-02-22T08:00:00", "exit": 13439.25, "reason": "ftmo_daily_soft_stop"}
+{"v": 1, "action": "open", "id": "2021-02-24T13:00:00#11", "entry_ts": "2021-02-24T13:00:00", "dir": "short", "entry": 13287.45, "stop": 13572.666865005005, "tp": 12916.668075493493, "qty": 0.04427617407603608, "regime": "bull", "conf": 1.9500000000000002, "atr_entry": 190.14457667000335, "signal_account_size": 9251.510303577183}
+{"v": 1, "action": "modify", "id": "2021-02-24T13:00:00#11", "signal_ts": "2021-02-24T14:00:00", "new_stop": 13246.065661336004, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-02-24T13:00:00#11", "signal_ts": "2021-02-24T14:00:00", "exit": 13246.065661336004, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-02-24T19:00:00#12", "entry_ts": "2021-02-24T19:00:00", "dir": "short", "entry": 13258.6, "stop": 13567.217949671005, "tp": 12857.396665427694, "qty": 0.04092701906093619, "regime": "bull", "conf": 1.9500000000000002, "atr_entry": 205.74529978066977, "signal_account_size": 9253.342643759892}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-24T20:00:00", "new_stop": 13405.196239824536, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T10:00:00", "new_stop": 13383.796239824536, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T12:00:00", "new_stop": 13343.696239824536, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T16:00:00", "new_stop": 13302.146239824535, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T17:00:00", "new_stop": 13258.6, "reason": "breakeven"}
+{"v": 1, "action": "modify", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T18:00:00", "new_stop": 13022.696239824536, "reason": "breakeven"}
+{"v": 1, "action": "close", "id": "2021-02-24T19:00:00#12", "signal_ts": "2021-02-25T18:00:00", "exit": 13022.696239824536, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-03-05T20:00:00#13", "entry_ts": "2021-03-05T20:00:00", "dir": "long", "entry": 12672.7, "stop": 12362.831571709998, "tp": 13075.528956777005, "qty": 0.018832794439617415, "regime": "bear", "conf": 0.8999999999999999, "atr_entry": 206.57895219333577, "signal_account_size": 9262.99748144914}
+{"v": 1, "action": "modify", "id": "2021-03-05T20:00:00#13", "signal_ts": "2021-03-05T21:00:00", "new_stop": 12502.936838245332, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-03-05T20:00:00#13", "signal_ts": "2021-03-09T02:00:00", "exit": 12502.936838245332, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-03-09T15:00:00#14", "entry_ts": "2021-03-09T15:00:00", "dir": "short", "entry": 12708.85, "stop": 12985.969971559345, "tp": 12348.594036972852, "qty": 0.10946560737099313, "regime": "bear", "conf": 1.9500000000000002, "atr_entry": 184.74664770622934, "signal_account_size": 9259.800366720394}
+{"v": 1, "action": "modify", "id": "2021-03-09T15:00:00#14", "signal_ts": "2021-03-09T16:00:00", "new_stop": 12857.897318164984, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-03-09T15:00:00#14", "signal_ts": "2021-03-11T06:00:00", "exit": 12857.897318164984, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-03-12T16:00:00#15", "entry_ts": "2021-03-12T16:00:00", "dir": "short", "entry": 12799.65, "stop": 13000.16748314704, "tp": 12538.977271908849, "qty": 0.1510175360634399, "regime": "bear", "conf": 1.9500000000000002, "atr_entry": 133.67832209802626, "signal_account_size": 9243.484811510447}
+{"v": 1, "action": "modify", "id": "2021-03-12T16:00:00#15", "signal_ts": "2021-03-12T17:00:00", "new_stop": 12973.34265767842, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-03-12T16:00:00#15", "signal_ts": "2021-03-15T19:00:00", "exit": 12973.34265767842, "reason": "stop"}
+{"v": 1, "action": "open", "id": "2021-03-17T13:00:00#16", "entry_ts": "2021-03-17T13:00:00", "dir": "short", "entry": 13008.2, "stop": 13154.079607196369, "tp": 12818.556510644723, "qty": 0.13268635786774016, "regime": "bear", "conf": 1.5, "atr_entry": 97.2530714642449, "signal_account_size": 9217.254174315542}
+{"v": 1, "action": "modify", "id": "2021-03-17T13:00:00#16", "signal_ts": "2021-03-17T14:00:00", "new_stop": 13096.502457171397, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-03-17T13:00:00#16", "signal_ts": "2021-03-17T17:00:00", "new_stop": 13065.252457171397, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2021-03-17T13:00:00#16", "signal_ts": "2021-03-17T18:00:00", "new_stop": 13058.252457171397, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2021-03-17T13:00:00#16", "signal_ts": "2021-03-17T20:00:00", "exit": 13252.7, "reason": "ftmo_guardrail"}

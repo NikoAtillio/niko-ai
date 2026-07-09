@@ -1,0 +1,20 @@
+[DELTA VS BASELINE 2026-06-16_6y]
+[CASH]
+trades_delta: -800
+end_equity_delta: -3372070.82
+net_pnl_delta: -3372070.82
+net_return_pct_delta: -33720.7082
+max_dd_amount_delta: -172056.82
+max_dd_pct_delta: 11.1837
+win_rate_pct_delta: 0.5264
+profit_factor_delta: 0.235719
+
+[FTMO]
+trades_delta: -2
+end_equity_delta: -14.74
+net_pnl_delta: -14.74
+net_return_pct_delta: -0.1474
+max_dd_amount_delta: -37.23
+max_dd_pct_delta: 0.3220
+win_rate_pct_delta: -1.3889
+profit_factor_delta: -0.050615

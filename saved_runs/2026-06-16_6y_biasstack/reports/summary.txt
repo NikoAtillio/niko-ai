@@ -1,0 +1,21 @@
+[CASH NEW]
+trades: 1338
+start_equity: 10000.0
+end_equity: 312373.2058525705
+net_pnl: 302373.2058525705
+net_return_pct: 3023.732058525705
+max_dd_amount: 6284.743220541044
+max_dd_pct: -7.338521982228574
+win_rate_pct: 54.40956651718983
+profit_factor: 2.6508001416090563
+
+[FTMO NEW]
+trades: 10
+start_equity: 10000.0
+end_equity: 9251.510303577183
+net_pnl: -748.4896964228183
+net_return_pct: -7.484896964228172
+max_dd_amount: 826.7685504389901
+max_dd_pct: -8.203469683809395
+win_rate_pct: 40.0
+profit_factor: 0.24832479340175587

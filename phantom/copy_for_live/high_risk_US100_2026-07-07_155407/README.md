@@ -8,7 +8,7 @@ Source commit snapshot:
 Artifacts:
 - signals_696k_10676.jsonl
 - phantom_US100_high_ftmo_EA_v2.py
-- PhantomBridge_v5.mq5
+- PhantomBridge.mq5
 - SHA256SUMS.txt
 
 Signal identity:
@@ -19,7 +19,7 @@ Signal identity:
 
 How to use safely:
 1. Copy this signal file to MT5 Common Files as phantom_signals.jsonl.
-2. Compile/deploy PhantomBridge_v5.mq5.
+2. Compile/deploy PhantomBridge.mq5.
 3. Verify hashes with SHA256SUMS.txt before running.
 
 Note:

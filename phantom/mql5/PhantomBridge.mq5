@@ -1,23 +1,23 @@
 //+----+
-//|                    PhantomBridge_v5.mq5                         |
-//|  V5 FUND BRIDGE (tuple-v2 compatible)                    |
-//|  Reads phantom_signals.jsonl (FILE_COMMON) and replays actions:  |
-//|  meta / open / modify / close / heartbeat                        |
+//|                    PhantomBridge.mq5                            |
+//|  CASH bridge for PHANTOM p2 signal replay                       |
+//|  Reads phantom_signals.jsonl from FILE_COMMON and replays:      |
+//|  meta / open / modify / close / heartbeat                       |
 //|                                                                  |
-//|  CHANGES vs source (PhantomBridge_v2.mq5):                       |
-//|    [CASH-1] Force BROKER_CASH — removed DetectMode/auto-detect   |
-//|    [CASH-2] Tiered risk via TieredRiskPct() based on equity/cap  |
-//|    [CASH-3] Trailing 15% max-loss floor off peak equity          |
-//|    [CASH-4] x10 lot cap (InpCashLotCapMult * base_lot)           |
-//|    [CASH-5] Withdrawal re-anchor in OnTradeTransaction()         |
-//|    [CASH-6] Daily loss 4.5% off day-start balance                |
-//|    [CASH-7] Circuit breaker 80% of daily loss limit              |
-//|    [CASH-8] Stripped FTMO-only inputs (FtmoRiskPct, leverage)    |
-//|    [CASH-9] Stripped profit_target / min_trading_days (removed)   |
-//|    [CASH-10] Per-login state isolation preserved                  |
+//|  Key behavior:                                                   |
+//|    [CASH-1] Forced BROKER_CASH (no broker auto-detect)          |
+//|    [CASH-2] Tiered risk sizing from current equity              |
+//|    [CASH-3] Trailing max-loss floor from peak equity            |
+//|    [CASH-4] Lot cap via InpCashLotCapMult                       |
+//|    [CASH-5] Withdrawal-aware peak re-anchoring                  |
+//|    [CASH-6] Daily loss floor from day-start balance             |
+//|    [CASH-7] Circuit breaker at % of daily loss allowance        |
+//|    [CASH-8] FTMO-only controls removed from this bridge         |
+//|    [CASH-9] No profit-target or min-trading-days gating         |
+//|    [CASH-10] Per-login state isolation                          |
 //+----+
 #property strict
-#property description "PHANTOM p2 bridge (V5 FUND) - reads phantom_signals.jsonl and mirrors Python signals"
+#property description "PHANTOM p2 cash bridge - reads phantom_signals.jsonl and mirrors Python signals"
 
 #include <Trade/Trade.mqh>
 CTrade trade;
@@ -42,7 +42,7 @@ input string  InpSignalFile          = "phantom_signals.jsonl"; // file in Commo
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
 input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
-input bool    InpReplayUseSignalPricing = true;                 // in replay, use signal qty/entry/exit for parity ledger
+input bool    InpReplayUseSignalPricing = false;                 // in replay, use signal qty/entry/exit for parity ledger
 
 // --- broker mode --- [CASH-1] Hardcoded Cash, no auto-detect
 enum ENUM_BROKER_MODE { BROKER_CASH=2 };
@@ -80,7 +80,7 @@ input bool    InpManualResume        = false;                   // TRUE = clear 
 input double  InpMetaAccountFallback = 5000.0;                  // used only if a signal lacks signal_account_size
 input double  InpMaxLots             = 50.0;                    // absolute hard safety cap
 input double  InpMinLots             = 0.01;
-input bool    InpUsePythonSizing     = true;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
+input bool    InpUsePythonSizing     = false;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
 
 // --- notifications ---
 input bool    InpNotifyPush          = true;
@@ -988,11 +988,11 @@ void HandleClose(const string js)
       if(pnl_live < 0.0) g_cumulative_losses++;
       else g_cumulative_losses = 0;
 
-      if(g_cumulative_losses >= 10){
+      if(g_cumulative_losses >= 15){
          g_disabled_perm = true;
          FlattenAll("CONSECUTIVE_LOSSES");
          Notify("PHANTOM CASH DISABLED",
-                "10 consecutive losses reached. Flattened & HARD-PAUSED until manual resume.");
+                "15 consecutive losses reached. Flattened & HARD-PAUSED until manual resume.");
          SaveState();
          LogCSV("DISABLE_CONSECUTIVE_LOSSES;count="+IntegerToString(g_cumulative_losses));
       }

@@ -1,0 +1,23 @@
+CURRENT_COMMON
+path=/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/users/user/AppData/Roaming/MetaQuotes/Terminal/Common/Files/phantom_signals.jsonl
+sha256=ab1a6829f11f87d90405fd009d42e8b5fce2c0bc0dc56ca3a5cbce305f511756
+bytes=2656131
+lines=16443
+
+CURRENT_REPO
+path=/Users/niko/Documents/projects/niko-ai/signals/phantom_signals.jsonl
+sha256=ab1a6829f11f87d90405fd009d42e8b5fce2c0bc0dc56ca3a5cbce305f511756
+identical_to_common=True
+
+HIST_CASH
+path=/Users/niko/Documents/projects/niko-ai/saved_runs/2026-06-16_6y/cash/phantom_signals_cash.jsonl
+sha256=5c46b9c03d592890788c93ba938889b69a8930a97106e33cab8facf0ac72e318
+bytes=4328765
+lines=26693
+
+CUR_VS_HIST
+identical=False
+first_byte_diff=index:147;current:57;hist:46
+first_diff_line=1
+current_line={"v": 1, "action": "meta", "engine": "p2_ftmo_v2", "instrument": "US100", "signal_account_size": 10000.0, "ftmo": false, "ftmo_daily_dd_pct": 999999.0, "atr_trail_mult": 0.8}
+hist_line={"v": 1, "action": "meta", "engine": "p2_ftmo_v2", "instrument": "US100", "signal_account_size": 10000.0, "ftmo": false, "ftmo_daily_dd_pct": 9999.0, "atr_trail_mult": 0.8}
