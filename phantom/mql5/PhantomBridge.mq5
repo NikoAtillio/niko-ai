@@ -1,23 +1,99 @@
-//+----+
-//|                    PhantomBridge.mq5                            |
-//|  CASH bridge for PHANTOM p2 signal replay                       |
-//|  Reads phantom_signals.jsonl from FILE_COMMON and replays:      |
-//|  meta / open / modify / close / heartbeat                       |
-//|                                                                  |
-//|  Key behavior:                                                   |
-//|    [CASH-1] Forced BROKER_CASH (no broker auto-detect)          |
-//|    [CASH-2] Tiered risk sizing from current equity              |
-//|    [CASH-3] Trailing max-loss floor from peak equity            |
-//|    [CASH-4] Lot cap via InpCashLotCapMult                       |
-//|    [CASH-5] Withdrawal-aware peak re-anchoring                  |
-//|    [CASH-6] Daily loss floor from day-start balance             |
-//|    [CASH-7] Circuit breaker at % of daily loss allowance        |
-//|    [CASH-8] FTMO-only controls removed from this bridge         |
-//|    [CASH-9] No profit-target or min-trading-days gating         |
-//|    [CASH-10] Per-login state isolation                          |
-//+----+
+//+------------------------------------------------------------------+
+//|  PhantomBridge.mq5                                               |
+//|  PHANTOM p2 — CASH account signal bridge                         |
+//|  Copyright 2025-2026, Phantom Trading Systems                     |
+//+------------------------------------------------------------------+
+//|  PURPOSE                                                          |
+//|    Reads newline-delimited JSON signals written by the Python     |
+//|    PHANTOM p2 engine (phantom_signals.jsonl in MT5 Common\Files)  |
+//|    and executes them on a live/demo CASH account.  Supports two   |
+//|    run modes:                                                      |
+//|      Replay  (InpReplayMode=true)  – bar-by-bar backtest replay   |
+//|      Live    (InpReplayMode=false) – real-time file polling        |
+//|                                                                    |
+//|  SIGNAL ACTIONS HANDLED                                           |
+//|    meta      – captures signal_account_size for lot scaling        |
+//|    open      – opens a market position (buy or sell)               |
+//|    modify    – updates stop-loss (breakeven / trailing)            |
+//|    close     – closes position at market (stop, tp, or forced)     |
+//|    heartbeat – file-liveness ping; no trade action taken           |
+//|                                                                    |
+//|  KEY BEHAVIOURS                                                    |
+//|    [CASH-1]  Forced BROKER_CASH — no broker auto-detect.           |
+//|              FTMO/hybrid mode enum and DetectMode() removed.       |
+//|    [CASH-2]  Tiered risk sizing from current equity.               |
+//|              Risk % tapers automatically as the account grows:     |
+//|              <2x → 3.95%, <4x → 3.10%, <7x → 2.40%,              |
+//|              <10x → 1.85%, ≥10x → 1.40% (all configurable).       |
+//|    [CASH-3]  Trailing max-loss floor from peak equity.             |
+//|              If equity drops 15% below the running high-water      |
+//|              mark, all positions are flattened and the EA is       |
+//|              hard-paused until InpManualResume=true is set.        |
+//|              Peak is saved to disk on every new equity high.       |
+//|    [CASH-4]  Lot cap via InpCashLotCapMult.                        |
+//|              Computed lots are capped at N × the natural           |
+//|              entry-day base lots (default 10×) to prevent          |
+//|              runaway sizing on a compounded account.               |
+//|    [CASH-5]  Withdrawal-aware peak re-anchoring.                   |
+//|              OnTradeTransaction detects BALANCE deals with a       |
+//|              negative amount (withdrawals) and shifts the          |
+//|              high-water mark down by that amount, keeping the      |
+//|              trailing floor coherent after capital removal.        |
+//|    [CASH-6]  Daily loss floor from day-start balance.              |
+//|              At midnight server time the day-start balance is      |
+//|              snapped.  A loss of InpDailyLossPct% (default 4.5%)  |
+//|              triggers a full flatten + daily halt.  Auto-resumes   |
+//|              at the next server-day rollover.                      |
+//|    [CASH-7]  Circuit breaker at % of daily loss allowance.         |
+//|              Soft-stop fires at InpCircuitBreakerPct% (default     |
+//|              80%) of the daily limit; stops new opens but does     |
+//|              not flatten.  Clears on next server day.              |
+//|    [CASH-8]  FTMO-only controls removed.                           |
+//|              InpFtmoRiskPct, InpFtmoMaxLeverage, InpMaxLossPct,    |
+//|              profit-target gating, min-trading-days gating, and    |
+//|              the BROKER_FTMO / BROKER_AUTO enum values are all     |
+//|              absent from this build.                               |
+//|    [CASH-9]  No profit-target or min-trading-days gating.          |
+//|              The EA trades every valid signal regardless of P&L    |
+//|              position; there is no "close early on profit target"  |
+//|              or "must trade N days per week" constraint.           |
+//|    [CASH-10] Per-login state isolation.                            |
+//|              peak_equity, start_cap, and disabled_perm are         |
+//|              persisted to phantom_state_<login>.json in            |
+//|              Common\Files, keyed by MT5 account login number.      |
+//|              Multiple accounts on the same machine do not share    |
+//|              state.  State is not loaded during backtests.         |
+//|                                                                    |
+//|  SAFETY ADDITIONS (v5.2+)                                         |
+//|    [SAFE-1]  Consecutive-loss hard stop.                           |
+//|              15 straight losing closes (default) triggers a        |
+//|              flatten + permanent disable + push notification.      |
+//|    [SAFE-2]  Risk buffer cap in lot sizing.                        |
+//|              risk_amt is capped to the remaining equity above      |
+//|              the trailing floor; SIZE_BLOCK is logged if the       |
+//|              buffer is exhausted and 0.0 lots returned.            |
+//|    [SAFE-3]  Peak equity saved on every new high (not just on      |
+//|              guardrail events), preventing stale floor on restart. |
+//|    [SAFE-4]  Day-start balance refreshed on every server-day       |
+//|              rollover, keeping withdrawal detection anchored to     |
+//|              the most recent day rather than init time.            |
+//|                                                                    |
+//|  LOT SIZING MODES (InpUsePythonSizing)                            |
+//|    false (default) – EA computes lots via tiered CASH model        |
+//|                      using live equity, entry/stop distance,       |
+//|                      tick value, and lot cap.                      |
+//|    true            – trust signal qty scaled by                    |
+//|                      (live_equity / signal_account_size).          |
+//|    Replay + InpReplayUseSignalPricing=true – raw signal qty used   |
+//|                      directly; synthetic P&L ledger computed.      |
+//|                                                                    |
+//|  STATE FILES (Common\Files)                                        |
+//|    phantom_signals.jsonl         – signal input (Python writer)    |
+//|    phantom_state_<login>.json    – peak/cap/disable persistence    |
+//|    phantom_bridge_log.csv        – trade + guardrail audit log     |
+//+------------------------------------------------------------------+
 #property strict
-#property description "PHANTOM p2 cash bridge - reads phantom_signals.jsonl and mirrors Python signals"
+#property description "PHANTOM p2 CASH bridge — reads phantom_signals.jsonl and mirrors Python signals"
 
 #include <Trade/Trade.mqh>
 CTrade trade;
