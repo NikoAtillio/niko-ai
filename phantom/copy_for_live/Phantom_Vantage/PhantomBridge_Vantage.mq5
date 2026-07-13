@@ -156,7 +156,7 @@ input bool    InpManualResume        = false;                   // TRUE = clear 
 input double  InpMetaAccountFallback = 5000.0;                  // used only if a signal lacks signal_account_size
 input double  InpMaxLots             = 50.0;                    // absolute hard safety cap
 input double  InpMinLots             = 0.01;
-input bool    InpUsePythonSizing     = false;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
+input bool    InpUsePythonSizing     = true;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
 
 // --- notifications ---
 input bool    InpNotifyPush          = true;
