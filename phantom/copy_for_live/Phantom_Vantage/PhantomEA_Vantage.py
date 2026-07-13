@@ -51,7 +51,7 @@ MAX_LOT_CAP  = 50        # Hard per-order cap (Vantage NAS100 limit)
 # MetaTrader `Common/Files` directory found under the Wine prefix.
 EMIT_SIGNALS = True
 EMIT_HEARTBEATS = False
-SIGNAL_FILENAME = 'signals_phantom_us100_v5_fund_us100_full_full.jsonl'
+SIGNAL_FILENAME = 'signals_vantage.jsonl'
 GENERIC_SIGNAL_ALIAS = 'phantom_signals.jsonl'
 WRITE_GENERIC_SIGNAL_ALIAS = False
 SIGNAL_SCHEMA_VERSION = 1
@@ -129,12 +129,7 @@ def _configure_signal_filename(args) -> str:
             safe += '.jsonl'
         SIGNAL_FILENAME = safe
     else:
-        SIGNAL_FILENAME = _build_signal_filename(
-            ENGINE_VERSION,
-            args.instrument,
-            args.start_date,
-            args.end_date,
-        )
+        SIGNAL_FILENAME = 'signals_vantage.jsonl'
     return SIGNAL_FILENAME
 
 def evaluate_tz_alignment_from_signals(m5_df: pd.DataFrame,

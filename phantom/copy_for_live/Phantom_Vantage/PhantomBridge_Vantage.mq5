@@ -114,7 +114,7 @@ double TieredRiskPct(const double equity);  // [CASH-2]
 double ComputeLotsForSignal(const string dir,const double entry,const double stop,const double qty,const double sacct);
 
 //==== INPUTS ====
-input string  InpSignalFile          = "signals_phantom_us100_v5_fund_us100_20230101_20260101.jsonl"; // file in Common\Files
+input string  InpSignalFile          = "signals_vantage.jsonl"; // file in Common\Files
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
 input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
