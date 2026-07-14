@@ -340,8 +340,9 @@ CASH_CONFIG = {
     # COMPOUNDS off live equity (not a fixed start_cap), risk-per-trade is tiered
     # by account growth, and the max-loss floor TRAILS the equity peak.
     'max_daily_loss_pct': 4.5,        # daily loss limit: 4.5% off the day-START balance
-    'circuit_breaker_pct': 80.0,      # soft halt at 80% of the daily amount -> auto-resume next day
-    'soft_stop_ratio': 0.8,           # == circuit_breaker_pct/100 (pause before the daily hard floor)
+    'circuit_breaker_pct': 90.0,      # soft halt at 90% of the daily amount -> auto-resume next day
+    'soft_stop_ratio': 0.9,           # == circuit_breaker_pct/100 (pause before the daily hard floor)
+    'total_soft_stop_enabled': False,  # LENIENT: disable total-soft-stop; only hard floor applies
     'trail_max_loss_pct': 15.0,       # C2: max-loss floor TRAILS 15% below the rolling equity peak
     'manual_resume_file': 'tmp/cash_resume.flag',
     'hard_close_on_trigger': True,
@@ -451,9 +452,9 @@ DEFAULTS = {
     'conf_tol'      : 0.002,     # 0.20% zone proximity
     'h4_pivot_bars' : 2,
     'h4_lookback'   : 50,
-    'circuit_breaker_losses': 5, # pause after N consecutive losses
-    'circuit_breaker_hours' : 24,
-    'consecutive_loss_hard_stop': 10,
+    'circuit_breaker_losses': 8, # pause after N consecutive losses
+    'circuit_breaker_hours' : 12,
+    'consecutive_loss_hard_stop': 15,
     'breakeven_r'   : 0.8,       # move stop to entry at this R level
     'confidence_mult': 7.5,      # top-confidence sizing (boosted from 6.6)
     'confidence_medium_mult': 1.6, # medium-confidence sizing
@@ -1211,9 +1212,28 @@ def run_scenario(
                 win       = pnl > 0
 
                 # Update circuit breaker
+                prev_consec = breaker.consecutive_losses
                 breaker.record(win, ts_pd)
                 if not win:
                     last_loss_exit = ts_pd
+                    # Emit pause signal when circuit breaker threshold first crossed
+                    if (breaker.consecutive_losses >= DEFAULTS['circuit_breaker_losses']
+                            and prev_consec < DEFAULTS['circuit_breaker_losses']):
+                        resume_ts = ts_pd + pd.Timedelta(hours=DEFAULTS['circuit_breaker_hours'])
+                        emit_event({
+                            'action': 'pause_entries',
+                            'reason': f"consec_loss_{breaker.consecutive_losses}",
+                            'resume_after': resume_ts.isoformat(),
+                            'consec': breaker.consecutive_losses,
+                        })
+                    # Emit hard stop when breaker hard-stops
+                    if breaker.hard_stopped:
+                        emit_event({
+                            'action': 'hard_stop',
+                            'reason': f"consec_loss_{breaker.consecutive_losses}",
+                            'flatten_all': True,
+                            'consec': breaker.consecutive_losses,
+                        })
 
                 results.append({
                     'entry_ts'           : p['entry_ts'],
@@ -1268,6 +1288,7 @@ def run_scenario(
             cash_hard_stop_reason = None
             cash_hard_stop_until = None
             breaker.manual_reset_hard_stop()
+            emit_event({'action': 'resume_entries', 'reason': 'pause_window_elapsed'})
             print(
                 f"  [cash] hard-stop AUTO-RESUME {ts_pd} | "
                 f"pause window elapsed, trading resumed"
@@ -1367,7 +1388,7 @@ def run_scenario(
                 f"closed {soft_closed} open position(s)"
             )
 
-        # Total-loss soft stop requires manual intervention to resume entries.
+        # Total-loss soft stop - skipped entirely when total_soft_stop_enabled is False (lenient mode).
         # Once equity climbs back above the soft floor, clear the manual-resume
         # latch so a fresh breach later will require intervention again.
         if cash_total_manual_resume and equity_now > total_soft_floor:
@@ -1379,8 +1400,9 @@ def run_scenario(
         # Only (re)arm the pause if we are NOT operating under an active manual
         # resume. This prevents the pause from re-triggering on the very next
         # bar while equity is still below the soft floor.
-        if (not cash_total_soft_pause) and (not cash_total_manual_resume) \
-                and equity_now <= total_soft_floor:
+        if (cash.get('total_soft_stop_enabled', True)
+            and (not cash_total_soft_pause) and (not cash_total_manual_resume)
+            and equity_now <= total_soft_floor):
             cash_total_soft_pause = True
             print(
                 f"  [cash] total soft-stop active {ts_pd} | "

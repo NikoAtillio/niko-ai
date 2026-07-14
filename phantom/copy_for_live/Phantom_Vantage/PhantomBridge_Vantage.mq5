@@ -112,6 +112,9 @@ void   SaveState();
 void   LoadState();
 double TieredRiskPct(const double equity);  // [CASH-2]
 double ComputeLotsForSignal(const string dir,const double entry,const double stop,const double qty,const double sacct);
+void   HandlePauseEntries(const string js);
+void   HandleResumeEntries(const string js);
+void   HandleHardStop(const string js);
 
 //==== INPUTS ====
 input string  InpSignalFile          = "signals_vantage.jsonl"; // file in Common\Files
@@ -185,6 +188,7 @@ ENUM_BROKER_MODE g_mode = BROKER_CASH;
 // guardrail state
 bool     g_halted_today   = false;
 bool     g_disabled_perm  = false;
+bool     g_python_paused  = false;    // Python issued pause_entries; blocks new opens
 int      g_cumulative_losses = 0;
 datetime g_halt_serverday = 0;
 double   g_day_start_equity = 0.0;
@@ -820,6 +824,11 @@ void HandleOpen(const string js)
       return;
    }
 
+   if(g_python_paused){
+      LogCSV("OPEN_BLOCKED_PYTHON_PAUSE;"+JGetStr(js,"id"));
+      return;
+   }
+
    string id  = JGetStr(js,"id");
    if(id=="") id = JGetStr(js,"entry_ts");
    if(HasOpenFired(id)){
@@ -1087,22 +1096,47 @@ void HandleClose(const string js)
    if(trade.PositionClose(tk)){
       LogCSV("CLOSE;"+id+";fill="+DoubleToString(trade.ResultPrice(),g_digits));
 
+      // Consecutive-loss hard stop is now owned by Python (pause_entries / hard_stop signals).
+      // EA only tracks the count for logging purposes.
       if(pnl_live < 0.0) g_cumulative_losses++;
       else g_cumulative_losses = 0;
-
-      if(g_cumulative_losses >= 15){
-         g_disabled_perm = true;
-         FlattenAll("CONSECUTIVE_LOSSES");
-         Notify("PHANTOM CASH DISABLED",
-                "15 consecutive losses reached. Flattened & HARD-PAUSED until manual resume.");
-         SaveState();
-         LogCSV("DISABLE_CONSECUTIVE_LOSSES;count="+IntegerToString(g_cumulative_losses));
-      }
+      LogCSV("CLOSE_LOSS_COUNT;consec="+IntegerToString(g_cumulative_losses));
    }
    else {
       LogCSV("CLOSE_FAIL;"+id+";ret="+IntegerToString(trade.ResultRetcode()));
    }
    UnmapId(id);
+}
+
+//==== PYTHON GUARDRAIL RECEIVERS ====
+void HandlePauseEntries(const string js)
+{
+   g_python_paused = true;
+   string reason = JGetStr(js, "reason");
+   string resume = JGetStr(js, "resume_after");
+   LogCSV("PYTHON_PAUSE_ENTRIES;reason="+reason+";resume_after="+resume);
+   Notify("PHANTOM PAUSE", "Python paused new entries: "+reason+". Resumes: "+resume);
+}
+
+void HandleResumeEntries(const string js)
+{
+   if(!g_python_paused) return;
+   g_python_paused = false;
+   string reason = JGetStr(js, "reason");
+   LogCSV("PYTHON_RESUME_ENTRIES;reason="+reason);
+   Notify("PHANTOM RESUME", "Python resumed entries: "+reason);
+}
+
+void HandleHardStop(const string js)
+{
+   string reason = JGetStr(js, "reason");
+   FlattenAll("PYTHON_HARD_STOP:"+reason);
+   g_disabled_perm = true;
+   g_python_paused  = true;
+   SaveState();
+   LogCSV("PYTHON_HARD_STOP;reason="+reason);
+   Notify("PHANTOM HARD STOP", "Python hard_stop received: "+reason+
+          ". All positions flattened & EA hard-paused.");
 }
 
 //==== LINE DISPATCH ====
@@ -1118,7 +1152,10 @@ void ProcessLine(const string raw)
    else if(action=="open")      HandleOpen(js);
    else if(action=="modify")    HandleModify(js);
    else if(action=="close")     HandleClose(js);
-   else if(action=="heartbeat") { /* liveness only */ }
+   else if(action=="heartbeat")      { /* liveness only */ }
+   else if(action=="pause_entries")  HandlePauseEntries(js);
+   else if(action=="resume_entries") HandleResumeEntries(js);
+   else if(action=="hard_stop")      HandleHardStop(js);
 }
 
 //==== FILE READ ====

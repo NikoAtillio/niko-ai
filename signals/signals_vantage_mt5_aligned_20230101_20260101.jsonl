@@ -1,0 +1,7 @@
+{"v": 1, "action": "meta", "engine": "phantom_us100_v5_fund", "instrument": "US100", "signal_account_size": 10000.0, "cash": true, "cash_daily_dd_pct": 4.5, "atr_trail_mult": 0.8}
+{"v": 1, "action": "open", "id": "2023-01-06T15:30:00#1", "entry_ts": "2023-01-06T15:30:00", "dir": "long", "entry": 10771.1, "stop": 10613.779922284508, "tp": 10975.616101030142, "qty": 18.529739130130928, "regime": "bull", "conf": 6.15, "atr_entry": 104.88005181032881, "signal_account_size": 10000.0, "stack_max": 1}
+{"v": 1, "action": "modify", "id": "2023-01-06T15:30:00#1", "signal_ts": "2023-01-06T15:35:00", "new_stop": 10677.995958551737, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2023-01-06T15:30:00#1", "signal_ts": "2023-01-06T15:40:00", "new_stop": 10712.595958551738, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2023-01-06T15:30:00#1", "signal_ts": "2023-01-06T15:45:00", "new_stop": 10749.595958551738, "reason": "trail"}
+{"v": 1, "action": "modify", "id": "2023-01-06T15:30:00#1", "signal_ts": "2023-01-06T15:50:00", "new_stop": 10782.795958551738, "reason": "trail"}
+{"v": 1, "action": "close", "id": "2023-01-06T15:30:00#1", "signal_ts": "2023-01-06T16:30:00", "exit": 10782.795958551738, "reason": "stop"}

@@ -1,0 +1,2 @@
+entry_ts,exit_ts,dir,entry,exit,entry_price,exit_price,entry_signal_price,exit_signal_price,stop_price,stop_price_initial,stop_price_exit,initial_risk_price,r_value,fees,pnl,win,exit_reason,qty,be_triggered,confidence_mult,regime,_week
+2023-01-06 15:30:00,2023-01-06 16:30:00,long,10771.1,10782.795958551738,10771.1,10782.795958551738,10771.1,10782.795958551738,10782.795958551738,10613.779922284508,10782.795958551738,157.32007771549252,0.07434498330778627,0.0,216.72306084052778,True,stop,18.529739130130928,False,6.15,bull,2023-01-02/2023-01-08
