@@ -651,6 +651,7 @@ void SaveState()
    string js="{\"login\":"+IntegerToString(g_login)+
              ",\"start_cap\":"+DoubleToString(g_start_cap,2)+
              ",\"peak_equity\":"+DoubleToString(g_peak_equity,2)+
+             ",\"filepos\":"+IntegerToString((long)g_filepos)+
              ",\"disabled_perm\":"+(g_disabled_perm?"1":"0")+"}";
    FileWrite(h, js);
    FileClose(h);
@@ -668,11 +669,14 @@ void LoadState()
    double sc = JGetNum(js,"start_cap",0.0);
    double pk = JGetNum(js,"peak_equity",0.0);
    double dp = JGetNum(js,"disabled_perm",0.0);
+      double fp = JGetNum(js,"filepos",0.0);
    if(sc>0.0) g_start_cap=sc;
    if(pk>0.0) g_peak_equity=pk;
    g_disabled_perm = (dp>=0.5);
+      if(fp>0.0 && !InpReplayMode) g_filepos=(ulong)fp;
    LogCSV("STATE_LOADED;start_cap="+DoubleToString(g_start_cap,2)+
           ";peak="+DoubleToString(g_peak_equity,2)+
+         ";filepos="+IntegerToString((long)g_filepos)+
           ";disabled_perm="+(g_disabled_perm?"1":"0"));
 }
 
@@ -1171,6 +1175,7 @@ void PumpFileLive()
    }
    g_filepos=(ulong)FileTell(h);
    FileClose(h);
+   SaveState();
 }
 
 //==== EVENTS ====
