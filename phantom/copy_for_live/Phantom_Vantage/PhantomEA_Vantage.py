@@ -1367,25 +1367,18 @@ def run_scenario(
         # Daily soft stop resets at next UTC day.
         if (not cash_daily_soft_pause) and equity_now <= daily_soft_floor:
             cash_daily_soft_pause = True
-            soft_closed = 0
-            if positions:
-                soft_closed = len(positions)
-                results.extend(
-                    close_positions_for_cash(
-                        positions,
-                        ts_pd,
-                        price,
-                        'cash_daily_soft_stop',
-                        'DAILY-SOFT FORCE-CLOSE',
-                    )
-                )
-                positions = []
+            resume_ts = (ts_pd + pd.Timedelta(days=1)).normalize()
+            emit_event({
+                'action': 'pause_entries',
+                'reason': 'cash_daily_soft_stop',
+                'resume_after': resume_ts.isoformat(),
+            })
             print(
                 f"  [cash] daily soft-stop active {ts_pd} | "
                 f"equity={fmt_gbp(equity_now)} <= daily_soft={fmt_gbp(daily_soft_floor)} | "
                 f"daily_hard={fmt_gbp(daily_floor)} | "
                 f"total_soft={fmt_gbp(total_soft_floor)} | total_hard={fmt_gbp(total_floor)} | "
-                f"closed {soft_closed} open position(s)"
+                f"NEW ENTRIES BLOCKED - existing {len(positions)} position(s) continue to trailing stop"
             )
 
         # Total-loss soft stop - skipped entirely when total_soft_stop_enabled is False (lenient mode).
