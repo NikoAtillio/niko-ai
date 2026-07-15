@@ -1845,6 +1845,13 @@ def run_scenario(
             conf_cap = float(DEFAULTS.get('confidence_max', 2.0))
             conf_mult = max(DEFAULTS['confidence_min'], min(conf_cap, conf_mult))
 
+            # Staggered early-stage confidence cap.
+            net_profit_now = equity_now - start_cap
+            if net_profit_now < 10_000:
+                conf_mult = min(conf_mult, float(DEFAULTS.get('confidence_medium_mult', 1.6)))
+            elif net_profit_now < 30_000:
+                conf_mult = min(conf_mult, 2.5)
+
             # ── Confidence-gated stacking ────
             n_open_same_dir = sum(1 for p in positions if p['dir'] == z_dir)
 
