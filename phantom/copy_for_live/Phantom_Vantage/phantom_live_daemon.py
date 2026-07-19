@@ -1,0 +1,684 @@
+r"""
+phantom_live_daemon.py — PHANTOM p2 Live Signal Daemon (VPS edition)
+====================================================================
+Runs continuously on a Windows VPS alongside MT5.
+
+Architecture
+------------
+  1. On startup: run the full engine over all historical CSV data →
+     write the complete signal file once (all historical events).
+  2. Poll loop: every --poll-seconds check if any CSV was updated
+     (by file mtime).  On a new M5 bar, re-run the engine, diff the
+     resulting event stream against the already-written set, and
+     APPEND only genuinely new events.
+  3. Heartbeat: every 5 minutes write a heartbeat event so the EA
+     can detect a dead writer.
+
+Bug fixes vs the original draft
+---------------------------------
+  FIX-1  Dedup uses a per-event content fingerprint (sha256 of the
+         canonical JSON fields) instead of signal-id alone.
+         open/modify/close for the same trade now each have a unique
+         fingerprint, so trailing-stop updates and forced closes are
+         never silently dropped.
+  FIX-2  Control events (pause_entries, resume_entries, hard_stop)
+         are deduped by their CONTENT hash (action + reason +
+         resume_after).  Identical back-to-back control events from
+         successive reruns are suppressed; new ones pass through.
+  FIX-3  All runtime dependencies (pandas, numpy, the engine module)
+         are validated at startup with a clear error if missing.
+  FIX-4  Signal file is APPENDED atomically (write-to-tmp then
+         rename on POSIX; write-to-tmp then copy on Windows) so the
+         EA never reads a half-written file.
+
+Usage (Windows VPS)
+-------------------
+  python phantom_live_daemon.py ^
+    --instrument US100 ^
+    --m1    "C:\...\phantom_live\US100_M1.csv" ^
+    --m5    "C:\...\phantom_live\US100_M5.csv" ^
+    --m15   "C:\...\phantom_live\US100_M15.csv" ^
+    --h1    "C:\...\phantom_live\US100_H1.csv" ^
+    --h4    "C:\...\phantom_live\US100_H4.csv" ^
+    --daily "C:\...\phantom_live\US100_Daily.csv" ^
+    --weekly "C:\...\phantom_live\US100_Weekly.csv" ^
+    --capital 10000 ^
+    --signal-filename signals_vantage_live.jsonl ^
+    --poll-seconds 15
+"""
+
+import argparse
+import glob
+import hashlib
+import json
+import os
+import platform
+import shutil
+import sys
+import tempfile
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Set
+
+# ── dependency guard ─────────────────────────────────────────────────────────
+_MISSING = []
+try:
+    import pandas as pd
+except ImportError:
+    _MISSING.append("pandas")
+try:
+    import numpy as np
+except ImportError:
+    _MISSING.append("numpy")
+if _MISSING:
+    sys.exit(
+        f"[daemon] FATAL: missing packages: {', '.join(_MISSING)}\n"
+        f"  Run:  pip install {' '.join(_MISSING)}"
+    )
+
+# ── engine import ─────────────────────────────────────────────────────────────
+try:
+    import PhantomEA_Vantage as engine
+except ImportError as exc:
+    sys.exit(
+        f"[daemon] FATAL: cannot import PhantomEA_Vantage — {exc}\n"
+        f"  Make sure PhantomEA_Vantage.py is in the same directory as this script."
+    )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FINGERPRINT HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _event_fingerprint(event: dict) -> str:
+    """
+    FIX-1 / FIX-2: Produce a stable sha256 fingerprint for dedup.
+
+    For trade events (open / modify / close):
+        key = action + id + relevant numeric/string payload fields
+        This means open, each modify, and close for the same trade id
+        each produce a DIFFERENT fingerprint.
+
+    For control events (pause_entries, resume_entries, hard_stop):
+        key = action + reason + resume_after (if present)
+        Two identical consecutive pause events from successive reruns
+        are suppressed; a pause with a different reason passes through.
+
+    For meta / heartbeat:
+        key = action only (they are always re-emitted on restart, so
+        we intentionally deduplicate them to one-per-session).
+    """
+    action = event.get("action", "")
+
+    if action in ("open",):
+        parts = [
+            action,
+            str(event.get("id", "")),
+            str(event.get("dir", "")),
+            _round_str(event.get("entry")),
+            _round_str(event.get("stop")),
+            _round_str(event.get("tp")),
+            _round_str(event.get("qty")),
+        ]
+    elif action in ("modify",):
+        parts = [
+            action,
+            str(event.get("id", "")),
+            str(event.get("signal_ts", "")),
+            _round_str(event.get("new_stop")),
+            str(event.get("reason", "")),
+        ]
+    elif action in ("close",):
+        parts = [
+            action,
+            str(event.get("id", "")),
+            str(event.get("signal_ts", "")),
+            _round_str(event.get("exit")),
+            str(event.get("reason", "")),
+        ]
+    elif action in ("pause_entries", "resume_entries", "hard_stop"):
+        # FIX-2: control events deduped by content, not session
+        parts = [
+            action,
+            str(event.get("reason", "")),
+            str(event.get("resume_after", "")),
+            str(event.get("flatten_all", "")),
+        ]
+    else:
+        # meta, heartbeat, unknown: one per session
+        parts = [action]
+
+    raw = "|".join(parts)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _round_str(v, decimals: int = 5) -> str:
+    """Convert a float to a rounded string for fingerprinting."""
+    if v is None:
+        return "None"
+    try:
+        return f"{float(v):.{decimals}f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MT5 COMMON/FILES PATH DISCOVERY
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _find_mt5_common_files() -> List[str]:
+    """Return every MT5 Common\\Files directory visible on this machine."""
+    candidates: List[str] = []
+
+    if platform.system() == "Windows":
+        # Standard Windows path: AppData\Roaming\MetaQuotes\Terminal\Common\Files
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            pattern = os.path.join(
+                appdata, "MetaQuotes", "Terminal", "Common", "Files"
+            )
+            candidates.append(pattern)
+        # Also scan all profiles (multi-user VPS)
+        profiles_root = os.path.join(os.environ.get("SYSTEMDRIVE", "C:") + "\\", "Users")
+        candidates += glob.glob(
+            os.path.join(profiles_root, "*", "AppData", "Roaming",
+                         "MetaQuotes", "Terminal", "Common", "Files")
+        )
+    else:
+        # macOS / Linux: Wine prefix
+        wp = (
+            os.environ.get("WINEPREFIX")
+            or os.path.expanduser(
+                "~/Library/Application Support/net.metaquotes.wine.metatrader5"
+            )
+        )
+        candidates += glob.glob(
+            os.path.join(wp, "drive_c", "users", "*",
+                         "AppData", "Roaming", "MetaQuotes", "Terminal",
+                         "Common", "Files")
+        )
+        candidates += glob.glob(
+            os.path.join(wp, "drive_c", "Users", "*",
+                         "AppData", "Roaming", "MetaQuotes", "Terminal",
+                         "Common", "Files")
+        )
+
+    seen: Set[str] = set()
+    result: List[str] = []
+    for p in candidates:
+        if p not in seen and os.path.isdir(p):
+            seen.add(p)
+            result.append(p)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ATOMIC FILE WRITE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _atomic_append_lines(path: str, lines: List[str]) -> None:
+    """
+    FIX-4: Append lines to `path` atomically.
+    Strategy: read existing content → append new lines → write to
+    a sibling .tmp file → rename (POSIX) or copy+delete (Windows).
+    The EA therefore never reads a partial write.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+
+    # Read existing content
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            existing = f.read()
+    except FileNotFoundError:
+        existing = ""
+
+    blob = existing
+    for line in lines:
+        if not blob.endswith("\n") and blob:
+            blob += "\n"
+        blob += line + "\n"
+
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(blob)
+
+    # Atomic replace
+    try:
+        os.replace(tmp_path, path)          # POSIX + Windows (Python 3.3+)
+    except OSError:
+        shutil.copy2(tmp_path, path)
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENGINE RUNNER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _run_engine(args: argparse.Namespace) -> List[dict]:
+    """
+    Run PhantomEA_Vantage.main() in-process with the given data paths
+    and return the buffered event list.
+
+    We monkey-patch EMIT_SIGNALS=True and intercept _EVENT_BUFFER
+    directly so no file I/O happens inside the engine call.
+    """
+    # Patch engine globals
+    engine.EMIT_SIGNALS = True
+    engine.EMIT_HEARTBEATS = False
+    engine.SIGNAL_FILENAME = args.signal_filename
+    engine._EVENT_BUFFER.clear()
+    engine._SIGNAL_SEQ["n"] = 0
+
+    # Build a minimal argparse Namespace that matches engine.main() expectations
+    eng_args = argparse.Namespace(
+        instrument=args.instrument,
+        m1=args.m1,
+        m5=args.m5,
+        m15=args.m15,
+        h1=args.h1,
+        h4=args.h4,
+        daily=args.daily,
+        weekly=args.weekly,
+        capital=args.capital,
+        output_dir=args.output_dir,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        commission_per_trade=0.0,
+        start_date=None,
+        end_date=None,
+        debug=False,
+        debug_file=None,
+        signal_filename=args.signal_filename,
+        write_generic_signal_alias=False,
+        cash_max_leverage=200.0,
+        cash_trail_max_loss_pct=15.0,
+        cash_lot_cap_mult=10.0,
+        cash_soft_stop_ratio=0.8,
+        cash_manual_resume_file="tmp/cash_resume.flag",
+        cash_hard_close=True,
+        cash_hard_stop_pause_days=0,
+    )
+
+    # Redirect stdout during engine run to avoid polluting daemon logs
+    old_stdout = sys.stdout
+    sys.stdout = open(os.devnull, "w")
+    try:
+        # Re-use engine internals directly (avoids re-loading data every poll)
+        _engine_main_no_flush(eng_args)
+    finally:
+        sys.stdout.close()
+        sys.stdout = old_stdout
+
+    # Collect the buffered events
+    events: List[dict] = []
+    for raw in engine._EVENT_BUFFER:
+        try:
+            events.append(json.loads(raw))
+        except json.JSONDecodeError:
+            pass
+
+    return events
+
+
+def _engine_main_no_flush(args: argparse.Namespace) -> None:
+    """
+    Run the engine pipeline (load → indicators → zones → scenario)
+    without calling flush_signals() at the end.
+    We capture events from _EVENT_BUFFER ourselves.
+    """
+    inst_cfg = engine.INSTRUMENT_CONFIG[args.instrument]
+
+    # Apply CASH config overrides
+    engine.CASH_CONFIG["soft_stop_ratio"] = max(0.0, min(float(args.cash_soft_stop_ratio), 1.0))
+    engine.CASH_CONFIG["manual_resume_file"] = str(args.cash_manual_resume_file)
+    engine.CASH_CONFIG["hard_close_on_trigger"] = bool(args.cash_hard_close)
+    engine.CASH_CONFIG["hard_stop_pause_days"] = max(0, int(args.cash_hard_stop_pause_days))
+    engine.CASH_CONFIG["cash_max_leverage"] = max(1.0, float(args.cash_max_leverage))
+    engine.CASH_CONFIG["trail_max_loss_pct"] = max(0.1, float(args.cash_trail_max_loss_pct))
+    engine.CASH_CONFIG["lot_cap_mult"] = max(1.0, float(args.cash_lot_cap_mult))
+
+    engine.reset_signal_file()
+    engine.emit_run_meta(args.capital, True, args.instrument)
+
+    # Load data
+    m1     = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.m1)), None, None)
+    m5     = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.m5)), None, None)
+    m15    = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.m15)), None, None)
+    h1     = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.h1)), None, None)
+    h4     = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.h4)), None, None)
+    daily  = engine.apply_start_date(engine.add_indicators(engine.load_csv(args.daily)), None, None)
+    weekly = engine.apply_start_date(engine.load_csv(args.weekly), None, None)
+
+    weekly = engine.add_trend_layers(weekly)
+    daily  = engine.add_daily_regime(daily, inst_cfg)
+    daily  = engine.add_trend_layers(daily)
+    h4     = engine.add_trend_layers(h4)
+
+    zone_ts, zone_px, zone_dir = engine.build_h4_zones(
+        h4,
+        pivot_bars=engine.DEFAULTS["h4_pivot_bars"],
+        lookback=engine.DEFAULTS["h4_lookback"],
+    )
+
+    daily_idx    = daily.index.values
+    daily_regime = daily["regime"].values
+
+    wk_idx   = weekly.index.values
+    wk_c     = weekly["close"].values
+    wk_ma21  = weekly["ma21"].values
+    wk_ma50  = weekly["ma50"].values
+    wk_ma200 = weekly["ma200"].values
+    wk_slope = weekly["ma50_slope"].values
+    wk_vww   = weekly["vwap_w"].values
+    wk_vwm   = weekly["vwap_m"].values
+    wk_adx   = weekly["adx"].values
+
+    dl_c     = daily["close"].values
+    dl_ma21  = daily["ma21"].values
+    dl_ma50  = daily["ma50"].values
+    dl_ma200 = daily["ma200"].values
+    dl_slope = daily["ma50_slope"].values
+    dl_vww   = daily["vwap_w"].values
+    dl_vwm   = daily["vwap_m"].values
+    dl_adx   = daily["adx"].values
+
+    arrays = dict(
+        h4_idx=h4.index.values,     h4_c=h4["close"].values,
+        h4_e20=h4["ema20"].values,   h4_e50=h4["ema50"].values,
+        h4_rsi=h4["rsi"].values,     h4_atr_arr=h4["atr"].values,
+        h4_atr_ma_arr=h4["atr"].rolling(
+            window=max(2, int(engine.DEFAULTS.get("vol_throttle_lookback", 96))),
+            min_periods=2,
+        ).mean().values,
+        h4_ma21=h4["ma21"].values,   h4_ma50=h4["ma50"].values,
+        h4_ma200=h4["ma200"].values, h4_slope=h4["ma50_slope"].values,
+        h4_vww=h4["vwap_w"].values,  h4_vwm=h4["vwap_m"].values,
+        h4_adx=h4["adx"].values,
+        h1_idx=h1.index.values,     h1_c=h1["close"].values,
+        h1_e20=h1["ema20"].values,   h1_e50=h1["ema50"].values,
+        h1_rsi=h1["rsi"].values,
+        m15_idx=m15.index.values,    m15_atr_arr=m15["atr"].values,
+        m5_idx=m5.index.values,     m5_c=m5["close"].values,
+        m5_e20=m5["ema20"].values,   m5_e50=m5["ema50"].values,
+        m5_rsi=m5["rsi"].values,
+        m5_vol=m5["tickvol"].values, m5_vol_ma=m5["vol_ma"].values,
+        m1_idx=m1.index.values,     m1_c=m1["close"].values,
+        m1_e20=m1["ema20"].values,   m1_e50=m1["ema50"].values,
+        m1_rsi=m1["rsi"].values,
+    )
+
+    cfg      = engine.ACTIVE_SCENARIO_CFG
+    sc_id    = engine.ACTIVE_SCENARIO_ID
+    candles  = m1 if cfg["entry_tf"] == "m1" else m5
+
+    engine.run_scenario(
+        candles=candles,
+        zone_ts=zone_ts, zone_px=zone_px, zone_dir=zone_dir,
+        daily_idx=daily_idx, daily_regime=daily_regime,
+        wk_idx=wk_idx, wk_c=wk_c, wk_ma21=wk_ma21, wk_ma50=wk_ma50,
+        wk_ma200=wk_ma200, wk_slope=wk_slope, wk_vww=wk_vww,
+        wk_vwm=wk_vwm, wk_adx=wk_adx,
+        dl_c=dl_c, dl_ma21=dl_ma21, dl_ma50=dl_ma50, dl_ma200=dl_ma200,
+        dl_slope=dl_slope, dl_vww=dl_vww, dl_vwm=dl_vwm, dl_adx=dl_adx,
+        cfg=cfg,
+        inst_cfg=inst_cfg,
+        capital=args.capital,
+        max_concurrent=engine.DEFAULTS["max_concurrent"],
+        cooldown_min=engine.DEFAULTS["cooldown_min"],
+        lockout_min=engine.DEFAULTS["lockout_min"],
+        conf_tol=engine.DEFAULTS["conf_tol"],
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        commission_per_trade=0.0,
+        zone_lookback_bars=engine.DEFAULTS["h4_lookback"],
+        label=f"LIVE {sc_id} | {args.instrument}",
+        debug=False,
+        debug_path=None,
+        **arrays,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SIGNAL FILE WRITER
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SignalWriter:
+    """
+    Manages the signal file with fingerprint-based dedup (FIX-1, FIX-2).
+
+    Tracks which fingerprints have already been written.  On each poll
+    cycle, converts the engine's full event list to JSON lines, computes
+    fingerprints, and appends only those that haven't been written yet.
+    """
+
+    def __init__(self, signal_filename: str, output_dir: str):
+        self.signal_filename = signal_filename
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        self.local_path = os.path.join(output_dir, signal_filename)
+        self._written_fps: Set[str] = set()   # fingerprints already on disk
+        self._last_heartbeat = 0.0
+
+    @property
+    def mt5_paths(self) -> List[str]:
+        return [
+            os.path.join(d, self.signal_filename)
+            for d in _find_mt5_common_files()
+        ]
+
+    def _serialise_event(self, event: dict) -> str:
+        """Convert an event dict to a canonical JSON line."""
+        out = {}
+        for k, v in event.items():
+            if hasattr(v, "isoformat"):
+                out[k] = v.isoformat()
+            else:
+                out[k] = v
+        return json.dumps(out, default=str, ensure_ascii=False)
+
+    def write_initial(self, events: List[dict]) -> int:
+        """
+        Write the full historical event stream on first startup.
+        Resets the dedup set so a clean run always starts fresh.
+        """
+        self._written_fps.clear()
+        lines: List[str] = []
+        for ev in events:
+            line = self._serialise_event(ev)
+            fp   = _event_fingerprint(ev)
+            lines.append(line)
+            self._written_fps.add(fp)
+
+        # Overwrite (not append) on initial write
+        blob = "\n".join(lines) + ("\n" if lines else "")
+        for target in [self.local_path] + self.mt5_paths:
+            os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
+            tmp = target + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(blob)
+            try:
+                os.replace(tmp, target)
+            except OSError:
+                shutil.copy2(tmp, target)
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+
+        print(f"[daemon] initial write: {len(lines)} events → {self.local_path}")
+        return len(lines)
+
+    def append_new(self, events: List[dict]) -> int:
+        """
+        Compute fingerprints for all events; append only those not yet written.
+        FIX-1: trade events (modify/close) get a per-event fingerprint,
+                so multiple modify events for the same id are each unique.
+        FIX-2: identical control events from successive reruns are suppressed.
+        """
+        new_lines: List[str] = []
+        for ev in events:
+            fp = _event_fingerprint(ev)
+            if fp in self._written_fps:
+                continue
+            self._written_fps.add(fp)
+            new_lines.append(self._serialise_event(ev))
+
+        if not new_lines:
+            return 0
+
+        for target in [self.local_path] + self.mt5_paths:
+            _atomic_append_lines(target, new_lines)
+
+        print(
+            f"[daemon] {datetime.utcnow().isoformat()} "
+            f"appended {len(new_lines)} new event(s)"
+        )
+        return len(new_lines)
+
+    def maybe_heartbeat(self, interval_s: float = 300.0) -> None:
+        """Append a heartbeat line if EMIT_HEARTBEATS is on and interval elapsed."""
+        if not engine.EMIT_HEARTBEATS:
+            return
+        now = time.monotonic()
+        if now - self._last_heartbeat < interval_s:
+            return
+        self._last_heartbeat = now
+        hb = json.dumps({
+            "v": engine.SIGNAL_SCHEMA_VERSION,
+            "action": "heartbeat",
+            "ts": datetime.utcnow().isoformat(),
+        })
+        for target in [self.local_path] + self.mt5_paths:
+            _atomic_append_lines(target, [hb])
+        print(f"[daemon] heartbeat written")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FILE MTIME WATCHER
+# ─────────────────────────────────────────────────────────────────────────────
+
+class MtimeWatcher:
+    """Track file modification times to detect new bars."""
+
+    def __init__(self, paths: List[str]):
+        self._paths = paths
+        self._mtimes: Dict[str, float] = {}
+
+    def snapshot(self) -> None:
+        for p in self._paths:
+            try:
+                self._mtimes[p] = os.path.getmtime(p)
+            except FileNotFoundError:
+                self._mtimes[p] = 0.0
+
+    def any_changed(self) -> bool:
+        for p in self._paths:
+            try:
+                cur = os.path.getmtime(p)
+            except FileNotFoundError:
+                cur = 0.0
+            if cur != self._mtimes.get(p, 0.0):
+                return True
+        return False
+
+    def update(self) -> None:
+        self.snapshot()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN DAEMON LOOP
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="PHANTOM live signal daemon")
+    p.add_argument("--instrument",   required=True, choices=["XAU", "US100", "BTC"])
+    p.add_argument("--m1",           required=True)
+    p.add_argument("--m5",           required=True)
+    p.add_argument("--m15",          required=True)
+    p.add_argument("--h1",           required=True)
+    p.add_argument("--h4",           required=True)
+    p.add_argument("--daily",        required=True)
+    p.add_argument("--weekly",       required=True)
+    p.add_argument("--capital",      type=float, default=10_000)
+    p.add_argument("--output-dir",   default="signals")
+    p.add_argument("--signal-filename", default="signals_vantage_live.jsonl")
+    p.add_argument("--poll-seconds", type=float, default=15.0,
+                   help="How often to poll for file changes (seconds)")
+    p.add_argument("--heartbeat-interval", type=float, default=300.0,
+                   help="Heartbeat interval in seconds (0 = disabled)")
+    # CASH overrides (forwarded to engine)
+    p.add_argument("--cash-max-leverage",      type=float, default=200.0)
+    p.add_argument("--cash-trail-max-loss-pct",type=float, default=15.0)
+    p.add_argument("--cash-lot-cap-mult",      type=float, default=10.0)
+    p.add_argument("--cash-soft-stop-ratio",   type=float, default=0.8)
+    p.add_argument("--cash-manual-resume-file",default="tmp/cash_resume.flag")
+    p.add_argument("--cash-hard-close",        action="store_true", default=True)
+    p.add_argument("--cash-hard-stop-pause-days", type=int, default=0)
+    return p.parse_args()
+
+
+def main() -> None:
+    args = _parse_args()
+
+    data_files = [args.m1, args.m5, args.m15, args.h1, args.h4, args.daily, args.weekly]
+
+    print("=" * 60)
+    print(f"[daemon] PHANTOM p2 Live Daemon starting")
+    print(f"[daemon] instrument  : {args.instrument}")
+    print(f"[daemon] capital     : £{args.capital:,.0f}")
+    print(f"[daemon] signal file : {args.signal_filename}")
+    print(f"[daemon] poll        : {args.poll_seconds}s")
+    print(f"[daemon] MT5 paths   : {_find_mt5_common_files() or ['(none found)']}")
+    print("=" * 60)
+
+    writer = SignalWriter(args.signal_filename, args.output_dir)
+    watcher = MtimeWatcher(data_files)
+
+    # ── INITIAL RUN ───────────────────────────────────────────────────────────
+    print("[daemon] running full historical engine pass …")
+    try:
+        events = _run_engine(args)
+    except Exception as exc:
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(f"[daemon] FATAL on initial engine run: {exc}")
+
+    writer.write_initial(events)
+    watcher.snapshot()
+    print(f"[daemon] initial pass complete. {len(events)} events written. Entering poll loop …\n")
+
+    # ── POLL LOOP ─────────────────────────────────────────────────────────────
+    hb_interval = args.heartbeat_interval if args.heartbeat_interval > 0 else 0.0
+    engine.EMIT_HEARTBEATS = hb_interval > 0
+
+    while True:
+        time.sleep(args.poll_seconds)
+
+        try:
+            writer.maybe_heartbeat(hb_interval if hb_interval > 0 else 300.0)
+
+            if not watcher.any_changed():
+                continue
+
+            print(f"[daemon] {datetime.utcnow().isoformat()} — data file changed, re-running engine …")
+            events = _run_engine(args)
+            watcher.update()
+            appended = writer.append_new(events)
+            if appended == 0:
+                print("[daemon] no new events (all fingerprints already written)")
+
+        except KeyboardInterrupt:
+            print("\n[daemon] interrupted by user. Exiting.")
+            sys.exit(0)
+        except Exception as exc:
+            # Don't crash the daemon on a transient error; log and continue
+            print(f"[daemon] ERROR (non-fatal): {exc}")
+            traceback.print_exc(file=sys.stderr)
+            time.sleep(args.poll_seconds)
+
+
+if __name__ == "__main__":
+    main()

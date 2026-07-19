@@ -115,13 +115,15 @@ double ComputeLotsForSignal(const string dir,const double entry,const double sto
 void   HandlePauseEntries(const string js);
 void   HandleResumeEntries(const string js);
 void   HandleHardStop(const string js);
+void   PrimeLiveFilePos();
 
 //==== INPUTS ====
-input string  InpSignalFile          = "signals_vantage.jsonl"; // file in Common\Files
+input string  InpSignalFile          = "signals_vantage_live.jsonl"; // live file in Common\Files
 input long    InpMagicNumber         = 920025;                  // unique per account/instrument
 input string  InpSymbolOverride      = "US100";                // live/demo target symbol
-input bool    InpReplayMode          = true;                    // true=backtest replay, false=live polling
+input bool    InpReplayMode          = false;                   // true=backtest replay, false=live polling
 input bool    InpReplayUseSignalPricing = false;                 // in replay, use signal qty/entry/exit for parity ledger
+input bool    InpLiveSkipHistoryOnFreshAttach = true;            // live: if state file has filepos=0, start at EOF to avoid replaying old signals
 
 // --- broker mode --- [CASH-1] Hardcoded Cash, no auto-detect
 enum ENUM_BROKER_MODE { BROKER_CASH=2 };
@@ -1163,19 +1165,64 @@ void ProcessLine(const string raw)
 }
 
 //==== FILE READ ====
-void PumpFileLive()
+void PumpFileLive(const string source)
 {
+   long start_pos = (long)g_filepos;
+   ResetLastError();
    int h=FileOpen(InpSignalFile, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
-   if(h==INVALID_HANDLE) return;
+   if(h==INVALID_HANDLE){
+      int err = GetLastError();
+      PrintFormat("PhantomBridge live poll miss | source=%s file=%s start=%d err=%d", source, InpSignalFile, start_pos, err);
+      return;
+   }
 
    FileSeek(h,(long)g_filepos,SEEK_SET);
+   int lines_read = 0;
+   int lines_processed = 0;
    while(!FileIsEnding(h)){
       string line=FileReadString(h);
-      if(StringLen(line)>0) ProcessLine(line);
+      if(StringLen(line)>0){
+         lines_read++;
+         ProcessLine(line);
+         lines_processed++;
+      }
    }
    g_filepos=(ulong)FileTell(h);
+   long end_pos = (long)g_filepos;
    FileClose(h);
    SaveState();
+
+   LogCSV("FILE_POLL;source="+source+
+          ";file="+InpSignalFile+
+          ";start="+IntegerToString(start_pos)+
+          ";end="+IntegerToString(end_pos)+
+          ";lines="+IntegerToString(lines_read)+
+          ";processed="+IntegerToString(lines_processed));
+   PrintFormat("PhantomBridge live poll | source=%s file=%s start=%d end=%d lines=%d processed=%d",
+               source, InpSignalFile, start_pos, end_pos, lines_read, lines_processed);
+}
+
+void PrimeLiveFilePos()
+{
+   if(InpReplayMode) return;
+   if(!InpLiveSkipHistoryOnFreshAttach) return;
+   if(g_filepos > 0) return;
+
+   ResetLastError();
+   int h = FileOpen(InpSignalFile, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h == INVALID_HANDLE){
+      int err = GetLastError();
+      PrintFormat("PhantomBridge live prime miss | file=%s err=%d", InpSignalFile, err);
+      return;
+   }
+
+   FileSeek(h, 0, SEEK_END);
+   g_filepos = (ulong)FileTell(h);
+   FileClose(h);
+
+   LogCSV("LIVE_PRIME_EOF;file="+InpSignalFile+
+          ";filepos="+IntegerToString((long)g_filepos));
+   PrintFormat("PhantomBridge live prime | file=%s filepos=%d", InpSignalFile, (long)g_filepos);
 }
 
 //==== EVENTS ====
@@ -1236,6 +1283,8 @@ int OnInit()
       Notify("PHANTOM CASH resumed","Manual resume flag set. Hard-pause cleared; peak re-anchored at "+
              DoubleToString(g_peak_equity,2)+".");
    }
+
+   PrimeLiveFilePos();
    SaveState();
 
    g_replay_loaded = false;
@@ -1277,7 +1326,19 @@ int OnInit()
    LogCSV("TICKINFO;tv="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_VALUE),5)+
           ";ts="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_SIZE),5)+
           ";csize="+DoubleToString(SymbolInfoDouble(g_symbol,SYMBOL_TRADE_CONTRACT_SIZE),2));
+      PrintFormat("PhantomBridge signal target | file=%s mode=%s filepos=%d",
+          InpSignalFile,
+          (InpReplayMode?"replay":"live"),
+          (long)g_filepos);
+      LogCSV("SIGNAL_TARGET;file="+InpSignalFile+
+         ";mode="+(InpReplayMode?"replay":"live")+
+         ";filepos="+IntegerToString((long)g_filepos));
    StampModelMode();
+
+   if(!InpReplayMode){
+      EventSetTimer(5);
+      PrintFormat("PhantomBridge live polling armed | signal_file=%s timer=5s", InpSignalFile);
+   }
    return INIT_SUCCEEDED;
 }
 
@@ -1297,7 +1358,14 @@ void OnTick()
       ReplayDueEvents(bt);
    }
    else {
-      PumpFileLive();
+      PumpFileLive("OnTick");
+   }
+}
+
+void OnTimer()
+{
+   if(!InpReplayMode){
+      PumpFileLive("OnTimer");
    }
 }
 
@@ -1333,6 +1401,9 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 
 void OnDeinit(const int reason)
 {
+   if(!InpReplayMode){
+      EventKillTimer();
+   }
    if(InpReplayMode && InpReplayUseSignalPricing){
       LogCSV("SYNTH_SUMMARY;trades="+IntegerToString(g_synth_trades)+
              ";wins="+IntegerToString(g_synth_wins)+
