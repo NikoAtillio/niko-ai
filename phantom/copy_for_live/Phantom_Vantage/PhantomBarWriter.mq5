@@ -144,17 +144,18 @@ void ExportAllWithSummary(const string source)
 {
    ExportAll();
 
-   PrintFormat("PhantomBarWriter: export sweep from %s complete | symbol=%s prefix=%s | last_m1=%s last_m5=%s last_m15=%s last_h1=%s last_h4=%s last_d1=%s last_w1=%s",
-               source,
-               g_symbol,
-               InpPrefix,
-               TimeToString(g_last_m1, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_m5, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_m15, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_h1, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_h4, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_d1, TIME_DATE|TIME_SECONDS),
-               TimeToString(g_last_w1, TIME_DATE|TIME_SECONDS));
+   if(InpVerbose)
+      PrintFormat("PhantomBarWriter: export sweep from %s complete | symbol=%s prefix=%s | last_m1=%s last_m5=%s last_m15=%s last_h1=%s last_h4=%s last_d1=%s last_w1=%s",
+                  source,
+                  g_symbol,
+                  InpPrefix,
+                  TimeToString(g_last_m1, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_m5, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_m15, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_h1, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_h4, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_d1, TIME_DATE|TIME_SECONDS),
+                  TimeToString(g_last_w1, TIME_DATE|TIME_SECONDS));
 }
 
 //+------------------------------------------------------------------+
