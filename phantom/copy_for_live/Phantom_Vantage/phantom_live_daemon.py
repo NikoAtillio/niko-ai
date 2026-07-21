@@ -27,9 +27,9 @@ Bug fixes vs the original draft
          successive reruns are suppressed; new ones pass through.
   FIX-3  All runtime dependencies (pandas, numpy, the engine module)
          are validated at startup with a clear error if missing.
-  FIX-4  Signal file is APPENDED atomically (write-to-tmp then
-         rename on POSIX; write-to-tmp then copy on Windows) so the
-         EA never reads a half-written file.
+  FIX-4  Signal file is written with true append mode (open 'a' +
+      fsync) so the file only ever grows and the EA cursor at
+      byte offset 731939 is always valid (fixes err=5004).
 
 Usage (Windows VPS)
 -------------------
@@ -95,10 +95,22 @@ def _event_fingerprint(event: dict) -> str:
     """
     FIX-1 / FIX-2: Produce a stable sha256 fingerprint for dedup.
 
-    For trade events (open / modify / close):
-        key = action + id + relevant numeric/string payload fields
-        This means open, each modify, and close for the same trade id
-        each produce a DIFFERENT fingerprint.
+        For trade events:
+            open:
+                key = action + id
+                This avoids duplicate opens when reruns slightly change numeric
+                payload values for an already-seen trade id.
+
+            modify:
+                key = action + id + signal_ts + reason
+                Keep one modify per timestamp/reason for a given trade id.
+
+            close:
+                For reason == eod:
+                    key = action + id + reason
+                    eod reruns often drift in exit price; this collapses them.
+                Otherwise:
+                    key = action + id + signal_ts + reason
 
     For control events (pause_entries, resume_entries, hard_stop):
         key = action + reason + resume_after (if present)
@@ -115,28 +127,29 @@ def _event_fingerprint(event: dict) -> str:
         parts = [
             action,
             str(event.get("id", "")),
-            str(event.get("dir", "")),
-            _round_str(event.get("entry")),
-            _round_str(event.get("stop")),
-            _round_str(event.get("tp")),
-            _round_str(event.get("qty")),
         ]
     elif action in ("modify",):
         parts = [
             action,
             str(event.get("id", "")),
             str(event.get("signal_ts", "")),
-            _round_str(event.get("new_stop")),
             str(event.get("reason", "")),
         ]
     elif action in ("close",):
-        parts = [
-            action,
-            str(event.get("id", "")),
-            str(event.get("signal_ts", "")),
-            _round_str(event.get("exit")),
-            str(event.get("reason", "")),
-        ]
+        reason = str(event.get("reason", "")).lower()
+        if reason == "eod":
+            parts = [
+                action,
+                str(event.get("id", "")),
+                reason,
+            ]
+        else:
+            parts = [
+                action,
+                str(event.get("id", "")),
+                str(event.get("signal_ts", "")),
+                str(event.get("reason", "")),
+            ]
     elif action in ("pause_entries", "resume_entries", "hard_stop"):
         # FIX-2: control events deduped by content, not session
         parts = [
@@ -219,39 +232,18 @@ def _find_mt5_common_files() -> List[str]:
 
 def _atomic_append_lines(path: str, lines: List[str]) -> None:
     """
-    FIX-4: Append lines to `path` atomically.
-    Strategy: read existing content → append new lines → write to
-    a sibling .tmp file → rename (POSIX) or copy+delete (Windows).
-    The EA therefore never reads a partial write.
+    FIX-5: Append lines to `path` using true append mode.
+    Replaces the old read→tmp→replace strategy which caused a brief
+    file-shrink window that MT5 detected as ERR_FILE_NOT_FOUND (5004).
+    Opening in 'a' mode means the file only ever grows, so the Bridge
+    EA cursor is always pointing to a valid position.
     """
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-
-    # Read existing content
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            existing = f.read()
-    except FileNotFoundError:
-        existing = ""
-
-    blob = existing
-    for line in lines:
-        if not blob.endswith("\n") and blob:
-            blob += "\n"
-        blob += line + "\n"
-
-    tmp_path = path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
+    blob = "".join(line + "\n" for line in lines)
+    with open(path, "a", encoding="utf-8") as f:
         f.write(blob)
-
-    # Atomic replace
-    try:
-        os.replace(tmp_path, path)          # POSIX + Windows (Python 3.3+)
-    except OSError:
-        shutil.copy2(tmp_path, path)
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+        f.flush()
+        os.fsync(f.fileno())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -460,8 +452,14 @@ class SignalWriter:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         self.local_path = os.path.join(output_dir, signal_filename)
+        self.fp_cache_path = self.local_path + ".fps"
         self._written_fps: Set[str] = set()   # fingerprints already on disk
         self._last_heartbeat = 0.0
+
+        # Persist dedup state across daemon restarts.
+        self._load_fp_cache()
+        if not self._written_fps:
+            self._bootstrap_fp_cache_from_signal_file()
 
     @property
     def mt5_paths(self) -> List[str]:
@@ -479,6 +477,56 @@ class SignalWriter:
             else:
                 out[k] = v
         return json.dumps(out, default=str, ensure_ascii=False)
+
+    def _load_fp_cache(self) -> None:
+        try:
+            with open(self.fp_cache_path, "r", encoding="utf-8") as f:
+                for ln in f:
+                    fp = ln.strip()
+                    if fp:
+                        self._written_fps.add(fp)
+            if self._written_fps:
+                print(f"[daemon] loaded {len(self._written_fps)} fingerprints from cache")
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            print(f"[daemon] WARN: failed to read fingerprint cache: {exc}")
+
+    def _save_fp_cache(self) -> None:
+        os.makedirs(os.path.dirname(os.path.abspath(self.fp_cache_path)), exist_ok=True)
+        tmp = self.fp_cache_path + ".tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                for fp in sorted(self._written_fps):
+                    f.write(fp + "\n")
+            os.replace(tmp, self.fp_cache_path)
+        except OSError as exc:
+            print(f"[daemon] WARN: failed to write fingerprint cache: {exc}")
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
+
+    def _bootstrap_fp_cache_from_signal_file(self) -> None:
+        try:
+            with open(self.local_path, "r", encoding="utf-8") as f:
+                for ln in f:
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        ev = json.loads(ln)
+                    except json.JSONDecodeError:
+                        continue
+                    self._written_fps.add(_event_fingerprint(ev))
+            if self._written_fps:
+                print(f"[daemon] bootstrapped {len(self._written_fps)} fingerprints from signal file")
+                self._save_fp_cache()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            print(f"[daemon] WARN: failed to bootstrap fingerprints: {exc}")
 
     def write_initial(self, events: List[dict]) -> int:
         """
@@ -510,6 +558,7 @@ class SignalWriter:
                     pass
 
         print(f"[daemon] initial write: {len(lines)} events → {self.local_path}")
+        self._save_fp_cache()
         return len(lines)
 
     def append_new(self, events: List[dict]) -> int:
@@ -537,6 +586,7 @@ class SignalWriter:
             f"[daemon] {datetime.utcnow().isoformat()} "
             f"appended {len(new_lines)} new event(s)"
         )
+        self._save_fp_cache()
         return len(new_lines)
 
     def maybe_heartbeat(self, interval_s: float = 300.0) -> None:

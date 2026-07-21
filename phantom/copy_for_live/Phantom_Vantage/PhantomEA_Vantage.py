@@ -1847,6 +1847,7 @@ def run_scenario(
 
             # ── Confidence-gated stacking ────
             n_open_same_dir = sum(1 for p in positions if p['dir'] == z_dir)
+            regime_aligned = (regime_mult >= 1.0)
 
             # CASH build: stacking is governed SOLELY by trend alignment
             # (with_trend) and confidence — no FTMO drawdown-tier override.
@@ -1854,6 +1855,10 @@ def run_scenario(
                 stack_limit = 3               # with-trend + high confidence
             elif with_trend:
                 stack_limit = 2               # with-trend, normal confidence
+            elif regime_aligned and conf_mult >= DEFAULTS.get('high_conf_stack_threshold', 1.5):
+                # Soft tier: allow one additional stack when regime aligns and
+                # confidence is high, even if strict with_trend is false.
+                stack_limit = 2
             else:
                 stack_limit = 1               # not with-trend / trendless: no stacking
 
@@ -1956,6 +1961,10 @@ def run_scenario(
             elif conf_mult >= 2.0 and with_trend:
                 _stack_max = 3
             elif with_trend:
+                _stack_max = 2
+            elif regime_aligned and conf_mult >= DEFAULTS.get('high_conf_stack_threshold', 1.5):
+                # Soft tier mirrors stack_limit so bridge enforcement and
+                # internal concurrency checks are consistent.
                 _stack_max = 2
             else:
                 _stack_max = 1  # counter-trend or trendless: single only

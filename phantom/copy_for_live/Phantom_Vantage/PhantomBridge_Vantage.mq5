@@ -116,6 +116,7 @@ void   HandlePauseEntries(const string js);
 void   HandleResumeEntries(const string js);
 void   HandleHardStop(const string js);
 void   PrimeLiveFilePos();
+string SignalGroupFromId(const string id);
 
 //==== INPUTS ====
 input string  InpSignalFile          = "signals_vantage_live.jsonl"; // live file in Common\Files
@@ -162,6 +163,9 @@ input double  InpMetaAccountFallback = 10000.0;                 // used only if 
 input double  InpMaxLots             = 50.0;                    // absolute hard safety cap
 input double  InpMinLots             = 0.01;
 input bool    InpUsePythonSizing     = true;                    // TRUE = trust signal qty; FALSE = EA computes tiered lots
+input int     InpIgnoreInstantEodSeconds = 180;                 // ignore EOD close if it arrives within N seconds of open
+input double  InpIgnoreInstantEodEntryTolPts = 15.0;            // and close price is within N points of entry/fill
+input bool    InpStackLimitSameSignalOnly = true;               // enforce stack_max per signal group (entry window), not across unrelated trades
 
 // --- notifications ---
 input bool    InpNotifyPush          = true;
@@ -211,6 +215,8 @@ double   g_last_sl[];
 double   g_sig_entry[];
 double   g_sig_qty[];
 int      g_sig_dir[];
+datetime g_open_server_ts[];
+double   g_open_fill[];
 
 double   g_synth_net = 0.0;
 int      g_synth_trades = 0;
@@ -414,12 +420,16 @@ void MapId(const string id, const ulong ticket)
       ArrayResize(g_sig_entry,n+1);
       ArrayResize(g_sig_qty,n+1);
       ArrayResize(g_sig_dir,n+1);
+      ArrayResize(g_open_server_ts,n+1);
+      ArrayResize(g_open_fill,n+1);
       g_ids[n]=id;
       g_tickets[n]=ticket;
       g_last_sl[n]=0.0;
       g_sig_entry[n]=0.0;
       g_sig_qty[n]=0.0;
       g_sig_dir[n]=0;
+      g_open_server_ts[n]=0;
+      g_open_fill[n]=0.0;
    }
    else {
       g_tickets[idx]=ticket;
@@ -437,12 +447,16 @@ void UnmapId(const string id)
    g_sig_entry[idx]=g_sig_entry[last];
    g_sig_qty[idx]=g_sig_qty[last];
    g_sig_dir[idx]=g_sig_dir[last];
+   g_open_server_ts[idx]=g_open_server_ts[last];
+   g_open_fill[idx]=g_open_fill[last];
    ArrayResize(g_ids,last);
    ArrayResize(g_tickets,last);
    ArrayResize(g_last_sl,last);
    ArrayResize(g_sig_entry,last);
    ArrayResize(g_sig_qty,last);
    ArrayResize(g_sig_dir,last);
+   ArrayResize(g_open_server_ts,last);
+   ArrayResize(g_open_fill,last);
 }
 
 double NormalizePrice(const double p){ return NormalizeDouble(p,g_digits); }
@@ -473,6 +487,13 @@ double ClampStopDistance(const double price, double sl, const bool is_long)
    if(is_long){ if(price-sl < minDist) sl = price-minDist; }
    else       { if(sl-price < minDist) sl = price+minDist; }
    return NormalizePrice(sl);
+}
+
+string SignalGroupFromId(const string id)
+{
+   int p = StringFind(id, "#");
+   if(p > 0) return StringSubstr(id, 0, p);
+   return id;
 }
 
 //==== JSON (minimal flat parser) ====
@@ -841,6 +862,8 @@ void HandleOpen(const string js)
       LogCSV("OPEN_DUP_SKIP;"+id);
       return;
    }
+   string entry_ts = JGetStr(js,"entry_ts");
+   string sig_group = (entry_ts!="") ? entry_ts : SignalGroupFromId(id);
    string dir = JGetStr(js,"dir");
    bool is_long = (dir=="long");
    int stack_max = (int)MathRound(JGetNum(js,"stack_max",0.0));
@@ -859,11 +882,21 @@ void HandleOpen(const string js)
       if(PositionGetInteger(POSITION_MAGIC)!=InpMagicNumber) continue;
       if(PositionGetString(POSITION_SYMBOL)!=g_symbol) continue;
       bool pos_long = (PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY);
-      if(pos_long==is_long) open_same_dir++;
+      if(pos_long!=is_long) continue;
+
+      if(InpStackLimitSameSignalOnly){
+         string pos_id = PositionGetString(POSITION_COMMENT);
+         string pos_group = SignalGroupFromId(pos_id);
+         if(pos_group == sig_group) open_same_dir++;
+      }
+      else {
+         open_same_dir++;
+      }
    }
    if(open_same_dir>=stack_max){
       LogCSV("OPEN_BLOCKED_STACK_MAX;"+id+
              ";dir="+dir+
+             ";group="+sig_group+
              ";open_same_dir="+IntegerToString(open_same_dir)+
              ";stack_max="+IntegerToString(stack_max));
       return;
@@ -927,6 +960,8 @@ void HandleOpen(const string js)
          g_sig_entry[idx]=entry;
          g_sig_qty[idx]=qty;
          g_sig_dir[idx]=is_long ? 1 : -1;
+         g_open_server_ts[idx]=TimeCurrent();
+         g_open_fill[idx]=(trade.ResultPrice()>0.0) ? trade.ResultPrice() : entry;
       }
       LogCSV("OPEN;"+id+";dir="+dir+";lots="+DoubleToString(lots,2)+
              ";want_entry="+DoubleToString(entry,g_digits)+
@@ -1026,10 +1061,35 @@ void HandleClose(const string js)
    string id = JGetStr(js,"id");
    double exit_sig = JGetNum(js,"exit");
    string reason = JGetStr(js,"reason");
+   string reason_l = reason;
+   StringToLower(reason_l);
    int idx=FindId(id);
    if(idx<0){
       LogCSV("CLOSE_NO_MAP;"+id);
       return;
+   }
+
+   // Guard against speculative same-cycle EOD close lines that can trail an OPEN immediately.
+   if(reason_l=="eod" && InpIgnoreInstantEodSeconds>0 && exit_sig>0.0){
+      datetime opened_at = g_open_server_ts[idx];
+      if(opened_at>0){
+         int age_sec = (int)(TimeCurrent() - opened_at);
+         if(age_sec < 0) age_sec = 0;
+         double ref_entry = (g_open_fill[idx]>0.0) ? g_open_fill[idx] : g_sig_entry[idx];
+         double tol = MathMax(g_point, InpIgnoreInstantEodEntryTolPts * g_point);
+         if(ref_entry>0.0){
+            double d = MathAbs(exit_sig - ref_entry);
+            if(age_sec <= InpIgnoreInstantEodSeconds && d <= tol){
+               LogCSV("CLOSE_EOD_GUARD_SKIP;"+id+
+                      ";age_sec="+IntegerToString(age_sec)+
+                      ";entry_ref="+DoubleToString(ref_entry,g_digits)+
+                      ";exit_sig="+DoubleToString(exit_sig,g_digits)+
+                      ";dist="+DoubleToString(d,g_digits)+
+                      ";tol="+DoubleToString(tol,g_digits));
+               return;
+            }
+         }
+      }
    }
 
    if(InpReplayMode && InpReplayUseSignalPricing && exit_sig>0.0){
@@ -1176,6 +1236,20 @@ void PumpFileLive(const string source)
       return;
    }
 
+   // If daemon rotated/rebuilt a shorter file, clamp stale saved cursor.
+   FileSeek(h,0,SEEK_END);
+   long eof_pos = (long)FileTell(h);
+   if((long)g_filepos > eof_pos){
+      g_filepos = (ulong)eof_pos;
+      LogCSV("FILEPOS_CLAMP;source="+source+
+             ";file="+InpSignalFile+
+             ";old_start="+IntegerToString(start_pos)+
+             ";new_start="+IntegerToString((long)g_filepos)+
+             ";eof="+IntegerToString(eof_pos));
+      SaveState();
+      start_pos = (long)g_filepos;
+   }
+
    FileSeek(h,(long)g_filepos,SEEK_SET);
    int lines_read = 0;
    int lines_processed = 0;
@@ -1295,6 +1369,8 @@ int OnInit()
    ArrayResize(g_sig_entry, 0);
    ArrayResize(g_sig_qty, 0);
    ArrayResize(g_sig_dir, 0);
+   ArrayResize(g_open_server_ts, 0);
+   ArrayResize(g_open_fill, 0);
    ArrayResize(g_pending_ids, 0);
    ArrayResize(g_pending_tickets, 0);
    ArrayResize(g_pending_tp, 0);
