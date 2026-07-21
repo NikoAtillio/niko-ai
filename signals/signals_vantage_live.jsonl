@@ -373,6 +373,5 @@
 {"v": 1, "action": "modify", "id": "2026-07-21T17:30:00#26", "signal_ts": "2026-07-21T20:00:00", "new_stop": 29018.04915824356, "reason": "trail"}
 {"v": 1, "action": "modify", "id": "2026-07-21T16:25:00#25", "signal_ts": "2026-07-21T20:45:00", "new_stop": 29026.04915824356, "reason": "trail"}
 {"v": 1, "action": "modify", "id": "2026-07-21T17:30:00#26", "signal_ts": "2026-07-21T20:45:00", "new_stop": 29026.04915824356, "reason": "trail"}
-{"v": 1, "action": "close", "id": "2026-07-21T16:25:00#25", "exit": 29123.1, "reason": "eod"}
-{"v": 1, "action": "close", "id": "2026-07-21T17:30:00#26", "exit": 29123.1, "reason": "eod"}
-{"v": 1, "action": "close", "id": "probe-e2e-2026-07-21T23:16:56Z", "exit": 0.0, "reason": "probe"}
+{"v": 1, "action": "close", "id": "2026-07-21T16:25:00#25", "exit": 29146.15, "reason": "eod"}
+{"v": 1, "action": "close", "id": "2026-07-21T17:30:00#26", "exit": 29146.15, "reason": "eod"}
