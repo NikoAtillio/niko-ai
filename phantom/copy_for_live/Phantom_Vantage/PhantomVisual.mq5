@@ -98,6 +98,10 @@ int      g_timer_ticks = 0;
 string PREFIX = "PV_";   // all object names start with this
 
 datetime _WeekStart(const datetime t);
+string _ShortTradeId(const string &id);
+bool _HasLivePosition(const string &id);
+void _HSeg(const string &nm, const datetime t0, const datetime t1, const double price,
+           const color c, const ENUM_LINE_STYLE style, const int width, const string tooltip);
 
 //+------------------------------------------------------------------+
 //| Init                                                              |
@@ -416,9 +420,15 @@ datetime _WeekStart(const datetime t)
 void _DrawTrade(const int idx, const bool isOpen) {
    PhTrade t = g_trades[idx];
    if(t.entry <= 0) return;
+   bool live_now = isOpen && _HasLivePosition(t.id);
    bool long_dir = (t.dir == "long");
    color cDir  = long_dir ? InpColLong : InpColShort;
    string base = PREFIX + "T" + t.id + "_";
+   string shortId = _ShortTradeId(t.id);
+   datetime seg_end = live_now
+      ? (TimeCurrent() + (datetime)(PeriodSeconds() * 10))
+      : ((t.close_ts > 0) ? t.close_ts : (t.entry_ts + (datetime)(PeriodSeconds() * 8)));
+   if(seg_end <= t.entry_ts) seg_end = t.entry_ts + (datetime)(PeriodSeconds() * 8);
 
    // ── Entry arrow ───────────────────────────────────────────────
    string nm = base + "ARR";
@@ -433,7 +443,7 @@ void _DrawTrade(const int idx, const bool isOpen) {
    string regimeLbl = (t.regime != "") ? t.regime : "—";
    string confLbl   = (t.conf > 1.0) ? " ★" + DoubleToString(t.conf, 1) + "x" : "";
    string stackLbl  = (t.stack_max > 1) ? " [S" + IntegerToString(t.stack_max) + "]" : "";
-   string hudTxt = (long_dir ? "▲ LONG " : "▼ SHORT ") +
+   string hudTxt = "[" + shortId + "] " + (long_dir ? "▲ LONG " : "▼ SHORT ") +
                    DoubleToString(t.qty, 2) + "L" +
                    confLbl + stackLbl + " | " + regimeLbl;
    nm = base + "LBL";
@@ -463,67 +473,44 @@ void _DrawTrade(const int idx, const bool isOpen) {
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN,    true);
    }
 
-   // ── Entry dashed line ─────────────────────────────────────────
-   nm = base + "EL";
-   ObjectCreate(0, nm, OBJ_HLINE, 0, 0, t.entry);
-   ObjectSetInteger(0, nm, OBJPROP_COLOR, cDir);
-   ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_DOT);
-   ObjectSetInteger(0, nm, OBJPROP_WIDTH, 1);
-   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+   if(live_now) {
+      nm = base + "EL";
+      _HSeg(nm, t.entry_ts, seg_end, t.entry, cDir, STYLE_DOT, 1, "[" + shortId + "] Entry");
 
-   // ── Initial SL dashed ─────────────────────────────────────────
-   if(t.sl_init != t.sl_now) {
-      nm = base + "SL0";
-      ObjectCreate(0, nm, OBJ_HLINE, 0, 0, t.sl_init);
-      ObjectSetInteger(0, nm, OBJPROP_COLOR, C'120,0,0');
-      ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_DASH);
-      ObjectSetInteger(0, nm, OBJPROP_WIDTH, 1);
-      ObjectSetString(0, nm, OBJPROP_TOOLTIP, "Initial SL");
-      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
-   }
+      if(t.sl_init > 0 && MathAbs(t.sl_init - t.sl_now) > 1e-9) {
+         nm = base + "SL0";
+         _HSeg(nm, t.entry_ts, seg_end, t.sl_init, C'120,0,0', STYLE_DASH, 1, "[" + shortId + "] Initial SL");
+      }
 
-   // ── Trailing / current SL (solid, thicker) ────────────────────
-   nm = base + "SL";
-   color cSL = t.be_hit ? InpColBE : InpColSL;
-   ObjectCreate(0, nm, OBJ_HLINE, 0, 0, t.sl_now);
-   ObjectSetInteger(0, nm, OBJPROP_COLOR, cSL);
-   ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_SOLID);
-   ObjectSetInteger(0, nm, OBJPROP_WIDTH, isOpen ? 2 : 1);
-   ObjectSetString(0, nm, OBJPROP_TOOLTIP, t.be_hit ? "SL @ Breakeven" : "Trailing SL");
-   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+      nm = base + "SL";
+      color cSL = t.be_hit ? InpColBE : InpColSL;
+      _HSeg(nm, t.entry_ts, seg_end, t.sl_now, cSL, STYLE_SOLID, 2, t.be_hit ? ("[" + shortId + "] SL @ Breakeven") : ("[" + shortId + "] Trailing SL"));
 
-   // SL label
-   nm = base + "SLL";
-   double slLblPrice = t.sl_now;
-   ObjectCreate(0, nm, OBJ_TEXT, 0, lbl_t, slLblPrice);
-   ObjectSetString(0, nm, OBJPROP_TEXT, t.be_hit ? "● BE" : "● Trail SL");
-   ObjectSetInteger(0, nm, OBJPROP_COLOR, cSL);
-   ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
-   ObjectSetString(0, nm, OBJPROP_FONT, "Consolas");
-   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
-   ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
-
-   // ── TP line ──────────────────────────────────────────────────
-   nm = base + "TP";
-   ObjectCreate(0, nm, OBJ_HLINE, 0, 0, t.tp);
-   ObjectSetInteger(0, nm, OBJPROP_COLOR, InpColTP);
-   ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_DASH);
-   ObjectSetInteger(0, nm, OBJPROP_WIDTH, isOpen ? 2 : 1);
-   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
-
-   // TP label + R-multiple
-   if(t.sl_init > 0 && t.tp > 0 && t.entry > 0) {
-      double risk = MathAbs(t.entry - t.sl_init);
-      double rwd  = MathAbs(t.tp   - t.entry);
-      double rr   = (risk > 0) ? rwd / risk : 0.0;
-      nm = base + "TPL";
-      ObjectCreate(0, nm, OBJ_TEXT, 0, lbl_t, t.tp);
-      ObjectSetString(0, nm, OBJPROP_TEXT, "TP | " + DoubleToString(rr, 2) + "R");
-      ObjectSetInteger(0, nm, OBJPROP_COLOR, InpColTP);
+      nm = base + "SLL";
+      ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, t.sl_now);
+      ObjectSetString(0, nm, OBJPROP_TEXT, "[" + shortId + "] " + (t.be_hit ? "BE" : "Trail SL"));
+      ObjectSetInteger(0, nm, OBJPROP_COLOR, cSL);
       ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
       ObjectSetString(0, nm, OBJPROP_FONT, "Consolas");
       ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
+
+      nm = base + "TP";
+      _HSeg(nm, t.entry_ts, seg_end, t.tp, InpColTP, STYLE_DASH, 2, "[" + shortId + "] Take Profit");
+
+      if(t.sl_init > 0 && t.tp > 0 && t.entry > 0) {
+         double risk = MathAbs(t.entry - t.sl_init);
+         double rwd  = MathAbs(t.tp   - t.entry);
+         double rr   = (risk > 0) ? rwd / risk : 0.0;
+         nm = base + "TPL";
+         ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, t.tp);
+         ObjectSetString(0, nm, OBJPROP_TEXT, "[" + shortId + "] TP " + DoubleToString(rr, 2) + "R");
+         ObjectSetInteger(0, nm, OBJPROP_COLOR, InpColTP);
+         ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
+         ObjectSetString(0, nm, OBJPROP_FONT, "Consolas");
+         ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+         ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
+      }
    }
 
    if(!isOpen && t.close_price > 0) {
@@ -556,7 +543,7 @@ void _DrawTrade(const int idx, const bool isOpen) {
          exit_pfx = "BE";
       }
 
-      string exit_txt = (t.close_reason != "") ? (exit_pfx + " " + t.close_reason) : exit_pfx;
+      string exit_txt = "[" + shortId + "] " + ((t.close_reason != "") ? (exit_pfx + " " + t.close_reason) : exit_pfx);
       ObjectSetString(0, nm, OBJPROP_TEXT, exit_txt);
       ObjectSetInteger(0, nm, OBJPROP_COLOR, exit_col);
       ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
@@ -572,6 +559,50 @@ void _DrawTrade(const int idx, const bool isOpen) {
       ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
    }
+}
+
+void _HSeg(const string &nm, const datetime t0, const datetime t1, const double price,
+           const color c, const ENUM_LINE_STYLE style, const int width, const string tooltip)
+{
+   ObjectCreate(0, nm, OBJ_TREND, 0, t0, price, t1, price);
+   ObjectSetInteger(0, nm, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, nm, OBJPROP_RAY_LEFT, false);
+   ObjectSetInteger(0, nm, OBJPROP_COLOR, c);
+   ObjectSetInteger(0, nm, OBJPROP_STYLE, style);
+   ObjectSetInteger(0, nm, OBJPROP_WIDTH, width);
+   ObjectSetString(0, nm, OBJPROP_TOOLTIP, tooltip);
+   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
+}
+
+string _ShortTradeId(const string &id)
+{
+   int hashPos = StringFind(id, "#");
+   if(hashPos >= 0 && hashPos + 1 < StringLen(id))
+      return StringSubstr(id, hashPos + 1);
+
+   string cleaned = id;
+   StringReplace(cleaned, "-", "");
+   StringReplace(cleaned, ":", "");
+   StringReplace(cleaned, "T", "");
+   int len = StringLen(cleaned);
+   if(len <= 6) return cleaned;
+   return StringSubstr(cleaned, len - 6);
+}
+
+bool _HasLivePosition(const string &id)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong tk = PositionGetTicket(i);
+      if(tk == 0) continue;
+      if(!PositionSelectByTicket(tk)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+
+      string comment = PositionGetString(POSITION_COMMENT);
+      if(comment == id) return true;
+   }
+   return false;
 }
 
 //+------------------------------------------------------------------+

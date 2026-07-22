@@ -117,6 +117,7 @@ void   HandleResumeEntries(const string js);
 void   HandleHardStop(const string js);
 void   PrimeLiveFilePos();
 string SignalGroupFromId(const string id);
+void   RebuildMapsFromOpenPositions();
 
 //==== INPUTS ====
 input string  InpSignalFile          = "signals_vantage_live.jsonl"; // live file in Common\Files
@@ -457,6 +458,45 @@ void UnmapId(const string id)
    ArrayResize(g_sig_dir,last);
    ArrayResize(g_open_server_ts,last);
    ArrayResize(g_open_fill,last);
+}
+
+void RebuildMapsFromOpenPositions()
+{
+   int mapped = 0;
+   int open_total = 0;
+
+   for(int i=PositionsTotal()-1; i>=0; i--){
+      ulong tk = PositionGetTicket(i);
+      if(tk == 0) continue;
+      if(!PositionSelectByTicket(tk)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != InpMagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL) != g_symbol) continue;
+
+      open_total++;
+
+      string id = PositionGetString(POSITION_COMMENT);
+      StringTrimLeft(id);
+      StringTrimRight(id);
+      if(id == ""){
+         LogCSV("MAP_REBUILD_SKIP;ticket="+IntegerToString((long)tk)+";reason=no_comment");
+         continue;
+      }
+
+      MapId(id, tk);
+      int idx = FindId(id);
+      if(idx < 0) continue;
+
+      g_last_sl[idx] = PositionGetDouble(POSITION_SL);
+      g_sig_entry[idx] = PositionGetDouble(POSITION_PRICE_OPEN);
+      g_sig_qty[idx] = PositionGetDouble(POSITION_VOLUME);
+      g_sig_dir[idx] = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? 1 : -1;
+      g_open_server_ts[idx] = (datetime)PositionGetInteger(POSITION_TIME);
+      g_open_fill[idx] = PositionGetDouble(POSITION_PRICE_OPEN);
+      mapped++;
+   }
+
+   LogCSV("MAP_REBUILD;mapped="+IntegerToString(mapped)+";open_total="+IntegerToString(open_total));
+   PrintFormat("PhantomBridge map rebuild | mapped=%d open_total=%d", mapped, open_total);
 }
 
 double NormalizePrice(const double p){ return NormalizeDouble(p,g_digits); }
@@ -1363,6 +1403,9 @@ int OnInit()
 
    g_replay_loaded = false;
    g_replay_next = 0;
+   ArrayResize(g_ids, 0);
+   ArrayResize(g_tickets, 0);
+   ArrayResize(g_last_sl, 0);
    ArrayResize(g_replay_raw, 0);
    ArrayResize(g_replay_ts, 0);
    ArrayResize(g_open_once_ids, 0);
@@ -1380,6 +1423,8 @@ int OnInit()
    g_synth_net = 0.0;
    g_synth_trades = 0;
    g_synth_wins = 0;
+
+   RebuildMapsFromOpenPositions();
 
    // [CASH-3/6] Init risk summary — daily off balance, max-loss trailing off peak
    double init_daily_amount = g_day_start_balance * (InpDailyLossPct/100.0);
