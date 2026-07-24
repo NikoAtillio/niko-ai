@@ -345,6 +345,8 @@ CASH_CONFIG = {
     'total_soft_stop_enabled': False,  # LENIENT: disable total-soft-stop; only hard floor applies
     'trail_max_loss_pct': 15.0,       # C2: max-loss floor TRAILS 15% below the rolling equity peak
     'manual_resume_file': 'tmp/cash_resume.flag',
+    'daily_resume_file': 'tmp/cash_daily_resume.flag',
+    'master_control_file': '',
     'hard_close_on_trigger': True,
     'cash_max_leverage': 200.0,       # C4: cash leverage cap (default 1:200)
     'lot_cap_mult': 10.0,             # C3: per-order lot cap = daily-base lots x10
@@ -1047,6 +1049,22 @@ def run_scenario(
     cash_total_soft_pause = False
     cash_total_manual_resume = False  # latch: True after a manual resume until equity recovers
     cash_hard_stop_pause_days = max(0, int(cash.get('hard_stop_pause_days', 0) or 0))
+    master_mode = ''
+    master_last_mode = ''
+
+    def load_master_mode() -> str:
+        ctl_file = str(cash.get('master_control_file', '') or '').strip()
+        if not ctl_file:
+            return ''
+        try:
+            with open(ctl_file, 'r', encoding='utf-8') as f:
+                raw = (f.read() or '').strip()
+        except OSError:
+            return ''
+        if not raw:
+            return ''
+        token = raw.split()[0].strip().upper()
+        return token if token in ('PAUSE', 'RESUME') else ''
 
     def fmt_gbp(value):
         return f"£{value:,.2f}"
@@ -1114,6 +1132,17 @@ def run_scenario(
         price = c_c[bar_i]
         high  = c_h[bar_i]
         low   = c_l[bar_i]
+
+        master_mode = load_master_mode()
+        if master_mode != master_last_mode:
+            if master_mode == 'PAUSE':
+                emit_event({'action': 'pause_entries', 'reason': 'manual_master_pause', 'resume_after': ''})
+                print(f"  [cash] master pause active {ts_pd} | entries blocked")
+            elif master_mode == 'RESUME':
+                emit_event({'action': 'resume_entries', 'reason': 'manual_master_resume'})
+                print(f"  [cash] master resume active {ts_pd} | guardrail pauses overridden")
+            master_last_mode = master_mode
+
         if EMIT_HEARTBEATS:
             emit_event({'action': 'heartbeat', 'ts': ts_pd})
 
@@ -1269,7 +1298,13 @@ def run_scenario(
         if ts_pd.normalize() != daily_anchor:
             daily_anchor = ts_pd.normalize()
             daily_start_equity = capital + mark_to_market(positions, price)
-            cash_daily_soft_pause = False
+            if cash_daily_soft_pause:
+                cash_daily_soft_pause = False
+                emit_event({'action': 'resume_entries', 'reason': 'daily_soft_reset'})
+                print(
+                    f"  [cash] daily soft-stop RESET {ts_pd} | "
+                    f"new UTC day, entries resumed"
+                )
             if cash_hard_stop and cash_hard_stop_reason == 'daily_loss':
                 cash_hard_stop = False
                 cash_hard_stop_reason = None
@@ -1342,7 +1377,7 @@ def run_scenario(
                     f"  [cash] hard-stop PAUSE-UNTIL {cash_hard_stop_until} | "
                     f"reason={hard_stop_trigger_reason}"
                 )
-        if cash_hard_stop:
+        if cash_hard_stop and master_mode != 'RESUME':
             # Only log at the moment of first trigger (hard_stop_reasons non-empty).
             if hard_stop_reasons:
                 print(
@@ -1363,9 +1398,15 @@ def run_scenario(
             skipped['cash'] += 1
             continue
 
+        if master_mode == 'RESUME' and cash_hard_stop:
+            cash_hard_stop = False
+            cash_hard_stop_reason = None
+            cash_hard_stop_until = None
+            breaker.manual_reset_hard_stop()
+
         # CASH soft stops: pause before hard-loss floors are reached.
         # Daily soft stop resets at next UTC day.
-        if (not cash_daily_soft_pause) and equity_now <= daily_soft_floor:
+        if master_mode != 'RESUME' and (not cash_daily_soft_pause) and equity_now <= daily_soft_floor:
             cash_daily_soft_pause = True
             resume_ts = (ts_pd + pd.Timedelta(days=1)).normalize()
             emit_event({
@@ -1393,7 +1434,7 @@ def run_scenario(
         # Only (re)arm the pause if we are NOT operating under an active manual
         # resume. This prevents the pause from re-triggering on the very next
         # bar while equity is still below the soft floor.
-        if (cash.get('total_soft_stop_enabled', True)
+        if (master_mode != 'RESUME' and cash.get('total_soft_stop_enabled', True)
             and (not cash_total_soft_pause) and (not cash_total_manual_resume)
             and equity_now <= total_soft_floor):
             cash_total_soft_pause = True
@@ -1404,7 +1445,7 @@ def run_scenario(
                 f"daily_soft={fmt_gbp(daily_soft_floor)} | daily_hard={fmt_gbp(daily_floor)}"
             )
 
-        if cash_total_soft_pause:
+        if cash_total_soft_pause and master_mode != 'RESUME':
             resume_file = str(cash.get('manual_resume_file', '') or '').strip()
             if resume_file and os.path.exists(resume_file):
                 cash_total_soft_pause = False
@@ -1424,7 +1465,25 @@ def run_scenario(
                     })
                 continue
 
-        if cash_daily_soft_pause:
+        if master_mode == 'RESUME' and cash_total_soft_pause:
+            cash_total_soft_pause = False
+            cash_total_manual_resume = True
+
+        if cash_daily_soft_pause and master_mode != 'RESUME':
+            daily_resume_file = str(cash.get('daily_resume_file', '') or '').strip()
+            if daily_resume_file and os.path.exists(daily_resume_file):
+                cash_daily_soft_pause = False
+                emit_event({'action': 'resume_entries', 'reason': 'manual_daily_soft_resume'})
+                try:
+                    os.remove(daily_resume_file)
+                except OSError:
+                    pass
+                print(
+                    f"  [cash] manual daily resume detected {ts_pd}: {daily_resume_file} | "
+                    f"entries resumed"
+                )
+                continue
+
             skipped['cash'] += 1
             if debug_rows is not None:
                 debug_rows.append({
@@ -1435,10 +1494,13 @@ def run_scenario(
                 })
             continue
 
+        if master_mode == 'RESUME' and cash_daily_soft_pause:
+            cash_daily_soft_pause = False
+
         # ── entry logic ────
 
         # Circuit breaker check
-        if breaker.is_paused(ts_pd):
+        if master_mode != 'RESUME' and breaker.is_paused(ts_pd):
             skipped['circuit'] += 1
             if debug_rows is not None:
                 debug_rows.append({
@@ -1446,6 +1508,17 @@ def run_scenario(
                     'price': price,
                     'event': 'bar_skip',
                     'reason': 'circuit',
+                })
+            continue
+
+        if master_mode == 'PAUSE':
+            skipped['cash'] += 1
+            if debug_rows is not None:
+                debug_rows.append({
+                    'ts': ts_pd,
+                    'price': price,
+                    'event': 'bar_skip',
+                    'reason': 'master_pause',
                 })
             continue
 
@@ -2257,6 +2330,10 @@ def main():
                     help='Circuit breaker: pause entries at this fraction (80%%) of the daily loss amount')
     parser.add_argument('--cash-manual-resume-file', default='tmp/cash_resume.flag',
                     help='Presence of this file resumes trading after total-loss soft stop')
+    parser.add_argument('--cash-daily-resume-file', default='tmp/cash_daily_resume.flag',
+                    help='Presence of this file resumes trading after daily soft stop')
+    parser.add_argument('--cash-master-control-file', default='',
+                    help='Master pause/resume control file with first token PAUSE or RESUME')
     parser.add_argument('--cash-hard-close', dest='cash_hard_close', action='store_true',
                     help='Force-close all open positions immediately when a hard CASH stop triggers')
     parser.add_argument('--no-cash-hard-close', dest='cash_hard_close', action='store_false',
@@ -2276,6 +2353,8 @@ def main():
     # CASH guardrails (FTMO challenge logic stripped — no profit target / min days).
     CASH_CONFIG['soft_stop_ratio'] = max(0.0, min(float(args.cash_soft_stop_ratio), 1.0))
     CASH_CONFIG['manual_resume_file'] = str(args.cash_manual_resume_file)
+    CASH_CONFIG['daily_resume_file'] = str(args.cash_daily_resume_file)
+    CASH_CONFIG['master_control_file'] = str(args.cash_master_control_file)
     CASH_CONFIG['hard_close_on_trigger'] = bool(args.cash_hard_close)
     CASH_CONFIG['hard_stop_pause_days'] = max(0, int(args.cash_hard_stop_pause_days))
     CASH_CONFIG['cash_max_leverage'] = max(1.0, float(args.cash_max_leverage))     # C4

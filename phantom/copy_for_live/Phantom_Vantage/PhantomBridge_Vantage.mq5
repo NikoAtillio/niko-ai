@@ -115,9 +115,20 @@ double ComputeLotsForSignal(const string dir,const double entry,const double sto
 void   HandlePauseEntries(const string js);
 void   HandleResumeEntries(const string js);
 void   HandleHardStop(const string js);
+void   HandleFlattenAll(const string js);
+void   HandleOpen(const string js);
+void   HandleModify(const string js);
+void   HandleClose(const string js);
 void   PrimeLiveFilePos();
 string SignalGroupFromId(const string id);
 void   RebuildMapsFromOpenPositions();
+void   RetryPendingOpens();
+void   RetryPendingActions();
+void   ReconcileBridgeState();
+void   LoadPendingActionQueue();
+void   SavePendingActionQueue();
+void   UpsertPendingAction(const string kind, const string id, const string raw);
+void   RemovePendingActionsById(const string id);
 
 //==== INPUTS ====
 input string  InpSignalFile          = "signals_vantage_live.jsonl"; // live file in Common\Files
@@ -172,6 +183,9 @@ input bool    InpStackLimitSameSignalOnly = true;               // enforce stack
 input bool    InpNotifyPush          = true;
 input bool    InpNotifyEmail         = false;
 input bool    InpNotifyAlert         = true;
+input int     InpReconcileIntervalSec = 60;                    // periodic live-position reconciliation interval
+input int     InpOrphanAlertMinutes   = 15;                    // alert if a live ticket stays unmapped this long
+input int     InpStaleCursorMinutes    = 15;                    // alert if signal file stops advancing while positions are open
 
 // --- logging ---
 input bool    InpLogToCSV            = true;
@@ -208,6 +222,8 @@ double   g_start_cap      = 0.0;     // fixed original account size (risk/guardr
 double   g_peak_equity    = 0.0;     // [CASH-3] high-water mark for trailing floor
 long     g_login          = 0;       // [CASH-10] per-account state isolation
 string   g_state_file     = "";      // phantom_state_<login>.json
+string   g_pending_open_file = "";   // durable queue for transient open failures
+string   g_pending_action_file = "";  // durable queue for deferred modify/close intents
 
 // signal_id -> position ticket map
 string   g_ids[];
@@ -241,6 +257,435 @@ datetime g_pending_expiry[];
 
 // seen open IDs
 string   g_open_once_ids[];
+
+// Pending OPEN retries (durable across restart)
+string   g_pending_open_ids[];
+string   g_pending_open_raw[];
+int      g_pending_open_attempts[];
+datetime g_pending_open_first_ts[];
+datetime g_pending_open_last_try[];
+
+// Deferred modify while waiting for pending open execution
+string   g_deferred_mod_ids[];
+double   g_deferred_mod_sl[];
+
+// Pending modify/close actions persisted across reconnects
+string   g_pending_action_ids[];
+string   g_pending_action_kind[];
+string   g_pending_action_raw[];
+int      g_pending_action_attempts[];
+datetime g_pending_action_first_ts[];
+datetime g_pending_action_last_try[];
+
+datetime g_last_reconcile_check = 0;
+datetime g_last_signal_progress = 0;
+datetime g_unmapped_first_seen = 0;
+bool     g_orphan_alerted = false;
+bool     g_stale_cursor_alerted = false;
+
+int FindPendingOpen(const string id)
+{
+   for(int i=0; i<ArraySize(g_pending_open_ids); i++)
+      if(g_pending_open_ids[i] == id) return i;
+   return -1;
+}
+
+int FindDeferredMod(const string id)
+{
+   for(int i=0; i<ArraySize(g_deferred_mod_ids); i++)
+      if(g_deferred_mod_ids[i] == id) return i;
+   return -1;
+}
+
+void RemoveDeferredModById(const string id)
+{
+   int idx = FindDeferredMod(id);
+   if(idx < 0) return;
+   int last = ArraySize(g_deferred_mod_ids) - 1;
+   g_deferred_mod_ids[idx] = g_deferred_mod_ids[last];
+   g_deferred_mod_sl[idx] = g_deferred_mod_sl[last];
+   ArrayResize(g_deferred_mod_ids, last);
+   ArrayResize(g_deferred_mod_sl, last);
+}
+
+void SavePendingOpenQueue()
+{
+   if(InpReplayMode) return;
+   if(g_pending_open_file == "") return;
+
+   int h = FileOpen(g_pending_open_file, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+
+   for(int i=0; i<ArraySize(g_pending_open_raw); i++)
+      FileWrite(h, g_pending_open_raw[i]);
+
+   FileClose(h);
+}
+
+void LoadPendingOpenQueue()
+{
+   if(InpReplayMode) return;
+   if(g_pending_open_file == "") return;
+   if(!FileIsExist(g_pending_open_file, FILE_COMMON)) return;
+
+   int h = FileOpen(g_pending_open_file, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+
+   while(!FileIsEnding(h)){
+      string line = FileReadString(h);
+      StringTrimLeft(line);
+      StringTrimRight(line);
+      if(StringLen(line) < 2) continue;
+
+      string id = JGetStr(line, "id");
+      if(id == "") continue;
+      if(FindPendingOpen(id) >= 0) continue;
+
+      int n = ArraySize(g_pending_open_ids);
+      ArrayResize(g_pending_open_ids, n + 1);
+      ArrayResize(g_pending_open_raw, n + 1);
+      ArrayResize(g_pending_open_attempts, n + 1);
+      ArrayResize(g_pending_open_first_ts, n + 1);
+      ArrayResize(g_pending_open_last_try, n + 1);
+
+      g_pending_open_ids[n] = id;
+      g_pending_open_raw[n] = line;
+      g_pending_open_attempts[n] = 0;
+      g_pending_open_first_ts[n] = TimeCurrent();
+      g_pending_open_last_try[n] = 0;
+   }
+
+   FileClose(h);
+   LogCSV("PENDING_OPEN_LOADED;count="+IntegerToString(ArraySize(g_pending_open_ids)));
+}
+
+void RemovePendingOpenAt(const int idx)
+{
+   int last = ArraySize(g_pending_open_ids) - 1;
+   if(idx < 0 || idx > last) return;
+
+   g_pending_open_ids[idx] = g_pending_open_ids[last];
+   g_pending_open_raw[idx] = g_pending_open_raw[last];
+   g_pending_open_attempts[idx] = g_pending_open_attempts[last];
+   g_pending_open_first_ts[idx] = g_pending_open_first_ts[last];
+   g_pending_open_last_try[idx] = g_pending_open_last_try[last];
+
+   ArrayResize(g_pending_open_ids, last);
+   ArrayResize(g_pending_open_raw, last);
+   ArrayResize(g_pending_open_attempts, last);
+   ArrayResize(g_pending_open_first_ts, last);
+   ArrayResize(g_pending_open_last_try, last);
+
+   SavePendingOpenQueue();
+}
+
+void UpsertPendingOpen(const string id, const string raw)
+{
+   if(id == "" || raw == "") return;
+
+   int idx = FindPendingOpen(id);
+   if(idx < 0){
+      int n = ArraySize(g_pending_open_ids);
+      ArrayResize(g_pending_open_ids, n + 1);
+      ArrayResize(g_pending_open_raw, n + 1);
+      ArrayResize(g_pending_open_attempts, n + 1);
+      ArrayResize(g_pending_open_first_ts, n + 1);
+      ArrayResize(g_pending_open_last_try, n + 1);
+
+      g_pending_open_ids[n] = id;
+      g_pending_open_raw[n] = raw;
+      g_pending_open_attempts[n] = 0;
+      g_pending_open_first_ts[n] = TimeCurrent();
+      g_pending_open_last_try[n] = 0;
+   }
+   else {
+      g_pending_open_raw[idx] = raw;
+   }
+
+   SavePendingOpenQueue();
+}
+
+void CancelPendingOpenById(const string id, const string why)
+{
+   int idx = FindPendingOpen(id);
+   if(idx < 0) return;
+   LogCSV("OPEN_PENDING_CANCEL;"+id+";reason="+why);
+   RemovePendingOpenAt(idx);
+}
+
+bool IsTransientOpenRetcode(const int rc)
+{
+   if(rc == 10031) return true; // no connection
+   if(rc == 10012) return true; // timeout
+   if(rc == 10020) return true; // price changed
+   if(rc == 10021) return true; // price off
+   if(rc == 10024) return true; // too many requests
+   if(rc == 10004) return true; // requote
+   return false;
+}
+
+int FindPendingAction(const string kind, const string id)
+{
+   for(int i=0; i<ArraySize(g_pending_action_ids); i++)
+      if(g_pending_action_kind[i] == kind && g_pending_action_ids[i] == id) return i;
+   return -1;
+}
+
+void RemovePendingActionAt(const int idx)
+{
+   int last = ArraySize(g_pending_action_ids) - 1;
+   if(idx < 0 || idx > last) return;
+
+   g_pending_action_ids[idx] = g_pending_action_ids[last];
+   g_pending_action_kind[idx] = g_pending_action_kind[last];
+   g_pending_action_raw[idx] = g_pending_action_raw[last];
+   g_pending_action_attempts[idx] = g_pending_action_attempts[last];
+   g_pending_action_first_ts[idx] = g_pending_action_first_ts[last];
+   g_pending_action_last_try[idx] = g_pending_action_last_try[last];
+
+   ArrayResize(g_pending_action_ids, last);
+   ArrayResize(g_pending_action_kind, last);
+   ArrayResize(g_pending_action_raw, last);
+   ArrayResize(g_pending_action_attempts, last);
+   ArrayResize(g_pending_action_first_ts, last);
+   ArrayResize(g_pending_action_last_try, last);
+
+   SavePendingActionQueue();
+}
+
+void SavePendingActionQueue()
+{
+   if(InpReplayMode) return;
+   if(g_pending_action_file == "") return;
+
+   int h = FileOpen(g_pending_action_file, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+
+   for(int i=0; i<ArraySize(g_pending_action_raw); i++)
+      FileWrite(h, g_pending_action_raw[i]);
+
+   FileClose(h);
+}
+
+void LoadPendingActionQueue()
+{
+   if(InpReplayMode) return;
+   if(g_pending_action_file == "") return;
+   if(!FileIsExist(g_pending_action_file, FILE_COMMON)) return;
+
+   int h = FileOpen(g_pending_action_file, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+
+   while(!FileIsEnding(h)){
+      string line = FileReadString(h);
+      StringTrimLeft(line);
+      StringTrimRight(line);
+      if(StringLen(line) < 2) continue;
+
+      string id = JGetStr(line, "id");
+      string kind = JGetStr(line, "action");
+      if(id == "" || (kind != "modify" && kind != "close")) continue;
+      if(FindPendingAction(kind, id) >= 0) continue;
+
+      int n = ArraySize(g_pending_action_ids);
+      ArrayResize(g_pending_action_ids, n + 1);
+      ArrayResize(g_pending_action_kind, n + 1);
+      ArrayResize(g_pending_action_raw, n + 1);
+      ArrayResize(g_pending_action_attempts, n + 1);
+      ArrayResize(g_pending_action_first_ts, n + 1);
+      ArrayResize(g_pending_action_last_try, n + 1);
+
+      g_pending_action_ids[n] = id;
+      g_pending_action_kind[n] = kind;
+      g_pending_action_raw[n] = line;
+      g_pending_action_attempts[n] = 0;
+      g_pending_action_first_ts[n] = TimeCurrent();
+      g_pending_action_last_try[n] = 0;
+   }
+
+   FileClose(h);
+   LogCSV("PENDING_ACTION_LOADED;count="+IntegerToString(ArraySize(g_pending_action_ids)));
+}
+
+void UpsertPendingAction(const string kind, const string id, const string raw)
+{
+   if(id == "" || raw == "") return;
+
+   int idx = FindPendingAction(kind, id);
+   if(idx < 0){
+      int n = ArraySize(g_pending_action_ids);
+      ArrayResize(g_pending_action_ids, n + 1);
+      ArrayResize(g_pending_action_kind, n + 1);
+      ArrayResize(g_pending_action_raw, n + 1);
+      ArrayResize(g_pending_action_attempts, n + 1);
+      ArrayResize(g_pending_action_first_ts, n + 1);
+      ArrayResize(g_pending_action_last_try, n + 1);
+
+      g_pending_action_ids[n] = id;
+      g_pending_action_kind[n] = kind;
+      g_pending_action_raw[n] = raw;
+      g_pending_action_attempts[n] = 0;
+      g_pending_action_first_ts[n] = TimeCurrent();
+      g_pending_action_last_try[n] = 0;
+   }
+   else {
+      g_pending_action_raw[idx] = raw;
+   }
+
+   SavePendingActionQueue();
+}
+
+void RemovePendingActionsById(const string id)
+{
+   for(int i=ArraySize(g_pending_action_ids)-1; i>=0; i--){
+      if(g_pending_action_ids[i] == id)
+         RemovePendingActionAt(i);
+   }
+}
+
+bool IsLikelyMarketActive()
+{
+   MqlDateTime st;
+   TimeToStruct(TimeCurrent(), st);
+   if(st.day_of_week == 0 || st.day_of_week == 6) return false;
+   return (st.hour >= 6 && st.hour <= 22);
+}
+
+void ClearSignalMaps()
+{
+   ArrayResize(g_ids, 0);
+   ArrayResize(g_tickets, 0);
+   ArrayResize(g_last_sl, 0);
+   ArrayResize(g_sig_entry, 0);
+   ArrayResize(g_sig_qty, 0);
+   ArrayResize(g_sig_dir, 0);
+   ArrayResize(g_open_server_ts, 0);
+   ArrayResize(g_open_fill, 0);
+}
+
+void ReconcileBridgeState()
+{
+   if(InpReplayMode) return;
+
+   datetime nowt = TimeCurrent();
+   int interval = InpReconcileIntervalSec;
+   if(ArraySize(g_pending_open_ids) > 0 || ArraySize(g_pending_action_ids) > 0)
+      interval = MathMin(interval, 15);
+   if(g_last_reconcile_check > 0 && (nowt - g_last_reconcile_check) < interval)
+      return;
+   g_last_reconcile_check = nowt;
+
+   int live_total = 0;
+   int mapped_total = 0;
+   int unmapped_total = 0;
+   int commentless_total = 0;
+
+   for(int i=PositionsTotal()-1; i>=0; i--){
+      ulong tk = PositionGetTicket(i);
+      if(tk == 0) continue;
+      if(!PositionSelectByTicket(tk)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != InpMagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL) != g_symbol) continue;
+
+      live_total++;
+      string id = PositionGetString(POSITION_COMMENT);
+      StringTrimLeft(id);
+      StringTrimRight(id);
+      if(id == ""){
+         commentless_total++;
+         continue;
+      }
+      if(FindId(id) >= 0) mapped_total++;
+      else unmapped_total++;
+   }
+
+   if(live_total == 0){
+      if(ArraySize(g_ids) > 0){
+         ClearSignalMaps();
+         LogCSV("RECONCILE_CLEAR;reason=no_live_positions");
+      }
+      g_unmapped_first_seen = 0;
+      g_orphan_alerted = false;
+      g_stale_cursor_alerted = false;
+      return;
+   }
+
+   bool mismatch = (mapped_total != live_total) || (unmapped_total > 0) || (commentless_total > 0);
+   if(mismatch){
+      ClearSignalMaps();
+      RebuildMapsFromOpenPositions();
+      RetryPendingOpens();
+      RetryPendingActions();
+
+      bool alert_window = IsLikelyMarketActive() && AccountInfoInteger(ACCOUNT_TRADE_ALLOWED);
+      if(alert_window && InpOrphanAlertMinutes > 0){
+         if(g_unmapped_first_seen == 0) g_unmapped_first_seen = nowt;
+         int orphan_age = (int)(nowt - g_unmapped_first_seen);
+         if(orphan_age >= (InpOrphanAlertMinutes * 60) && !g_orphan_alerted){
+            g_orphan_alerted = true;
+            string msg = "Live position mapping is still inconsistent after " + IntegerToString(InpOrphanAlertMinutes) + " minutes. Check the chart and log before trading new signals.";
+            LogCSV("ORPHAN_ALERT;live_total="+IntegerToString(live_total)+
+                   ";mapped_total="+IntegerToString(mapped_total)+
+                   ";unmapped_total="+IntegerToString(unmapped_total)+
+                   ";commentless_total="+IntegerToString(commentless_total));
+            Notify("PHANTOM MAP ALERT", msg);
+         }
+      }
+      else {
+         // Do not age or fire orphan alerts while market is inactive.
+         g_unmapped_first_seen = 0;
+         g_orphan_alerted = false;
+      }
+   }
+   else {
+      g_unmapped_first_seen = 0;
+      g_orphan_alerted = false;
+   }
+
+   RetryPendingActions();
+}
+
+void RetryPendingActions()
+{
+   if(InpReplayMode) return;
+   if(ArraySize(g_pending_action_ids) <= 0) return;
+
+   datetime nowt = TimeCurrent();
+   for(int i=ArraySize(g_pending_action_ids)-1; i>=0; i--){
+      string kind = g_pending_action_kind[i];
+      string id = g_pending_action_ids[i];
+
+      if(g_pending_action_last_try[i] > 0 && (nowt - g_pending_action_last_try[i]) < 15)
+         continue;
+
+      int idx = FindId(id);
+      if(idx < 0) continue;
+
+      ulong tk = g_tickets[idx];
+      if(!PositionSelectByTicket(tk)) continue;
+
+      g_pending_action_last_try[i] = nowt;
+      g_pending_action_attempts[i]++;
+
+      if(kind == "modify"){
+         double desired = JGetNum(g_pending_action_raw[i], "new_stop");
+         LogCSV("MODIFY_RETRY_PENDING;"+id+";attempt="+IntegerToString(g_pending_action_attempts[i]));
+         HandleModify(g_pending_action_raw[i]);
+
+         if(PositionSelectByTicket(tk)){
+            double cur_sl = PositionGetDouble(POSITION_SL);
+            if(desired > 0.0 && MathAbs(cur_sl - desired) <= (g_point * 0.5))
+               RemovePendingActionAt(i);
+         }
+      }
+      else if(kind == "close"){
+         LogCSV("CLOSE_RETRY_PENDING;"+id+";attempt="+IntegerToString(g_pending_action_attempts[i]));
+         HandleClose(g_pending_action_raw[i]);
+         if(!PositionSelectByTicket(tk) || FindId(id) < 0)
+            RemovePendingActionAt(i);
+      }
+   }
+}
 
 bool HasOpenFired(const string id)
 {
@@ -492,6 +937,12 @@ void RebuildMapsFromOpenPositions()
       g_sig_dir[idx] = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? 1 : -1;
       g_open_server_ts[idx] = (datetime)PositionGetInteger(POSITION_TIME);
       g_open_fill[idx] = PositionGetDouble(POSITION_PRICE_OPEN);
+            LogCSV("MAP_REBUILD_ID;id="+id+
+               ";ticket="+IntegerToString((long)tk)+
+               ";type="+IntegerToString((int)PositionGetInteger(POSITION_TYPE))+
+               ";vol="+DoubleToString(g_sig_qty[idx],2)+
+               ";open="+DoubleToString(g_open_fill[idx],g_digits)+
+               ";sl="+DoubleToString(g_last_sl[idx],g_digits));
       mapped++;
    }
 
@@ -1008,9 +1459,26 @@ void HandleOpen(const string js)
              ";fill="+DoubleToString(trade.ResultPrice(),g_digits)+
              ";sl="+DoubleToString(sl,g_digits)+";tp="+DoubleToString(tpx,g_digits)+
              ";sacct="+DoubleToString(sacct,2)+";live_eq="+DoubleToString(live_eq,2));
+
+      int dmx = FindDeferredMod(id);
+      if(dmx >= 0){
+         string djs = "{\"id\":\""+id+"\",\"new_stop\":"+DoubleToString(g_deferred_mod_sl[dmx], g_digits)+"}";
+         LogCSV("MODIFY_DEFER_APPLY;"+id+";new_stop="+DoubleToString(g_deferred_mod_sl[dmx], g_digits));
+         RemoveDeferredModById(id);
+         HandleModify(djs);
+      }
+
+      RetryPendingActions();
+
+      CancelPendingOpenById(id, "open_success");
    }
    else {
-      LogCSV("OPEN_FAIL;"+id+";ret="+IntegerToString(trade.ResultRetcode())+";"+trade.ResultRetcodeDescription());
+      int rc = (int)trade.ResultRetcode();
+      LogCSV("OPEN_FAIL;"+id+";ret="+IntegerToString(rc)+";"+trade.ResultRetcodeDescription());
+      if(IsTransientOpenRetcode(rc) && !InpReplayMode){
+         UpsertPendingOpen(id, js);
+         LogCSV("OPEN_PENDING;"+id+";ret="+IntegerToString(rc));
+      }
    }
 }
 
@@ -1020,7 +1488,14 @@ void HandleModify(const string js)
    double new_stop = JGetNum(js,"new_stop");
    int idx=FindId(id);
    if(idx<0){
-      LogCSV("MODIFY_NO_MAP;"+id);
+      int pidx = FindPendingOpen(id);
+      if(pidx >= 0){
+         UpsertPendingAction("modify", id, js);
+         LogCSV("MODIFY_DEFER_PENDING_OPEN;"+id+";new_stop="+DoubleToString(new_stop, g_digits));
+         return;
+      }
+      UpsertPendingAction("modify", id, js);
+      LogCSV("MODIFY_PENDING;"+id+";new_stop="+DoubleToString(new_stop, g_digits));
       return;
    }
 
@@ -1105,7 +1580,14 @@ void HandleClose(const string js)
    StringToLower(reason_l);
    int idx=FindId(id);
    if(idx<0){
-      LogCSV("CLOSE_NO_MAP;"+id);
+      if(FindPendingOpen(id) >= 0){
+         CancelPendingOpenById(id, "close_before_open");
+         RemovePendingActionsById(id);
+         LogCSV("CLOSE_CANCELLED_PENDING_OPEN;"+id+";reason="+reason);
+         return;
+      }
+      UpsertPendingAction("close", id, js);
+      LogCSV("CLOSE_PENDING;"+id+";reason="+reason);
       return;
    }
 
@@ -1214,6 +1696,34 @@ void HandleClose(const string js)
    UnmapId(id);
 }
 
+void RetryPendingOpens()
+{
+   if(InpReplayMode) return;
+   if(ArraySize(g_pending_open_ids) <= 0) return;
+
+   for(int i=ArraySize(g_pending_open_ids)-1; i>=0; i--){
+      string id = g_pending_open_ids[i];
+
+      if(FindId(id) >= 0){
+         RemovePendingOpenAt(i);
+         continue;
+      }
+
+      datetime nowt = TimeCurrent();
+      if(g_pending_open_last_try[i] > 0 && (nowt - g_pending_open_last_try[i]) < 3)
+         continue;
+
+      g_pending_open_last_try[i] = nowt;
+      g_pending_open_attempts[i]++;
+      LogCSV("OPEN_RETRY;"+id+";attempt="+IntegerToString(g_pending_open_attempts[i]));
+      HandleOpen(g_pending_open_raw[i]);
+
+      if(FindId(id) >= 0 && FindPendingOpen(id) >= 0){
+         CancelPendingOpenById(id, "retry_success");
+      }
+   }
+}
+
 //==== PYTHON GUARDRAIL RECEIVERS ====
 void HandlePauseEntries(const string js)
 {
@@ -1226,11 +1736,35 @@ void HandlePauseEntries(const string js)
 
 void HandleResumeEntries(const string js)
 {
-   if(!g_python_paused) return;
-   g_python_paused = false;
    string reason = JGetStr(js, "reason");
+   bool changed = false;
+
+   if(g_python_paused){
+      g_python_paused = false;
+      changed = true;
+   }
+
+   // Manual resume from either daemon master control or chart UI should
+   // restart bridge entry flow without requiring input toggles.
+   if(reason == "manual_master_resume" || reason == "manual_chart_resume"){
+      if(g_disabled_perm){
+         g_disabled_perm = false;
+         g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY);
+         LogCSV("MANUAL_RESUME_CLEAR_HARD_PAUSE;peak="+DoubleToString(g_peak_equity,2));
+         changed = true;
+      }
+      if(g_halted_today){
+         g_halted_today = false;
+         g_halt_serverday = 0;
+         LogCSV("MANUAL_RESUME_CLEAR_DAILY_HALT");
+         changed = true;
+      }
+      SaveState();
+   }
+
    LogCSV("PYTHON_RESUME_ENTRIES;reason="+reason);
-   Notify("PHANTOM RESUME", "Python resumed entries: "+reason);
+   if(changed)
+      Notify("PHANTOM RESUME", "Python resumed entries: "+reason);
 }
 
 void HandleHardStop(const string js)
@@ -1243,6 +1777,16 @@ void HandleHardStop(const string js)
    LogCSV("PYTHON_HARD_STOP;reason="+reason);
    Notify("PHANTOM HARD STOP", "Python hard_stop received: "+reason+
           ". All positions flattened & EA hard-paused.");
+}
+
+void HandleFlattenAll(const string js)
+{
+   string reason = JGetStr(js, "reason");
+   if(reason == "") reason = "manual_flatten";
+   FlattenAll("FLATTEN_ALL:"+reason);
+   LogCSV("FLATTEN_ALL;reason="+reason);
+   Notify("PHANTOM FLATTEN", "Flatten-all received: "+reason+
+          ". All bridge-managed positions closed.");
 }
 
 //==== LINE DISPATCH ====
@@ -1262,6 +1806,7 @@ void ProcessLine(const string raw)
    else if(action=="pause_entries")  HandlePauseEntries(js);
    else if(action=="resume_entries") HandleResumeEntries(js);
    else if(action=="hard_stop")      HandleHardStop(js);
+   else if(action=="flatten_all")    HandleFlattenAll(js);
 }
 
 //==== FILE READ ====
@@ -1306,6 +1851,14 @@ void PumpFileLive(const string source)
    FileClose(h);
    SaveState();
 
+   if(lines_read > 0){
+      g_last_signal_progress = TimeCurrent();
+      g_stale_cursor_alerted = false;
+   }
+
+   RetryPendingOpens();
+   RetryPendingActions();
+
    LogCSV("FILE_POLL;source="+source+
           ";file="+InpSignalFile+
           ";start="+IntegerToString(start_pos)+
@@ -1314,6 +1867,16 @@ void PumpFileLive(const string source)
           ";processed="+IntegerToString(lines_processed));
    PrintFormat("PhantomBridge live poll | source=%s file=%s start=%d end=%d lines=%d processed=%d",
                source, InpSignalFile, start_pos, end_pos, lines_read, lines_processed);
+
+   if(lines_read == 0 && InpStaleCursorMinutes > 0 && IsLikelyMarketActive() && AccountInfoInteger(ACCOUNT_TRADE_ALLOWED)){
+      if(g_last_signal_progress > 0 && (TimeCurrent() - g_last_signal_progress) >= (InpStaleCursorMinutes * 60) && !g_stale_cursor_alerted){
+         g_stale_cursor_alerted = true;
+         LogCSV("STALE_CURSOR_ALERT;file="+InpSignalFile+
+                ";idle_min="+IntegerToString(InpStaleCursorMinutes)+
+                ";open_total="+IntegerToString(PositionsTotal()));
+         Notify("PHANTOM STREAM ALERT", "Signal stream has not advanced for " + IntegerToString(InpStaleCursorMinutes) + " minutes while the market appears active. Check the writer/connection before relying on new signals.");
+      }
+   }
 }
 
 void PrimeLiveFilePos()
@@ -1375,8 +1938,12 @@ int OnInit()
    // --- account baseline + per-login state --- [CASH-10]
    g_login = AccountInfoInteger(ACCOUNT_LOGIN);
    g_state_file = "phantom_state_"+IntegerToString(g_login)+".json";
+   g_pending_open_file = "phantom_pending_open_"+IntegerToString(g_login)+".jsonl";
+   g_pending_action_file = "phantom_pending_action_"+IntegerToString(g_login)+".jsonl";
    if(in_tester){
       g_state_file = "";
+      g_pending_open_file = "";
+      g_pending_action_file = "";
       g_disabled_perm = false;
       g_halted_today = false;
    }
@@ -1400,6 +1967,8 @@ int OnInit()
 
    PrimeLiveFilePos();
    SaveState();
+   g_last_signal_progress = TimeCurrent();
+   g_stale_cursor_alerted = false;
 
    g_replay_loaded = false;
    g_replay_next = 0;
@@ -1420,11 +1989,24 @@ int OnInit()
    ArrayResize(g_pending_sl, 0);
    ArrayResize(g_pending_dir, 0);
    ArrayResize(g_pending_expiry, 0);
+   ArrayResize(g_deferred_mod_ids, 0);
+   ArrayResize(g_deferred_mod_sl, 0);
+   ArrayResize(g_pending_action_ids, 0);
+   ArrayResize(g_pending_action_kind, 0);
+   ArrayResize(g_pending_action_raw, 0);
+   ArrayResize(g_pending_action_attempts, 0);
+   ArrayResize(g_pending_action_first_ts, 0);
+   ArrayResize(g_pending_action_last_try, 0);
+
+   LoadPendingOpenQueue();
+   LoadPendingActionQueue();
+
    g_synth_net = 0.0;
    g_synth_trades = 0;
    g_synth_wins = 0;
 
    RebuildMapsFromOpenPositions();
+   RetryPendingActions();
 
    // [CASH-3/6] Init risk summary — daily off balance, max-loss trailing off peak
    double init_daily_amount = g_day_start_balance * (InpDailyLossPct/100.0);
@@ -1480,6 +2062,7 @@ void OnTick()
    }
    else {
       PumpFileLive("OnTick");
+      ReconcileBridgeState();
    }
 }
 
@@ -1487,6 +2070,7 @@ void OnTimer()
 {
    if(!InpReplayMode){
       PumpFileLive("OnTimer");
+      ReconcileBridgeState();
    }
 }
 

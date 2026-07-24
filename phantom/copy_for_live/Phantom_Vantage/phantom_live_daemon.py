@@ -113,9 +113,10 @@ def _event_fingerprint(event: dict) -> str:
                     key = action + id + signal_ts + reason
 
     For control events (pause_entries, resume_entries, hard_stop):
-        key = action + reason + resume_after (if present)
-        Two identical consecutive pause events from successive reruns
-        are suppressed; a pause with a different reason passes through.
+        key = action + reason + resume_after (+ signal_ts if present)
+        This allows deliberate operator toggles (e.g. repeated weekend
+        manual resume actions) to be emitted again while still suppressing
+        duplicate rerun noise when signal_ts is absent.
 
     For meta / heartbeat:
         key = action only (they are always re-emitted on restart, so
@@ -151,12 +152,14 @@ def _event_fingerprint(event: dict) -> str:
                 str(event.get("reason", "")),
             ]
     elif action in ("pause_entries", "resume_entries", "hard_stop"):
-        # FIX-2: control events deduped by content, not session
+        # FIX-2: control events are content-deduped, but keep optional
+        # signal_ts so deliberate manual toggles can re-emit cleanly.
         parts = [
             action,
             str(event.get("reason", "")),
             str(event.get("resume_after", "")),
             str(event.get("flatten_all", "")),
+            str(event.get("signal_ts", "")),
         ]
     else:
         # meta, heartbeat, unknown: one per session
@@ -220,10 +223,149 @@ def _find_mt5_common_files() -> List[str]:
     seen: Set[str] = set()
     result: List[str] = []
     for p in candidates:
-        if p not in seen and os.path.isdir(p):
-            seen.add(p)
-            result.append(p)
+        if not os.path.isdir(p):
+            continue
+        # Canonicalize to avoid duplicate writes when users/ and Users/ both resolve.
+        canon = os.path.realpath(p).casefold()
+        if canon in seen:
+            continue
+        seen.add(canon)
+        result.append(os.path.realpath(p))
     return result
+
+
+def _resolve_common_file(path: str) -> str:
+    """
+    Resolve helper paths prefixed with common:// to MT5 Common/Files absolute paths.
+    Example: common://phantom_live/cash_daily_resume.flag
+    """
+    raw = str(path or "").strip()
+    prefix = "common://"
+    if not raw.lower().startswith(prefix):
+        return raw
+
+    rel = raw[len(prefix):].lstrip("/\\")
+    roots = _find_mt5_common_files()
+    if not roots:
+        return rel
+
+    candidates = [os.path.join(root, rel) for root in roots]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
+def _resolve_common_file_candidates(path: str) -> List[str]:
+    """Return all concrete file candidates for a plain path or common:// path."""
+    raw = str(path or "").strip()
+    if not raw:
+        return []
+
+    prefix = "common://"
+    if not raw.lower().startswith(prefix):
+        return [raw]
+
+    rel = raw[len(prefix):].lstrip("/\\")
+    roots = _find_mt5_common_files()
+    if not roots:
+        return [rel]
+    return [os.path.join(root, rel) for root in roots]
+
+
+def _manual_resume_flag_paths(args: argparse.Namespace) -> List[str]:
+    """Return all concrete manual resume flag paths (plain + common:// expanded)."""
+    paths: List[str] = []
+    total_flag = str(getattr(args, "cash_manual_resume_file", "") or "").strip()
+    if total_flag:
+        paths.append(total_flag)
+    paths.extend(
+        _resolve_common_file_candidates(
+            str(getattr(args, "cash_daily_resume_file", "") or "").strip()
+        )
+    )
+
+    seen: Set[str] = set()
+    out: List[str] = []
+    for p in paths:
+        if not p:
+            continue
+        canon = os.path.realpath(p).casefold()
+        if canon in seen:
+            continue
+        seen.add(canon)
+        out.append(p)
+    return out
+
+
+def _snapshot_manual_resume_flags(args: argparse.Namespace) -> Dict[str, float]:
+    """Snapshot current resume flag mtimes so pre-existing files do not retrigger forever."""
+    mtimes: Dict[str, float] = {}
+    for p in _manual_resume_flag_paths(args):
+        if not os.path.exists(p):
+            continue
+        try:
+            mtimes[p] = os.path.getmtime(p)
+        except OSError:
+            continue
+    return mtimes
+
+
+def _manual_resume_override_changed(args: argparse.Namespace, seen_mtimes: Dict[str, float]) -> bool:
+    """
+    Edge-triggered manual resume detection.
+
+    Returns True only when a resume flag file is newly created or its mtime changes.
+    A stale always-present flag no longer forces reruns on every poll.
+    """
+    triggered = False
+    active: Set[str] = set()
+
+    for p in _manual_resume_flag_paths(args):
+        if not os.path.exists(p):
+            continue
+        active.add(p)
+        try:
+            cur = os.path.getmtime(p)
+        except OSError:
+            continue
+        prev = seen_mtimes.get(p)
+        if prev is None or cur != prev:
+            triggered = True
+        seen_mtimes[p] = cur
+
+    # Drop deleted flags from the seen map.
+    for p in list(seen_mtimes.keys()):
+        if p not in active:
+            seen_mtimes.pop(p, None)
+
+    return triggered
+
+
+def _read_master_control_mode(path: str) -> str:
+    """Read master control mode from file. Returns 'PAUSE', 'RESUME', or ''."""
+    candidates = _resolve_common_file_candidates(path)
+    if not candidates:
+        return ""
+
+    # Prefer the newest existing control file when multiple MT5 profiles exist.
+    existing: List[str] = [p for p in candidates if os.path.exists(p)]
+    if not existing:
+        return ""
+    existing.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+
+    for p in existing:
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                raw = (f.read() or "").strip()
+        except OSError:
+            continue
+        if not raw:
+            continue
+        token = raw.split()[0].strip().upper()
+        if token in ("PAUSE", "RESUME"):
+            return token
+    return ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -291,6 +433,8 @@ def _run_engine(args: argparse.Namespace) -> List[dict]:
         cash_lot_cap_mult=10.0,
         cash_soft_stop_ratio=0.8,
         cash_manual_resume_file="tmp/cash_resume.flag",
+        cash_daily_resume_file="common://phantom_live/cash_daily_resume.flag",
+        cash_master_control_file=str(getattr(args, "cash_master_control_file", "common://phantom_live/master_control.flag") or ""),
         cash_hard_close=True,
         cash_hard_stop_pause_days=0,
     )
@@ -327,6 +471,8 @@ def _engine_main_no_flush(args: argparse.Namespace) -> None:
     # Apply CASH config overrides
     engine.CASH_CONFIG["soft_stop_ratio"] = max(0.0, min(float(args.cash_soft_stop_ratio), 1.0))
     engine.CASH_CONFIG["manual_resume_file"] = str(args.cash_manual_resume_file)
+    engine.CASH_CONFIG["daily_resume_file"] = _resolve_common_file(str(args.cash_daily_resume_file))
+    engine.CASH_CONFIG["master_control_file"] = _resolve_common_file(str(getattr(args, "cash_master_control_file", "") or ""))
     engine.CASH_CONFIG["hard_close_on_trigger"] = bool(args.cash_hard_close)
     engine.CASH_CONFIG["hard_stop_pause_days"] = max(0, int(args.cash_hard_stop_pause_days))
     engine.CASH_CONFIG["cash_max_leverage"] = max(1.0, float(args.cash_max_leverage))
@@ -460,6 +606,16 @@ class SignalWriter:
         self._load_fp_cache()
         if not self._written_fps:
             self._bootstrap_fp_cache_from_signal_file()
+
+    def has_existing_signal_stream(self) -> bool:
+        """True if any known target signal file already exists and has content."""
+        for target in [self.local_path] + self.mt5_paths:
+            try:
+                if os.path.getsize(target) > 0:
+                    return True
+            except OSError:
+                continue
+        return False
 
     @property
     def mt5_paths(self) -> List[str]:
@@ -666,6 +822,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--cash-lot-cap-mult",      type=float, default=10.0)
     p.add_argument("--cash-soft-stop-ratio",   type=float, default=0.8)
     p.add_argument("--cash-manual-resume-file",default="tmp/cash_resume.flag")
+    p.add_argument("--cash-daily-resume-file",default="common://phantom_live/cash_daily_resume.flag")
+    p.add_argument("--cash-master-control-file", default="common://phantom_live/master_control.flag")
     p.add_argument("--cash-hard-close",        action="store_true", default=True)
     p.add_argument("--cash-hard-stop-pause-days", type=int, default=0)
     return p.parse_args()
@@ -687,16 +845,37 @@ def main() -> None:
 
     writer = SignalWriter(args.signal_filename, args.output_dir)
     watcher = MtimeWatcher(data_files)
+    resume_flag_mtimes = _snapshot_manual_resume_flags(args)
+    master_mode = ""
 
     # ── INITIAL RUN ───────────────────────────────────────────────────────────
     print("[daemon] running full historical engine pass …")
-    try:
-        events = _run_engine(args)
-    except Exception as exc:
-        traceback.print_exc(file=sys.stderr)
-        sys.exit(f"[daemon] FATAL on initial engine run: {exc}")
+    events: Optional[List[dict]] = None
+    for attempt in range(1, 6):
+        try:
+            events = _run_engine(args)
+            break
+        except pd.errors.EmptyDataError:
+            # MT5 can briefly expose empty CSVs while exporter rewrites files.
+            wait_s = min(5.0, float(attempt))
+            print(f"[daemon] startup read race (empty CSV), retry {attempt}/5 in {wait_s:.1f}s")
+            time.sleep(wait_s)
+        except Exception as exc:
+            traceback.print_exc(file=sys.stderr)
+            if attempt >= 3:
+                sys.exit(f"[daemon] FATAL on initial engine run: {exc}")
+            wait_s = min(5.0, float(attempt))
+            print(f"[daemon] startup engine error, retry {attempt}/3 in {wait_s:.1f}s: {exc}")
+            time.sleep(wait_s)
 
-    writer.write_initial(events)
+    if events is None:
+        sys.exit("[daemon] FATAL on initial engine run: exhausted retries")
+
+    if writer.has_existing_signal_stream():
+        appended = writer.append_new(events)
+        print(f"[daemon] startup recovery mode: appended {appended} unseen event(s)")
+    else:
+        writer.write_initial(events)
     watcher.snapshot()
     print(f"[daemon] initial pass complete. {len(events)} events written. Entering poll loop …\n")
 
@@ -710,11 +889,51 @@ def main() -> None:
         try:
             writer.maybe_heartbeat(hb_interval if hb_interval > 0 else 300.0)
 
-            if not watcher.any_changed():
+            next_master_mode = _read_master_control_mode(str(getattr(args, "cash_master_control_file", "") or ""))
+            control_changed = next_master_mode != master_mode
+            if control_changed:
+                master_mode = next_master_mode
+                if master_mode == "PAUSE":
+                    writer.append_new([
+                        {
+                            "v": 1,
+                            "action": "pause_entries",
+                            "reason": "manual_master_pause",
+                            "resume_after": "",
+                            "signal_ts": datetime.utcnow().isoformat(),
+                        }
+                    ])
+                    print(f"[daemon] {datetime.utcnow().isoformat()} — master control set to PAUSE")
+                elif master_mode == "RESUME":
+                    writer.append_new([
+                        {
+                            "v": 1,
+                            "action": "resume_entries",
+                            "reason": "manual_master_resume",
+                            "signal_ts": datetime.utcnow().isoformat(),
+                        }
+                    ])
+                    print(f"[daemon] {datetime.utcnow().isoformat()} — master control set to RESUME")
+
+            changed = watcher.any_changed()
+            has_override = _manual_resume_override_changed(args, resume_flag_mtimes)
+            should_rerun = changed or has_override or control_changed
+
+            if not should_rerun:
                 continue
 
-            print(f"[daemon] {datetime.utcnow().isoformat()} — data file changed, re-running engine …")
-            events = _run_engine(args)
+            if control_changed and not changed and not has_override:
+                print(f"[daemon] {datetime.utcnow().isoformat()} — master control changed, re-running engine …")
+            elif has_override and not changed:
+                print(f"[daemon] {datetime.utcnow().isoformat()} — manual resume override detected, re-running engine …")
+            else:
+                print(f"[daemon] {datetime.utcnow().isoformat()} — data file changed, re-running engine …")
+
+            try:
+                events = _run_engine(args)
+            except pd.errors.EmptyDataError:
+                print("[daemon] transient CSV read race (empty file), skipping this poll")
+                continue
             watcher.update()
             appended = writer.append_new(events)
             if appended == 0:

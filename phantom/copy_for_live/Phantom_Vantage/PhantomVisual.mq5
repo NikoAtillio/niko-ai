@@ -42,9 +42,12 @@ input bool    InpShowEMAs     = true;          // Show EMA 20 / 50 / 200
 input bool    InpShowZones    = true;          // Show zone highlight band
 input bool    InpShowSessions = true;          // Show NY session verticals
 input bool    InpShowHUD      = true;          // Show corner HUD panel
+input bool    InpShowControlPanel = true;      // Show pause status + manual resume button
 input int     InpPollSecs     = 5;             // Poll interval (seconds)
 input int     InpHistoryTrades= 20;            // How many closed trades to keep drawn
 input bool    InpHideMarkersBeforeWeekStart = true; // Hide historical markers from prior weeks (server Sunday rollover)
+input string  InpDailyResumeFlagFile = "phantom_live/cash_daily_resume.flag"; // Common\\Files flag for Python daily soft-resume
+input string  InpMasterControlFile = "phantom_live/master_control.flag"; // Common\\Files master pause/resume control file
 input color   InpColLong      = clrDodgerBlue;  // Long trade colour
 input color   InpColShort     = clrOrangeRed;   // Short trade colour
 input color   InpColSL        = clrCrimson;     // Stop-loss line colour
@@ -100,6 +103,13 @@ string PREFIX = "PV_";   // all object names start with this
 datetime _WeekStart(const datetime t);
 string _ShortTradeId(const string &id);
 bool _HasLivePosition(const string &id);
+void _UpdateControlPanel();
+void _HandlePauseButtonClick();
+void _HandleResumeButtonClick();
+bool _AppendControlEvent(const string &action, const string &reason);
+bool _WriteDailyResumeFlag();
+bool _WriteMasterControlFlag(const string &mode);
+string _NowISO();
 void _HSeg(const string &nm, const datetime t0, const datetime t1, const double price,
            const color c, const ENUM_LINE_STYLE style, const int width, const string tooltip);
 
@@ -138,6 +148,7 @@ int OnInit() {
 
    if(InpShowSessions) _DrawSessionLines();
    if(InpShowHUD)      _UpdateHUD();
+   if(InpShowControlPanel) _UpdateControlPanel();
 
    EventSetTimer(InpPollSecs);
    Print("PhantomVisual: init | file=", InpSignalFile, " trades=", g_ntrades, " filepos=", g_filepos);
@@ -182,6 +193,19 @@ void OnTimer() {
    if(session_every < 1) session_every = 1;
    if(InpShowSessions && (g_timer_ticks % session_every == 0)) _DrawSessionLines();
    if(InpShowHUD)      _UpdateHUD();
+   if(InpShowControlPanel) _UpdateControlPanel();
+}
+
+void OnChartEvent(const int id,
+                  const long &lparam,
+                  const double &dparam,
+                  const string &sparam)
+{
+   if(id != CHARTEVENT_OBJECT_CLICK) return;
+   if(sparam == PREFIX + "CTRL_PAUSE")
+      _HandlePauseButtonClick();
+   if(sparam == PREFIX + "CTRL_RESUME")
+      _HandleResumeButtonClick();
 }
 
 //+------------------------------------------------------------------+
@@ -425,7 +449,7 @@ void _DrawTrade(const int idx, const bool isOpen) {
    color cDir  = long_dir ? InpColLong : InpColShort;
    string base = PREFIX + "T" + t.id + "_";
    string shortId = _ShortTradeId(t.id);
-   datetime seg_end = live_now
+   datetime seg_end = isOpen
       ? (TimeCurrent() + (datetime)(PeriodSeconds() * 10))
       : ((t.close_ts > 0) ? t.close_ts : (t.entry_ts + (datetime)(PeriodSeconds() * 8)));
    if(seg_end <= t.entry_ts) seg_end = t.entry_ts + (datetime)(PeriodSeconds() * 8);
@@ -473,21 +497,22 @@ void _DrawTrade(const int idx, const bool isOpen) {
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN,    true);
    }
 
-   if(live_now) {
+   if(isOpen) {
       nm = base + "EL";
       _HSeg(nm, t.entry_ts, seg_end, t.entry, cDir, STYLE_DOT, 1, "[" + shortId + "] Entry");
 
-      if(t.sl_init > 0 && MathAbs(t.sl_init - t.sl_now) > 1e-9) {
+      if(t.sl_init > 0) {
          nm = base + "SL0";
          _HSeg(nm, t.entry_ts, seg_end, t.sl_init, C'120,0,0', STYLE_DASH, 1, "[" + shortId + "] Initial SL");
       }
 
       nm = base + "SL";
       color cSL = t.be_hit ? InpColBE : InpColSL;
-      _HSeg(nm, t.entry_ts, seg_end, t.sl_now, cSL, STYLE_SOLID, 2, t.be_hit ? ("[" + shortId + "] SL @ Breakeven") : ("[" + shortId + "] Trailing SL"));
+      double trail_sl = (t.sl_now > 0.0) ? t.sl_now : t.sl_init;
+      _HSeg(nm, t.entry_ts, seg_end, trail_sl, cSL, STYLE_SOLID, 2, t.be_hit ? ("[" + shortId + "] SL @ Breakeven") : ("[" + shortId + "] Trailing SL"));
 
       nm = base + "SLL";
-      ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, t.sl_now);
+      ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, trail_sl);
       ObjectSetString(0, nm, OBJPROP_TEXT, "[" + shortId + "] " + (t.be_hit ? "BE" : "Trail SL"));
       ObjectSetInteger(0, nm, OBJPROP_COLOR, cSL);
       ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
@@ -718,6 +743,216 @@ string _RegimeBias(const string &regime) {
    if(StringFind(r, "neutral") >= 0)return "— NEUTRAL";
    if(r == "") return "—";
    return regime;
+}
+
+void _UpdateControlPanel()
+{
+   string panelNm  = PREFIX + "CTRL_PANEL";
+   string statusNm = PREFIX + "CTRL_STATUS";
+   string pauseNm  = PREFIX + "CTRL_PAUSE";
+   string buttonNm = PREFIX + "CTRL_RESUME";
+
+   if(ObjectFind(0, panelNm) >= 0)
+      ObjectDelete(0, panelNm);
+
+   if(ObjectFind(0, statusNm) < 0)
+   {
+      ObjectCreate(0, statusNm, OBJ_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, statusNm, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+      ObjectSetInteger(0, statusNm, OBJPROP_XDISTANCE, 22);
+      ObjectSetInteger(0, statusNm, OBJPROP_YDISTANCE, 198);
+      ObjectSetString(0, statusNm, OBJPROP_FONT, "Consolas");
+      ObjectSetInteger(0, statusNm, OBJPROP_FONTSIZE, 12);
+      ObjectSetInteger(0, statusNm, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, statusNm, OBJPROP_HIDDEN, false);
+   }
+
+   if(ObjectFind(0, buttonNm) < 0)
+   {
+      ObjectCreate(0, buttonNm, OBJ_BUTTON, 0, 0, 0);
+      ObjectSetInteger(0, buttonNm, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+      ObjectSetInteger(0, buttonNm, OBJPROP_XDISTANCE, 22);
+      ObjectSetInteger(0, buttonNm, OBJPROP_YDISTANCE, 128);
+      ObjectSetInteger(0, buttonNm, OBJPROP_XSIZE, 264);
+      ObjectSetInteger(0, buttonNm, OBJPROP_YSIZE, 30);
+      ObjectSetInteger(0, buttonNm, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, buttonNm, OBJPROP_HIDDEN, true);
+      ObjectSetString(0, buttonNm, OBJPROP_FONT, "Consolas");
+      ObjectSetInteger(0, buttonNm, OBJPROP_FONTSIZE, 11);
+      ObjectSetInteger(0, buttonNm, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, buttonNm, OBJPROP_HIDDEN, false);
+   }
+
+   if(ObjectFind(0, pauseNm) < 0)
+   {
+      ObjectCreate(0, pauseNm, OBJ_BUTTON, 0, 0, 0);
+      ObjectSetInteger(0, pauseNm, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+      ObjectSetInteger(0, pauseNm, OBJPROP_XDISTANCE, 22);
+      ObjectSetInteger(0, pauseNm, OBJPROP_YDISTANCE, 164);
+      ObjectSetInteger(0, pauseNm, OBJPROP_XSIZE, 264);
+      ObjectSetInteger(0, pauseNm, OBJPROP_YSIZE, 30);
+      ObjectSetInteger(0, pauseNm, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, pauseNm, OBJPROP_HIDDEN, true);
+      ObjectSetString(0, pauseNm, OBJPROP_FONT, "Consolas");
+      ObjectSetInteger(0, pauseNm, OBJPROP_FONTSIZE, 11);
+      ObjectSetInteger(0, pauseNm, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, pauseNm, OBJPROP_HIDDEN, false);
+   }
+
+   string statusText;
+   color statusCol;
+   if(g_paused)
+   {
+      statusText = "PHANTOM: PAUSED";
+      if(g_resume_after > 0)
+         statusText += "  until " + TimeToString(g_resume_after, TIME_DATE | TIME_MINUTES);
+      statusCol = clrOrangeRed;
+   }
+   else
+   {
+      statusText = "PHANTOM: LIVE";
+      statusCol = clrLimeGreen;
+   }
+
+   ObjectSetString(0, statusNm, OBJPROP_TEXT, statusText);
+   ObjectSetInteger(0, statusNm, OBJPROP_COLOR, statusCol);
+
+   if(g_paused)
+   {
+      ObjectSetString(0, buttonNm, OBJPROP_TEXT, "Master Resume");
+      ObjectSetInteger(0, buttonNm, OBJPROP_COLOR, clrWhite);
+      ObjectSetInteger(0, buttonNm, OBJPROP_BGCOLOR, clrSeaGreen);
+
+      ObjectSetString(0, pauseNm, OBJPROP_TEXT, "Master Pause (active)");
+      ObjectSetInteger(0, pauseNm, OBJPROP_COLOR, clrBlack);
+      ObjectSetInteger(0, pauseNm, OBJPROP_BGCOLOR, clrSilver);
+   }
+   else
+   {
+      ObjectSetString(0, buttonNm, OBJPROP_TEXT, "Master Resume");
+      ObjectSetInteger(0, buttonNm, OBJPROP_COLOR, clrBlack);
+      ObjectSetInteger(0, buttonNm, OBJPROP_BGCOLOR, clrSilver);
+
+      ObjectSetString(0, pauseNm, OBJPROP_TEXT, "Master Pause");
+      ObjectSetInteger(0, pauseNm, OBJPROP_COLOR, clrWhite);
+      ObjectSetInteger(0, pauseNm, OBJPROP_BGCOLOR, clrIndianRed);
+   }
+}
+
+void _HandlePauseButtonClick()
+{
+   bool wrotePauseEvent = _AppendControlEvent("pause_entries", "manual_master_pause");
+   bool wroteMasterFlag = _WriteMasterControlFlag("PAUSE");
+
+   if(wrotePauseEvent || wroteMasterFlag)
+   {
+      g_paused = true;
+      g_pause_reason = "manual_master_pause";
+      g_resume_after = 0;
+      _UpdateHUD();
+   }
+
+   _UpdateControlPanel();
+   ChartRedraw(0);
+
+   string msg = "PhantomVisual: master pause requested";
+   if(wrotePauseEvent) msg += " | signal event sent";
+   if(wroteMasterFlag) msg += " | master control file updated";
+   if(!wrotePauseEvent && !wroteMasterFlag)
+      msg += " | failed to write event/control file";
+   Alert(msg);
+   Print(msg);
+}
+
+void _HandleResumeButtonClick()
+{
+   bool wroteResumeEvent = _AppendControlEvent("resume_entries", "manual_chart_resume");
+   bool wroteResumeFlag  = _WriteDailyResumeFlag();
+   bool wroteMasterFlag  = _WriteMasterControlFlag("RESUME");
+
+   if(wroteResumeEvent || wroteMasterFlag)
+   {
+      g_paused = false;
+      g_pause_reason = "";
+      g_resume_after = 0;
+      _UpdateHUD();
+   }
+
+   _UpdateControlPanel();
+   ChartRedraw(0);
+
+   string msg = "PhantomVisual: resume requested";
+   if(wroteResumeEvent) msg += " | signal event sent";
+   if(wroteResumeFlag)  msg += " | daily-resume flag written";
+    if(wroteMasterFlag) msg += " | master control file updated";
+   if(!wroteResumeEvent && !wroteResumeFlag && !wroteMasterFlag)
+      msg += " | failed to write event/flags";
+   Alert(msg);
+   Print(msg);
+}
+
+bool _AppendControlEvent(const string &action, const string &reason)
+{
+   int fh = FileOpen(InpSignalFile, FILE_READ | FILE_WRITE | FILE_ANSI | FILE_COMMON | FILE_SHARE_READ | FILE_SHARE_WRITE);
+   if(fh == INVALID_HANDLE)
+   {
+      Print("PhantomVisual: cannot open signal file for control event: ", InpSignalFile);
+      return false;
+   }
+
+   string ln = "{\"v\":1,\"action\":\"" + action + "\",\"reason\":\"" + reason + "\",\"signal_ts\":\"" + _NowISO() + "\"}";
+   FileSeek(fh, 0, SEEK_END);
+   uint n = FileWriteString(fh, ln + "\r\n");
+   g_filepos = (ulong)FileTell(fh);
+   FileClose(fh);
+   return (n > 0);
+}
+
+bool _WriteDailyResumeFlag()
+{
+   if(StringLen(InpDailyResumeFlagFile) == 0)
+      return false;
+
+   int fh = FileOpen(InpDailyResumeFlagFile, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | FILE_SHARE_READ | FILE_SHARE_WRITE);
+   if(fh == INVALID_HANDLE)
+   {
+      Print("PhantomVisual: cannot create daily resume flag: ", InpDailyResumeFlagFile);
+      return false;
+   }
+
+   uint n = FileWriteString(fh, _NowISO() + "\r\n");
+   FileClose(fh);
+   return (n > 0);
+}
+
+bool _WriteMasterControlFlag(const string &mode)
+{
+   if(StringLen(InpMasterControlFile) == 0)
+      return false;
+
+   string normalized = mode;
+   StringToUpper(normalized);
+   if(normalized != "PAUSE" && normalized != "RESUME")
+      return false;
+
+   int fh = FileOpen(InpMasterControlFile, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | FILE_SHARE_READ | FILE_SHARE_WRITE);
+   if(fh == INVALID_HANDLE)
+   {
+      Print("PhantomVisual: cannot write master control file: ", InpMasterControlFile);
+      return false;
+   }
+
+   uint n = FileWriteString(fh, normalized + " " + _NowISO() + "\r\n");
+   FileClose(fh);
+   return (n > 0);
+}
+
+string _NowISO()
+{
+   string iso = TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS);
+   StringReplace(iso, ".", "-");
+   StringReplace(iso, " ", "T");
+   return iso;
 }
 
 //+------------------------------------------------------------------+

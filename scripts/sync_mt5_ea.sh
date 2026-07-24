@@ -17,6 +17,7 @@ WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WINEPREFIX="${WINEPREFIX:-/Users/niko/Library/Application Support/net.metaquotes.wine.metatrader5}"
 MT5_ROOT="${WINEPREFIX}/drive_c/Program Files/MetaTrader 5"
 EXPERTS_ROOT="${MT5_ROOT}/MQL5/Experts"
+INDICATORS_ROOT="${MT5_ROOT}/MQL5/Indicators"
 
 BASENAME="$(basename "${SOURCE}")"
 STEM="${BASENAME%.mq5}"
@@ -27,6 +28,13 @@ SOURCE_EX5="$(dirname "${SOURCE}")/${STEM}.ex5"
 PHANTOM_ROOT="${EXPERTS_ROOT}/phantom"
 PHANTOM_SOURCE="${PHANTOM_ROOT}/${BASENAME}"
 PHANTOM_EX5="${PHANTOM_ROOT}/${STEM}.ex5"
+INDICATOR_SOURCE="${INDICATORS_ROOT}/${BASENAME}"
+INDICATOR_EX5="${INDICATORS_ROOT}/${STEM}.ex5"
+
+IS_INDICATOR=0
+if grep -Eq '^#property[[:space:]]+indicator_' "${SOURCE}"; then
+  IS_INDICATOR=1
+fi
 
 get_mtime() {
   local f="$1"
@@ -45,10 +53,17 @@ mkdir -p "${EXPERTS_ROOT}"
 cp "${SOURCE}" "${ROOT_SOURCE}"
 mkdir -p "${PHANTOM_ROOT}"
 cp "${SOURCE}" "${PHANTOM_SOURCE}"
+if [[ "${IS_INDICATOR}" == "1" ]]; then
+  mkdir -p "${INDICATORS_ROOT}"
+  cp "${SOURCE}" "${INDICATOR_SOURCE}"
+fi
 
 echo "Synced source to MT5 folder:"
 echo "  ${ROOT_SOURCE}"
 echo "  ${PHANTOM_SOURCE}"
+if [[ "${IS_INDICATOR}" == "1" ]]; then
+  echo "  ${INDICATOR_SOURCE}"
+fi
 
 if [[ "${NO_COMPILE:-0}" == "1" ]]; then
   echo "NO_COMPILE=1 set; skipping MetaEditor compile."
@@ -101,6 +116,15 @@ if [[ "${COMPILED_EX5}" != "${PHANTOM_EX5}" ]]; then
   cp "${COMPILED_EX5}" "${PHANTOM_EX5}"
 fi
 
+if [[ "${IS_INDICATOR}" == "1" ]]; then
+  if [[ "${COMPILED_EX5}" != "${INDICATOR_EX5}" ]]; then
+    cp "${COMPILED_EX5}" "${INDICATOR_EX5}"
+  fi
+fi
+
 echo "Synced compiled EX5 to:"
 echo "  ${ROOT_EX5}"
 echo "  ${PHANTOM_EX5}"
+if [[ "${IS_INDICATOR}" == "1" ]]; then
+  echo "  ${INDICATOR_EX5}"
+fi
