@@ -3,7 +3,7 @@
 //|  PHANTOM p2 — Chart Visual Overlay Indicator                     |
 //|  Reads signals_vantage_live.jsonl and renders:                   |
 //|    • EMA 20 / 50 / 200 on current chart timeframe               |
-//|    • Entry arrows + zone band per trade                           |
+//|    • Entry arrows per trade                                       |
 //|    • Entry / SL / Trailing-SL / Breakeven / TP lines            |
 //|    • Regime + confidence label per trade                          |
 //|    • Corner HUD (bias, status, equity, open count)               |
@@ -39,7 +39,6 @@
 //=== INPUTS ===========================================================
 input string  InpSignalFile   = "signals_vantage_live.jsonl"; // Signal file (Common\Files)
 input bool    InpShowEMAs     = true;          // Show EMA 20 / 50 / 200
-input bool    InpShowZones    = true;          // Show zone highlight band
 input bool    InpShowSessions = true;          // Show NY session verticals
 input bool    InpShowHUD      = true;          // Show corner HUD panel
 input bool    InpShowControlPanel = true;      // Show pause status + manual resume button
@@ -103,6 +102,7 @@ string PREFIX = "PV_";   // all object names start with this
 datetime _WeekStart(const datetime t);
 string _ShortTradeId(const string &id);
 bool _HasLivePosition(const string &id);
+bool _GetLivePositionSnapshot(const string &id, double &liveEntry, double &liveSL, double &liveTP, double &liveLots);
 void _UpdateControlPanel();
 void _HandlePauseButtonClick();
 void _HandleResumeButtonClick();
@@ -444,7 +444,19 @@ datetime _WeekStart(const datetime t)
 void _DrawTrade(const int idx, const bool isOpen) {
    PhTrade t = g_trades[idx];
    if(t.entry <= 0) return;
-   bool live_now = isOpen && _HasLivePosition(t.id);
+   double live_entry = 0.0;
+   double live_sl = 0.0;
+   double live_tp = 0.0;
+   double live_lots = 0.0;
+   bool live_now = isOpen && _GetLivePositionSnapshot(t.id, live_entry, live_sl, live_tp, live_lots);
+
+   double effective_entry = (live_now && live_entry > 0.0) ? live_entry : t.entry;
+   double effective_sl = (live_now && live_sl > 0.0)
+      ? live_sl
+      : ((t.sl_now > 0.0) ? t.sl_now : t.sl_init);
+   double effective_tp = (live_now && live_tp > 0.0) ? live_tp : t.tp;
+   double effective_qty = (live_now && live_lots > 0.0) ? live_lots : t.qty;
+
    bool long_dir = (t.dir == "long");
    color cDir  = long_dir ? InpColLong : InpColShort;
    string base = PREFIX + "T" + t.id + "_";
@@ -456,10 +468,10 @@ void _DrawTrade(const int idx, const bool isOpen) {
 
    // ── Entry arrow ───────────────────────────────────────────────
    string nm = base + "ARR";
-   ObjectCreate(0, nm, OBJ_ARROW, 0, t.entry_ts, t.entry);
+   ObjectCreate(0, nm, OBJ_ARROW, 0, t.entry_ts, effective_entry);
    ObjectSetInteger(0, nm, OBJPROP_ARROWCODE, long_dir ? 233 : 234);
    ObjectSetInteger(0, nm, OBJPROP_COLOR, cDir);
-   ObjectSetInteger(0, nm, OBJPROP_WIDTH, isOpen ? 3 : 2);
+   ObjectSetInteger(0, nm, OBJPROP_WIDTH, live_now ? 3 : 2);
    ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
 
@@ -467,12 +479,13 @@ void _DrawTrade(const int idx, const bool isOpen) {
    string regimeLbl = (t.regime != "") ? t.regime : "—";
    string confLbl   = (t.conf > 1.0) ? " ★" + DoubleToString(t.conf, 1) + "x" : "";
    string stackLbl  = (t.stack_max > 1) ? " [S" + IntegerToString(t.stack_max) + "]" : "";
+   string qtySrcLbl = live_now ? " (live)" : " (signal)";
    string hudTxt = "[" + shortId + "] " + (long_dir ? "▲ LONG " : "▼ SHORT ") +
-                   DoubleToString(t.qty, 2) + "L" +
+                   DoubleToString(effective_qty, 2) + "L" + qtySrcLbl +
                    confLbl + stackLbl + " | " + regimeLbl;
    nm = base + "LBL";
    datetime lbl_t = t.entry_ts + (datetime)(PeriodSeconds() * 3);
-   ObjectCreate(0, nm, OBJ_TEXT, 0, lbl_t, t.entry);
+   ObjectCreate(0, nm, OBJ_TEXT, 0, lbl_t, effective_entry);
    ObjectSetString(0, nm, OBJPROP_TEXT, hudTxt);
    ObjectSetInteger(0, nm, OBJPROP_COLOR, cDir);
    ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 8);
@@ -480,26 +493,9 @@ void _DrawTrade(const int idx, const bool isOpen) {
    ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
 
-   // ── Zone band (ATR-width rectangle around entry zone) ─────────
-   if(InpShowZones && t.atr > 0 && isOpen) {
-      double half  = t.atr * 0.30;
-      double z_top = long_dir ? (t.entry + half * 0.4) : (t.entry + half);
-      double z_bot = long_dir ? (t.entry - half)       : (t.entry - half * 0.4);
-      datetime z0  = t.entry_ts - (datetime)(PeriodSeconds() * 8);
-      datetime z1  = t.entry_ts + (datetime)(PeriodSeconds() * 60);
-      nm = base + "ZONE";
-      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, z0, z_top, z1, z_bot);
-      color zc = long_dir ? C'0,80,160' : C'160,40,0';
-      ObjectSetInteger(0, nm, OBJPROP_COLOR,     zc);
-      ObjectSetInteger(0, nm, OBJPROP_FILL,      true);
-      ObjectSetInteger(0, nm, OBJPROP_BACK,      true);
-      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE,false);
-      ObjectSetInteger(0, nm, OBJPROP_HIDDEN,    true);
-   }
-
    if(isOpen) {
       nm = base + "EL";
-      _HSeg(nm, t.entry_ts, seg_end, t.entry, cDir, STYLE_DOT, 1, "[" + shortId + "] Entry");
+      _HSeg(nm, t.entry_ts, seg_end, effective_entry, cDir, STYLE_DOT, 1, "[" + shortId + "] Entry");
 
       if(t.sl_init > 0) {
          nm = base + "SL0";
@@ -508,7 +504,7 @@ void _DrawTrade(const int idx, const bool isOpen) {
 
       nm = base + "SL";
       color cSL = t.be_hit ? InpColBE : InpColSL;
-      double trail_sl = (t.sl_now > 0.0) ? t.sl_now : t.sl_init;
+      double trail_sl = effective_sl;
       _HSeg(nm, t.entry_ts, seg_end, trail_sl, cSL, STYLE_SOLID, 2, t.be_hit ? ("[" + shortId + "] SL @ Breakeven") : ("[" + shortId + "] Trailing SL"));
 
       nm = base + "SLL";
@@ -520,15 +516,18 @@ void _DrawTrade(const int idx, const bool isOpen) {
       ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
 
-      nm = base + "TP";
-      _HSeg(nm, t.entry_ts, seg_end, t.tp, InpColTP, STYLE_DASH, 2, "[" + shortId + "] Take Profit");
+      if(effective_tp > 0.0) {
+         nm = base + "TP";
+         string tpTip = live_now ? ("[" + shortId + "] Take Profit (broker)") : ("[" + shortId + "] Take Profit");
+         _HSeg(nm, t.entry_ts, seg_end, effective_tp, InpColTP, STYLE_DASH, 2, tpTip);
+      }
 
-      if(t.sl_init > 0 && t.tp > 0 && t.entry > 0) {
-         double risk = MathAbs(t.entry - t.sl_init);
-         double rwd  = MathAbs(t.tp   - t.entry);
+      if(effective_sl > 0.0 && effective_tp > 0.0 && effective_entry > 0.0) {
+         double risk = MathAbs(effective_entry - effective_sl);
+         double rwd  = MathAbs(effective_tp - effective_entry);
          double rr   = (risk > 0) ? rwd / risk : 0.0;
          nm = base + "TPL";
-         ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, t.tp);
+         ObjectCreate(0, nm, OBJ_TEXT, 0, seg_end, effective_tp);
          ObjectSetString(0, nm, OBJPROP_TEXT, "[" + shortId + "] TP " + DoubleToString(rr, 2) + "R");
          ObjectSetInteger(0, nm, OBJPROP_COLOR, InpColTP);
          ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, 7);
@@ -617,6 +616,20 @@ string _ShortTradeId(const string &id)
 
 bool _HasLivePosition(const string &id)
 {
+   double live_entry = 0.0;
+   double live_sl = 0.0;
+   double live_tp = 0.0;
+   double live_lots = 0.0;
+   return _GetLivePositionSnapshot(id, live_entry, live_sl, live_tp, live_lots);
+}
+
+bool _GetLivePositionSnapshot(const string &id, double &liveEntry, double &liveSL, double &liveTP, double &liveLots)
+{
+   liveEntry = 0.0;
+   liveSL = 0.0;
+   liveTP = 0.0;
+   liveLots = 0.0;
+
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong tk = PositionGetTicket(i);
@@ -625,7 +638,14 @@ bool _HasLivePosition(const string &id)
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       string comment = PositionGetString(POSITION_COMMENT);
-      if(comment == id) return true;
+      if(comment == id)
+      {
+         liveEntry = PositionGetDouble(POSITION_PRICE_OPEN);
+         liveSL = PositionGetDouble(POSITION_SL);
+         liveTP = PositionGetDouble(POSITION_TP);
+         liveLots = PositionGetDouble(POSITION_VOLUME);
+         return true;
+      }
    }
    return false;
 }

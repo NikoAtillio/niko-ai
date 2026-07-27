@@ -1992,7 +1992,7 @@ void PumpFileLive(const string source)
          LogCSV("STALE_CURSOR_ALERT;file="+InpSignalFile+
                 ";idle_min="+IntegerToString(InpStaleCursorMinutes)+
                 ";open_total="+IntegerToString(PositionsTotal()));
-         Notify("PHANTOM STREAM ALERT", "Signal stream has not advanced for " + IntegerToString(InpStaleCursorMinutes) + " minutes while the market appears active. Check the writer/connection before relying on new signals.");
+         Notify("PHANTOM HEARTBEAT ALERT", "Heartbeat has not advanced for " + IntegerToString(InpStaleCursorMinutes) + " minutes while the market appears active. Check the writer/daemon before relying on new signals.");
       }
    }
 }

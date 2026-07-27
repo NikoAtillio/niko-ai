@@ -601,6 +601,8 @@ class SignalWriter:
         self.local_path = os.path.join(output_dir, signal_filename)
         self.fp_cache_path = self.local_path + ".fps"
         self._written_fps: Set[str] = set()   # fingerprints already on disk
+        self._open_state: Dict[str, Dict[str, float]] = {}
+        self._latest_stop_by_id: Dict[str, float] = {}
         self._last_heartbeat = 0.0
 
         # Persist dedup state across daemon restarts.
@@ -677,6 +679,7 @@ class SignalWriter:
                     except json.JSONDecodeError:
                         continue
                     self._written_fps.add(_event_fingerprint(ev))
+                    self._ingest_canonical_state(ev)
             if self._written_fps:
                 print(f"[daemon] bootstrapped {len(self._written_fps)} fingerprints from signal file")
                 self._save_fp_cache()
@@ -685,18 +688,86 @@ class SignalWriter:
         except OSError as exc:
             print(f"[daemon] WARN: failed to bootstrap fingerprints: {exc}")
 
+    def _ingest_canonical_state(self, ev: dict) -> None:
+        action = str(ev.get("action", ""))
+        trade_id = str(ev.get("id", ""))
+        if not trade_id:
+            return
+
+        if action == "open":
+            self._open_state[trade_id] = {
+                "entry": float(ev.get("entry", 0.0) or 0.0),
+                "stop": float(ev.get("stop", 0.0) or 0.0),
+                "tp": float(ev.get("tp", 0.0) or 0.0),
+                "qty": float(ev.get("qty", 0.0) or 0.0),
+            }
+            stop_val = float(ev.get("stop", 0.0) or 0.0)
+            if stop_val > 0.0:
+                self._latest_stop_by_id[trade_id] = stop_val
+        elif action == "modify":
+            stop_val = float(ev.get("new_stop", 0.0) or 0.0)
+            if stop_val > 0.0:
+                self._latest_stop_by_id[trade_id] = stop_val
+        elif action == "close":
+            self._open_state.pop(trade_id, None)
+            self._latest_stop_by_id.pop(trade_id, None)
+
+    def _canonicalize_event(self, ev: dict) -> dict:
+        out = dict(ev)
+        action = str(out.get("action", ""))
+        trade_id = str(out.get("id", ""))
+        if not trade_id:
+            return out
+
+        if action == "open":
+            if trade_id in self._open_state:
+                # Keep first emitted open payload authoritative for this id.
+                st = self._open_state[trade_id]
+                if st.get("entry", 0.0) > 0.0:
+                    out["entry"] = st["entry"]
+                if st.get("stop", 0.0) > 0.0:
+                    out["stop"] = st["stop"]
+                if st.get("tp", 0.0) > 0.0:
+                    out["tp"] = st["tp"]
+                if st.get("qty", 0.0) > 0.0:
+                    out["qty"] = st["qty"]
+            else:
+                self._ingest_canonical_state(out)
+
+        elif action == "modify":
+            stop_val = float(out.get("new_stop", 0.0) or 0.0)
+            if stop_val > 0.0:
+                self._latest_stop_by_id[trade_id] = stop_val
+
+        elif action == "close":
+            reason = str(out.get("reason", "")).lower()
+            if reason == "tp":
+                st = self._open_state.get(trade_id)
+                if st is not None and float(st.get("tp", 0.0) or 0.0) > 0.0:
+                    out["exit"] = float(st.get("tp", 0.0))
+            elif reason == "stop":
+                stop_val = float(self._latest_stop_by_id.get(trade_id, 0.0) or 0.0)
+                if stop_val > 0.0:
+                    out["exit"] = stop_val
+
+        return out
+
     def write_initial(self, events: List[dict]) -> int:
         """
         Write the full historical event stream on first startup.
         Resets the dedup set so a clean run always starts fresh.
         """
         self._written_fps.clear()
+        self._open_state.clear()
+        self._latest_stop_by_id.clear()
         lines: List[str] = []
         for ev in events:
-            line = self._serialise_event(ev)
-            fp   = _event_fingerprint(ev)
+            canon_ev = self._canonicalize_event(ev)
+            line = self._serialise_event(canon_ev)
+            fp   = _event_fingerprint(canon_ev)
             lines.append(line)
             self._written_fps.add(fp)
+            self._ingest_canonical_state(canon_ev)
 
         # Overwrite (not append) on initial write
         blob = "\n".join(lines) + ("\n" if lines else "")
@@ -727,11 +798,13 @@ class SignalWriter:
         """
         new_lines: List[str] = []
         for ev in events:
-            fp = _event_fingerprint(ev)
+            canon_ev = self._canonicalize_event(ev)
+            fp = _event_fingerprint(canon_ev)
             if fp in self._written_fps:
                 continue
             self._written_fps.add(fp)
-            new_lines.append(self._serialise_event(ev))
+            new_lines.append(self._serialise_event(canon_ev))
+            self._ingest_canonical_state(canon_ev)
 
         if not new_lines:
             return 0
@@ -747,9 +820,7 @@ class SignalWriter:
         return len(new_lines)
 
     def maybe_heartbeat(self, interval_s: float = 300.0) -> None:
-        """Append a heartbeat line if EMIT_HEARTBEATS is on and interval elapsed."""
-        if not engine.EMIT_HEARTBEATS:
-            return
+        """Append a heartbeat line when the interval has elapsed."""
         now = time.monotonic()
         if now - self._last_heartbeat < interval_s:
             return

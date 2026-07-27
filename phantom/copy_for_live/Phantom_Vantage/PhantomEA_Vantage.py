@@ -1152,6 +1152,7 @@ def run_scenario(
         for p in positions:
             exit_reason = None
             exit_signal_px = None
+            modify_reason = 'trail'
 
             # Trailing stop update (CRITICAL: must come before breakeven check)
             atr_h4_v_now = fast_val(h4_idx, h4_atr_arr, ts)
@@ -1172,8 +1173,13 @@ def run_scenario(
                     else (p['entry'] - price) / p['initial_risk_price']
                 )
                 if current_r >= breakeven_r:
-                    p['stop'] = p['entry']
+                    # Never worsen protection: BE can only tighten risk.
+                    if p['dir'] == 'long':
+                        p['stop'] = max(p['stop'], p['entry'])
+                    else:
+                        p['stop'] = min(p['stop'], p['entry'])
                     p['be_triggered'] = True
+                    modify_reason = 'breakeven'
 
             if abs(p['stop'] - p['last_emitted_stop']) > 1e-9:
                 emit_event({
@@ -1181,7 +1187,7 @@ def run_scenario(
                     'id': p['id'],
                     'signal_ts': ts_pd,
                     'new_stop': float(p['stop']),
-                    'reason': 'breakeven' if p.get('be_triggered') else 'trail',
+                    'reason': modify_reason,
                 })
                 p['last_emitted_stop'] = p['stop']
 
