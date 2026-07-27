@@ -42,8 +42,8 @@ Bundle policy and provenance notes:
 
 Strategy consumes/produces JSONL signals. Seed these in the new repo:
 
-- [signals/signals_vantage_live.jsonl](../signals/signals_vantage_live.jsonl)
-- [signals/signals_vantage_live.jsonl.fps](../signals/signals_vantage_live.jsonl.fps)
+- [phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl](../phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl)
+- [phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl.fps](../phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl.fps)
 - [signals/signals_vantage.jsonl](../signals/signals_vantage.jsonl) (if you also run non-live generation flows)
 
 Optional archived/reference signal artifacts (copy if you need historical reproducibility):
@@ -143,8 +143,8 @@ If using VS Code MQL integration, port editor settings:
 ### A) Minimal Live-Only Pack
 
 - phantom/copy_for_live/Phantom_Vantage/*
-- signals/signals_vantage_live.jsonl
-- signals/signals_vantage_live.jsonl.fps
+- phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl
+- phantom/copy_for_live/Phantom_Vantage/signals_vantage_live.jsonl.fps
 - scripts/sync_mt5_ea.sh
 - scripts/sync_launchd_runtime.sh
 - .vscode/scripts/compile_mq5.sh
