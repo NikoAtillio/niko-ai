@@ -51,6 +51,7 @@ MAX_LOT_CAP  = 50        # Hard per-order cap (Vantage NAS100 limit)
 # MetaTrader `Common/Files` directory found under the Wine prefix.
 EMIT_SIGNALS = True
 EMIT_HEARTBEATS = False
+EMIT_EOD_CLOSE_SIGNALS = True
 SIGNAL_FILENAME = 'signals_vantage.jsonl'
 GENERIC_SIGNAL_ALIAS = 'phantom_signals.jsonl'
 WRITE_GENERIC_SIGNAL_ALIAS = False
@@ -2125,7 +2126,8 @@ def run_scenario(
             'confidence_mult'    : p.get('confidence_mult', 1.0),
             'regime'             : p.get('regime', 'unknown'),
         })
-        emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': 'eod'})
+        if EMIT_EOD_CLOSE_SIGNALS:
+            emit_event({'action': 'close', 'id': p['id'], 'exit': float(exit_px), 'reason': 'eod'})
 
     df_r = pd.DataFrame(results)
     _print_summary(

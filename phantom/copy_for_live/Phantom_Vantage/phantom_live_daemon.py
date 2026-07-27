@@ -403,6 +403,7 @@ def _run_engine(args: argparse.Namespace) -> List[dict]:
     # Patch engine globals
     engine.EMIT_SIGNALS = True
     engine.EMIT_HEARTBEATS = False
+    engine.EMIT_EOD_CLOSE_SIGNALS = False
     engine.SIGNAL_FILENAME = args.signal_filename
     engine._EVENT_BUFFER.clear()
     engine._SIGNAL_SEQ["n"] = 0
