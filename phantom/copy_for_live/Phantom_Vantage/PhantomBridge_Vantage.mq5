@@ -129,6 +129,9 @@ void   LoadPendingActionQueue();
 void   SavePendingActionQueue();
 void   UpsertPendingAction(const string kind, const string id, const string raw);
 void   RemovePendingActionsById(const string id);
+bool   IsSignalTooOldForLive(const string js, const string action, const string id);
+string ExplainInvalidOpenStops(const bool is_long, const double ref_price, const double sl, const double tp, const double minDist);
+string ExplainTradeRetcodeHuman(const int rc);
 
 //==== INPUTS ====
 input string  InpSignalFile          = "signals_vantage_live.jsonl"; // live file in Common\Files
@@ -186,6 +189,7 @@ input bool    InpNotifyAlert         = true;
 input int     InpReconcileIntervalSec = 60;                    // periodic live-position reconciliation interval
 input int     InpOrphanAlertMinutes   = 15;                    // alert if a live ticket stays unmapped this long
 input int     InpStaleCursorMinutes    = 15;                    // alert if signal file stops advancing while positions are open
+input int     InpMaxSignalAgeMinutes   = 60;                    // live guard: ignore actions older than this age (0=disabled)
 
 // --- logging ---
 input bool    InpLogToCSV            = true;
@@ -1033,6 +1037,73 @@ datetime ParseSignalTime(const string js)
    return StringToTime(ts);
 }
 
+bool IsSignalTooOldForLive(const string js, const string action, const string id)
+{
+   if(InpReplayMode) return false;
+   if(InpMaxSignalAgeMinutes <= 0) return false;
+
+   datetime ts = ParseSignalTime(js);
+   if(ts <= 0) return false;
+
+   int age_sec = (int)(TimeCurrent() - ts);
+   if(age_sec < 0) return false;
+
+   if(age_sec > (InpMaxSignalAgeMinutes * 60)){
+      LogCSV(action+"_SKIP_STALE;"+id+
+             ";age_sec="+IntegerToString(age_sec)+
+             ";max_min="+IntegerToString(InpMaxSignalAgeMinutes)+
+             ";ts="+TimeToString(ts, TIME_DATE|TIME_SECONDS));
+      return true;
+   }
+
+   return false;
+}
+
+string ExplainInvalidOpenStops(const bool is_long, const double ref_price, const double sl, const double tp, const double minDist)
+{
+   bool sl_ok = true;
+   bool tp_ok = true;
+
+   if(is_long){
+      sl_ok = (sl < (ref_price - minDist));
+      tp_ok = (tp > (ref_price + minDist));
+      if(!sl_ok && !tp_ok) return "buy_invalid_sl_and_tp_side_or_distance";
+      if(!sl_ok) return "buy_invalid_sl_side_or_distance";
+      if(!tp_ok) return "buy_invalid_tp_side_or_distance";
+      return "buy_stops_rejected_by_broker_rule";
+   }
+
+   sl_ok = (sl > (ref_price + minDist));
+   tp_ok = (tp < (ref_price - minDist));
+   if(!sl_ok && !tp_ok) return "sell_invalid_sl_and_tp_side_or_distance";
+   if(!sl_ok) return "sell_invalid_sl_side_or_distance";
+   if(!tp_ok) return "sell_invalid_tp_side_or_distance";
+   return "sell_stops_rejected_by_broker_rule";
+}
+
+string ExplainTradeRetcodeHuman(const int rc)
+{
+   if(rc == 10004) return "Order requoted by broker. Price moved; retry.";
+   if(rc == 10006) return "Order rejected by broker.";
+   if(rc == 10012) return "Order timed out before broker confirmation.";
+   if(rc == 10014) return "Invalid lot size for this symbol/account.";
+   if(rc == 10015) return "Invalid requested price.";
+   if(rc == 10016) return "Invalid stops: SL or TP side/distance is not allowed.";
+   if(rc == 10017) return "Trading is disabled for this account or symbol.";
+   if(rc == 10018) return "Market is closed for this symbol.";
+   if(rc == 10019) return "Insufficient margin to open/modify position.";
+   if(rc == 10020) return "Price changed during submission. Retry at fresh price.";
+   if(rc == 10021) return "No current quote available (price off).";
+   if(rc == 10024) return "Too many requests sent too quickly.";
+   if(rc == 10025) return "No change needed (request equals current values).";
+   if(rc == 10027) return "Auto-trading blocked by terminal/client settings.";
+   if(rc == 10030) return "Invalid order fill policy for this symbol.";
+   if(rc == 10031) return "No broker connection.";
+   if(rc == 10034) return "Order/position volume limit exceeded.";
+   if(rc == 10038) return "Invalid close volume for position.";
+   return "Broker rejected request (see retcode description).";
+}
+
 bool LoadAllEvents()
 {
    if(g_replay_loaded) return true;
@@ -1337,6 +1408,12 @@ void HandleMeta(const string js)
 
 void HandleOpen(const string js)
 {
+   string id  = JGetStr(js,"id");
+   if(id=="") id = JGetStr(js,"entry_ts");
+
+   if(IsSignalTooOldForLive(js, "OPEN", id))
+      return;
+
    if(GuardrailBlock()){
       LogCSV("OPEN_BLOCKED_GUARDRAIL");
       return;
@@ -1347,8 +1424,6 @@ void HandleOpen(const string js)
       return;
    }
 
-   string id  = JGetStr(js,"id");
-   if(id=="") id = JGetStr(js,"entry_ts");
    if(HasOpenFired(id)){
       LogCSV("OPEN_DUP_SKIP;"+id);
       return;
@@ -1420,6 +1495,7 @@ void HandleOpen(const string js)
 
    double price = is_long ? SymbolInfoDouble(g_symbol,SYMBOL_ASK)
                     : SymbolInfoDouble(g_symbol,SYMBOL_BID);
+   double minDist = MinStopDistance();
    double sl = ClampStopDistance(price, stop, is_long);
    double tpx = NormalizePrice(tp);
 
@@ -1475,6 +1551,36 @@ void HandleOpen(const string js)
    else {
       int rc = (int)trade.ResultRetcode();
       LogCSV("OPEN_FAIL;"+id+";ret="+IntegerToString(rc)+";"+trade.ResultRetcodeDescription());
+      string human_rc = ExplainTradeRetcodeHuman(rc);
+      if(rc == 10016){
+         string why = ExplainInvalidOpenStops(is_long, price, open_sl, open_tp, minDist);
+         string human = "Order rejected: invalid stop placement.";
+         if(why == "buy_invalid_sl_side_or_distance")
+            human = "Buy rejected: SL must be below market and far enough away.";
+         else if(why == "buy_invalid_tp_side_or_distance")
+            human = "Buy rejected: TP must be above market and far enough away.";
+         else if(why == "buy_invalid_sl_and_tp_side_or_distance")
+            human = "Buy rejected: both SL and TP are invalid for current price.";
+         else if(why == "sell_invalid_sl_side_or_distance")
+            human = "Sell rejected: SL must be above market and far enough away.";
+         else if(why == "sell_invalid_tp_side_or_distance")
+            human = "Sell rejected: TP must be below market and far enough away.";
+         else if(why == "sell_invalid_sl_and_tp_side_or_distance")
+            human = "Sell rejected: both SL and TP are invalid for current price.";
+         LogCSV("OPEN_FAIL_EXPLAIN;"+id+
+                ";why="+why+
+                ";human="+human+
+                ";dir="+(is_long?"buy":"sell")+
+                ";ref="+DoubleToString(price,g_digits)+
+                ";sl="+DoubleToString(open_sl,g_digits)+
+                ";tp="+DoubleToString(open_tp,g_digits)+
+                ";minDist="+DoubleToString(minDist,g_digits));
+      }
+      else {
+         LogCSV("OPEN_FAIL_EXPLAIN;"+id+
+                ";why=retcode_"+IntegerToString(rc)+
+                ";human="+human_rc);
+      }
       if(IsTransientOpenRetcode(rc) && !InpReplayMode){
          UpsertPendingOpen(id, js);
          LogCSV("OPEN_PENDING;"+id+";ret="+IntegerToString(rc));
@@ -1485,6 +1591,9 @@ void HandleOpen(const string js)
 void HandleModify(const string js)
 {
    string id = JGetStr(js,"id");
+   if(IsSignalTooOldForLive(js, "MODIFY", id))
+      return;
+
    double new_stop = JGetNum(js,"new_stop");
    int idx=FindId(id);
    if(idx<0){
@@ -1567,6 +1676,9 @@ void HandleModify(const string js)
       }
       else {
          LogCSV("MODIFY_FAIL;"+id+";ret="+IntegerToString(rc)+";"+trade.ResultRetcodeDescription());
+         LogCSV("MODIFY_FAIL_EXPLAIN;"+id+
+                ";why=retcode_"+IntegerToString(rc)+
+                ";human="+ExplainTradeRetcodeHuman(rc));
       }
    }
 }
@@ -1574,6 +1686,9 @@ void HandleModify(const string js)
 void HandleClose(const string js)
 {
    string id = JGetStr(js,"id");
+   if(IsSignalTooOldForLive(js, "CLOSE", id))
+      return;
+
    double exit_sig = JGetNum(js,"exit");
    string reason = JGetStr(js,"reason");
    string reason_l = reason;
@@ -1692,6 +1807,9 @@ void HandleClose(const string js)
    }
    else {
       LogCSV("CLOSE_FAIL;"+id+";ret="+IntegerToString(trade.ResultRetcode()));
+      LogCSV("CLOSE_FAIL_EXPLAIN;"+id+
+             ";why=retcode_"+IntegerToString((int)trade.ResultRetcode())+
+             ";human="+ExplainTradeRetcodeHuman((int)trade.ResultRetcode()));
    }
    UnmapId(id);
 }
@@ -1868,7 +1986,7 @@ void PumpFileLive(const string source)
    PrintFormat("PhantomBridge live poll | source=%s file=%s start=%d end=%d lines=%d processed=%d",
                source, InpSignalFile, start_pos, end_pos, lines_read, lines_processed);
 
-   if(lines_read == 0 && InpStaleCursorMinutes > 0 && IsLikelyMarketActive() && AccountInfoInteger(ACCOUNT_TRADE_ALLOWED)){
+   if(lines_read == 0 && InpStaleCursorMinutes > 0 && IsLikelyMarketActive() && AccountInfoInteger(ACCOUNT_TRADE_ALLOWED) && PositionsTotal() > 0){
       if(g_last_signal_progress > 0 && (TimeCurrent() - g_last_signal_progress) >= (InpStaleCursorMinutes * 60) && !g_stale_cursor_alerted){
          g_stale_cursor_alerted = true;
          LogCSV("STALE_CURSOR_ALERT;file="+InpSignalFile+
